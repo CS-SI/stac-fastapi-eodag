@@ -1,5 +1,8 @@
-import attr
+"""pagination helper."""
+
 from typing import Optional
+
+import attr
 from pydantic import BaseModel
 from stac_fastapi.types.search import APIRequest
 

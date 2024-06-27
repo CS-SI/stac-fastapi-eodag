@@ -1,3 +1,5 @@
+"""Item crud client."""
+
 # -*- coding: utf-8 -*-
 # Copyright 2023, CS GROUP - France, https://www.csgroup.eu/
 #
@@ -18,25 +20,23 @@
 from datetime import datetime
 from typing import Optional, Union
 from urllib.parse import unquote_plus, urljoin
+
 import attr
-
-from eodag import EODataAccessGateway
-from eodag.api.product._product import EOProduct
-from eodag.api.core import DEFAULT_ITEMS_PER_PAGE, DEFAULT_PAGE
-from fastapi.responses import StreamingResponse
-
 import orjson
-from pydantic import ValidationError
-
 from fastapi import HTTPException, Request
+from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
-from stac_fastapi.types.stac import Collections, Collection, ItemCollection, Item
-
+from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
+from eodag.api.core import DEFAULT_ITEMS_PER_PAGE, DEFAULT_PAGE
+from eodag.api.product._product import EOProduct
+from stac_fastapi.eodag.eodag_types.search import EodagSearch
+from stac_fastapi.eodag.models.item_properties import ItemProperties
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     ItemCollectionLinks,
@@ -44,16 +44,13 @@ from stac_fastapi.eodag.models.links import (
     PagingLinks,
 )
 
-from stac_fastapi.eodag.eodag_types.search import EodagSearch
-from stac_fastapi.eodag.models.item_properties import ItemProperties
-
 NumType = Union[float, int]
-
-dag = EODataAccessGateway()
 
 
 @attr.s
 class EodagCoreClient(AsyncBaseCoreClient):
+    """"""
+
     def _get_collection(self, product_type: dict, request: Request) -> Collection:
         instruments = [
             instrument
@@ -118,11 +115,10 @@ class EodagCoreClient(AsyncBaseCoreClient):
         if search_request.ids:
             base_args["id"] = search_request.ids[0]
 
-        products: list[EOProduct]
-        products, total = dag.search(**base_args)
+        search_result = request.app.state.dag.search(**base_args)
 
         features: list[Item] = []
-        for product in products:
+        for product in search_result:
             feature = Item(
                 id=product.properties["title"],
                 geometry=product.geometry.__geo_interface__,
@@ -137,10 +133,10 @@ class EodagCoreClient(AsyncBaseCoreClient):
             (
                 feature["properties"],
                 props_extensions,
-            ) = await ItemProperties(product_props=product.properties).get_properties()
+            ) = ItemProperties(product_props=product.properties).get_properties()
             feature["stac_extensions"].extend(props_extensions)
 
-            feature["links"] = await ItemLinks(
+            feature["links"] = ItemLinks(
                 collection_id=feature.get("collection"),
                 item_id=feature.get("id"),
                 request=request,
@@ -152,11 +148,11 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         # pagination
         next_page = None
-        number_returned = len(products)
+        number_returned = len(search_result)
         page = search_request.page or DEFAULT_PAGE
         items_per_page = search_request.limit or DEFAULT_ITEMS_PER_PAGE
 
-        if (page - 1) * items_per_page + number_returned < total:
+        if (page - 1) * items_per_page + number_returned < search_result.number_matched:
             next_page = page + 1
 
         itemcollection["links"] = await PagingLinks(
@@ -167,9 +163,10 @@ class EodagCoreClient(AsyncBaseCoreClient):
         return itemcollection
 
     async def all_collections(self, request: Request, **kwargs) -> Collections:
+        """all collections"""
         base_url = get_base_url(request)
 
-        product_types = dag.list_product_types()
+        product_types = request.app.state.dag.list_product_types()
 
         collections: list[Collection] = []
 
@@ -201,7 +198,12 @@ class EodagCoreClient(AsyncBaseCoreClient):
         self, collection_id: str, request: Request, **kwargs
     ) -> Collection:
         product_type = next(
-            (pt for pt in dag.list_product_types() if pt["ID"] == collection_id), None
+            (
+                pt
+                for pt in request.app.state.dag.list_product_types()
+                if pt["ID"] == collection_id
+            ),
+            None,
         )
         if product_type is None:
             raise NotFoundError(f"Collection {collection_id} does not exist.")
@@ -311,15 +313,16 @@ class EodagCoreClient(AsyncBaseCoreClient):
         self, item_id: str, collection_id: str, request: Request, **kwargs
     ):
         product: EOProduct
-        product, _ = dag.search({
-            "productType": collection_id,
-            "id": item_id
-        })[0]
+        product, _ = request.app.state.dag.search(
+            {"productType": collection_id, "id": item_id}
+        )[0]
 
-        # when could this really happen ? 
+        # when could this really happen ?
         if not product.downloader:
-            download_plugin = dag._plugins_manager.get_download_plugin(product)
-            auth_plugin = dag._plugins_manager.get_auth_plugin(
+            download_plugin = request.app.state.dag._plugins_manager.get_download_plugin(
+                product
+            )
+            auth_plugin = request.app.state.dag._plugins_manager.get_auth_plugin(
                 download_plugin.provider
             )
             product.register_downloader(download_plugin, auth_plugin)

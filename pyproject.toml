@@ -1,0 +1,57 @@
+[project]
+name = "stac_fastapi.eodag"
+version = "0.1.0"
+description = "A stac-fastapi backend using EODAG"
+readme = "README.md"
+authors = [
+    {name = "CS GROUP - France (CSSI)", email = "eodag@csgroup.space"},
+]
+license = {file = "LICENSE"}
+requires-python = ">= 3.8"
+dependencies = [
+    "eodag[all-providers]==v3.0.0b1",
+    "orjson",
+    "pydantic",
+    "stac_pydantic==3.1.*",
+    "stac-fastapi.api~=3.0.0a3",
+    "stac-fastapi.extensions~=3.0.0a3",
+    "stac-fastapi.types~=3.0.0a3"
+]
+
+[project.urls]
+Homepage = "https://github.com/CS-SI/stac-fastapo-eodag"
+Repository = "https://github.com/CS-SI/stac-fastapo-eodag.git"
+"Bug Tracker" = "https://github.com/CS-SI/stac-fastapi-eodag/issues/"
+
+[project.optional-dependencies]
+server = [
+    "uvicorn[standard]",
+]
+
+[tool.mypy]
+namespace_packages = true
+explicit_package_bases = true
+exclude = ["tests", ".venv"]
+
+[tool.ruff]
+target-version = "py38" # minimum supported version
+line-length = 90
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C",
+    "D1",
+    "E",
+    "F",
+    "I",
+    "W",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["stac_fastapi.eodag"]
+known-third-party = ["rasterio", "stac-pydantic", "fastapi", "stac_fastapi"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]

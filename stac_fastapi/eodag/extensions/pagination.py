@@ -1,3 +1,5 @@
+"""pagination extension"""
+
 import attr
 from stac_fastapi.extensions.core import PaginationExtension as BasePaginationExtension
 

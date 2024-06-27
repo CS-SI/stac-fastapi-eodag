@@ -1,13 +1,13 @@
 """stac_fastapi.types.search module."""
 
-from typing import Dict, Optional
+from typing import Optional
 
-from stac_fastapi.types.rfc3339 import str_to_interval
-from stac_fastapi.types.search import BaseSearchPostRequest
 from geojson_pydantic.geometries import (
     Polygon,
     _GeometryBase,
 )
+from stac_fastapi.types.rfc3339 import str_to_interval
+from stac_fastapi.types.search import BaseSearchPostRequest
 
 
 class EodagSearch(BaseSearchPostRequest):
@@ -15,6 +15,7 @@ class EodagSearch(BaseSearchPostRequest):
 
     Overrides the validation for datetime and spatial filter from the base request model.
     """
+
     @property
     def start_date(self) -> Optional[str]:
         """Extract the start date from the datetime string."""
@@ -54,7 +55,7 @@ class EodagSearch(BaseSearchPostRequest):
                         [self.bbox[0], self.bbox[1]],
                         [self.bbox[0], self.bbox[3]],
                     ]
-                ]
+                ],
             ).wkt
         if self.intersects:
             return self.intersects.wkt

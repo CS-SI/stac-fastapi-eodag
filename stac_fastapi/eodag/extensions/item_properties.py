@@ -1,14 +1,18 @@
-import attr
+"""properties for extensions."""
+
 from typing import Optional
+
+import attr
 from pydantic import BaseModel
+
 from stac_fastapi.eodag.models.item_properties_fields import (
+    FieldsElectroOpticalItemProperties,
+    FieldsProcessingItemProperties,
     FieldsSarItemProperties,
     FieldsSatelliteItemProperties,
-    FieldsTimestampItemProperties,
-    FieldsProcessingItemProperties,
-    FieldsViewGeometryItemProperties,
-    FieldsElectroOpticalItemProperties,
     FieldsScientificCitationItemProperties,
+    FieldsTimestampItemProperties,
+    FieldsViewGeometryItemProperties,
 )
 
 
@@ -25,6 +29,8 @@ class ItemPropertiesExtension:
 
 @attr.s
 class SarExtension(ItemPropertiesExtension):
+    """STAC SAR extension."""
+
     FIELDS = FieldsSarItemProperties
 
     schema_href: str = attr.ib(
@@ -35,6 +41,8 @@ class SarExtension(ItemPropertiesExtension):
 
 @attr.s
 class SatelliteExtension(ItemPropertiesExtension):
+    """STAC Satellite extension."""
+
     FIELDS = FieldsSatelliteItemProperties
 
     schema_href: str = attr.ib(
@@ -45,6 +53,8 @@ class SatelliteExtension(ItemPropertiesExtension):
 
 @attr.s
 class TimestampExtension(ItemPropertiesExtension):
+    """STAC timestamp extension"""
+
     FIELDS = FieldsTimestampItemProperties
 
     schema_href: str = attr.ib(
@@ -54,6 +64,8 @@ class TimestampExtension(ItemPropertiesExtension):
 
 @attr.s
 class ProcessingExtension(ItemPropertiesExtension):
+    """STAC processing extension."""
+
     FIELDS = FieldsProcessingItemProperties
 
     schema_href: str = attr.ib(
@@ -64,6 +76,8 @@ class ProcessingExtension(ItemPropertiesExtension):
 
 @attr.s
 class ViewGeometryExtension(ItemPropertiesExtension):
+    """STAC ViewGeometry extension."""
+
     FIELDS = FieldsViewGeometryItemProperties
 
     schema_href: str = attr.ib(
@@ -74,6 +88,8 @@ class ViewGeometryExtension(ItemPropertiesExtension):
 
 @attr.s
 class ElectroOpticalExtension(ItemPropertiesExtension):
+    """STAC ElectroOptical extension."""
+
     FIELDS = FieldsElectroOpticalItemProperties
 
     schema_href: str = attr.ib(
@@ -84,6 +100,8 @@ class ElectroOpticalExtension(ItemPropertiesExtension):
 
 @attr.s
 class ScientificCitationExtension(ItemPropertiesExtension):
+    """STAC scientific extension."""
+
     FIELDS = FieldsScientificCitationItemProperties
 
     schema_href: str = attr.ib(

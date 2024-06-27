@@ -15,12 +15,14 @@ This project is a WIP and not ready for any production usage. Use at your own ri
 
 ## TODO
 
+- logging to complete (with correct thread id)
+- add missing item props using custom extensions
+- fix pagination on Search
+- queryables
 - add assets to returned items
 - context extension ?
 - querier / filter extension
 - multiple ids item search when supported by EODAG
-- queryables when implemented by EODAG
-- can we improve logging handling integration with EODAG ?
 - unit tests
 
 ## License

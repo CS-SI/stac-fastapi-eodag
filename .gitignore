@@ -128,7 +128,7 @@ docs/api/*
 .envrc
 
 # Virtualenv
-*venv
+*venv*
 
 # IDE
 .vscode
