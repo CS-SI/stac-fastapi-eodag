@@ -1,9 +1,26 @@
-"""pagination extension"""
+"""Pagination extension. Override to default page to 1."""
+
+from dataclasses import dataclass
+from typing import Annotated
 
 import attr
+from fastapi import Query
+from pydantic import BaseModel
 from stac_fastapi.extensions.core import PaginationExtension as BasePaginationExtension
+from stac_fastapi.types.search import APIRequest
 
-from stac_fastapi.eodag.models.pagination import GETPagination, POSTPagination
+
+class POSTPagination(BaseModel):
+    """Page based pagination for POST requests."""
+
+    page: int = 1
+
+
+@dataclass
+class GETPagination(APIRequest):
+    """Page based pagination for GET requests."""
+
+    page: Annotated[int, Query()] = 1
 
 
 @attr.s

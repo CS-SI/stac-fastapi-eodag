@@ -17,34 +17,38 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Type
+
 import attr
-from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from stac_fastapi.api.app import StacApi
-from stac_fastapi.api.models import ItemUri
-from stac_fastapi.api.routes import create_async_endpoint
+
+from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 
 @attr.s
 class EodagStacApi(StacApi):
     """Override default API to include download endpoints handlers."""
 
-    def register_download_item(self) -> None:
-        """Register download item endpoint (GET /collections/{collection_id}/items/{item_id}/download).
+    item_properties_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
-        Returns:
-            None
-        """
-        self.router.add_api_route(
-            name="Download Item",
-            path="/collections/{collection_id}/items/{item_id}/download",
-            response_class=StreamingResponse,
-            methods=["GET"],
-            endpoint=create_async_endpoint(
-                self.client.download_item, ItemUri, StreamingResponse
-            ),
-        )
+    # def register_download_item(self) -> None:
+    #     """Register download item endpoint (GET /collections/{collection_id}/items/{item_id}/download).
 
-    def register_core(self) -> None:
-        """Register endpoints."""
-        super().register_core()
-        self.register_download_item()
+    #     Returns:
+    #         None
+    #     """
+    #     self.router.add_api_route(
+    #         name="Download Item",
+    #         path="/collections/{collection_id}/items/{item_id}/download",
+    #         response_class=StreamingResponse,
+    #         methods=["GET"],
+    #         endpoint=create_async_endpoint(
+    #             self.client.download_item, ItemUri, StreamingResponse
+    #         ),
+    #     )
+
+    # def register_core(self) -> None:
+    #     """Register endpoints."""
+    #     super().register_core()
+    #     self.register_download_item()

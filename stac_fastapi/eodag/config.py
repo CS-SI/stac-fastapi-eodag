@@ -45,7 +45,7 @@ class Settings(ApiSettings):
         Union[str, List[str]],
         BeforeValidator(str2liststr),
         Doc(
-            "Hide from clients items assets' alternative URLs starting with URLs from the list"
+            "Hide from clients items assets' origin URLs starting with URLs from the list"
         ),
     ] = Field(default=[])
 
@@ -53,8 +53,8 @@ class Settings(ApiSettings):
         bool, Doc("Fetch additional collections from all providers.")
     ] = Field(default=False)
 
-    @classmethod
-    @lru_cache(maxsize=1)
-    def from_environment(cls) -> Settings:
-        """Get settings"""
-        return Settings()
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Get settings"""
+    return Settings()

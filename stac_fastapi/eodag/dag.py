@@ -22,14 +22,14 @@ from typing import Any, Dict, List, Union
 
 from fastapi import FastAPI
 
-from eodag import EODataAccessGateway
+from eodag import EODataAccessGateway, setup_logging
 from eodag.utils import obj_md5sum
 from eodag.utils.exceptions import (
     RequestError,
     TimeOutError,
 )
 from eodag.utils.requests import fetch_json
-from stac_fastapi.eodag.config import Settings
+from stac_fastapi.eodag.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -65,13 +65,17 @@ def fetch_external_stac_collections(
 
 def init_dag(app: FastAPI) -> None:
     """Init EODataAccessGateway server instance, pre-running all time consuming tasks"""
-    settings = Settings.from_environment()
+    settings = get_settings()
+
+    setup_logging(3 if settings.debug else 2, no_progress_bar=True)
 
     dag = EODataAccessGateway()
 
     ext_stac_collections = fetch_external_stac_collections(
         dag.list_product_types(fetch_providers=settings.fetch_providers)
     )
+
+    app.state.ext_stac_collections = ext_stac_collections
 
     # update eodag product_types config form external stac collections
     for p, p_f in dag.product_types_config.source.items():

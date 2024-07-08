@@ -17,41 +17,52 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
+import logging
 from datetime import datetime
-from typing import Optional, Union
+from typing import Any, Optional, Set, Type, Union
 from urllib.parse import unquote_plus, urljoin
 
 import attr
 import orjson
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
+from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
-from eodag.api.core import DEFAULT_ITEMS_PER_PAGE, DEFAULT_PAGE
+from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.api.product._product import EOProduct
+from eodag.utils import deepcopy
+from eodag.utils.exceptions import NoMatchingProductType
+from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.eodag_types.search import EodagSearch
-from stac_fastapi.eodag.models.item_properties import ItemProperties
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     ItemCollectionLinks,
     ItemLinks,
     PagingLinks,
 )
+from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 NumType = Union[float, int]
+
+
+logger = logging.getLogger()
 
 
 @attr.s
 class EodagCoreClient(AsyncBaseCoreClient):
     """"""
 
+    stac_metadata_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
+
     def _get_collection(self, product_type: dict, request: Request) -> Collection:
+        """Convert a EODAG produt type to a STAC collection."""
         instruments = [
             instrument
             for instrument in (product_type.get("instrument") or "").split(",")
@@ -91,20 +102,51 @@ class EodagCoreClient(AsyncBaseCoreClient):
             summaries=summaries,
         )
 
+        ext_stac_collection = deepcopy(
+            request.app.state.ext_stac_collections.get(product_type["ID"], {})
+        )
+
         collection["links"] = CollectionLinks(
             collection_id=collection["id"], request=request
-        ).get_links(extra_links=product_type.get("links"), request_json=None)
+        ).get_links(
+            extra_links=product_type.get("links", [])
+            + ext_stac_collection.get("links", [])
+        )
+
+        # merge "keywords" lists
+        if "keywords" in ext_stac_collection:
+            try:
+                ext_stac_collection["keywords"] = [
+                    k
+                    for k in set(ext_stac_collection["keywords"] + collection["keywords"])
+                    if k is not None
+                ]
+            except TypeError as e:
+                logger.warning(
+                    "Could not merge keywords from external collection for",
+                    f"{product_type['ID']}: {str(e)}",
+                )
+
+        # merge providers
+        if "providers" in ext_stac_collection:
+            ext_stac_collection["providers"] += collection["providers"]
+
+        collection.update(ext_stac_collection)
 
         return collection
 
     async def _search_base(
-        self, search_request: EodagSearch, request: Request
+        self, search_request: BaseSearchPostRequest, request: Request
     ) -> ItemCollection:
         base_args = {
             "items_per_page": search_request.limit,
             "geom": search_request.spatial_filter,
-            "start": search_request.start_date,
-            "end": search_request.end_date,
+            "start": search_request.start_date.isoformat()
+            if search_request.start_date
+            else None,
+            "end": search_request.end_date.isoformat()
+            if search_request.end_date
+            else None,
         }
 
         # EODAG search support a single collection
@@ -117,6 +159,8 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         search_result = request.app.state.dag.search(**base_args)
 
+        request_json = await request.json() if request.method == "POST" else None
+
         features: list[Item] = []
         for product in search_result:
             feature = Item(
@@ -124,56 +168,93 @@ class EodagCoreClient(AsyncBaseCoreClient):
                 geometry=product.geometry.__geo_interface__,
                 bbox=product.geometry.bounds,
                 collection=product.product_type,
+                stac_version=self.stac_version,
             )
 
-            # TODO: assets with their extensions
-            feature["stac_extensions"] = []
-            # (feature["assets"], asset_extensions) = await ItemAssets().get_assets()
+            stac_extensions: Set[str] = set()
 
-            (
-                feature["properties"],
-                props_extensions,
-            ) = ItemProperties(product_props=product.properties).get_properties()
-            feature["stac_extensions"].extend(props_extensions)
+            feature["assets"] = {}
+
+            for k, v in product.assets.items():
+                # TODO: download extension with origin link (make it optional ?)
+                asset_model = self.stac_metadata_model.model_validate(v)
+                stac_extensions.update(asset_model.get_conformance_classes())
+                feature["assets"][k] = asset_model.model_dump(exclude_none=True)
+
+            # TODO: remove downloadLink asset after EODAG assets rework
+            if download_link := product.properties.get("downloadLink"):
+                feature["assets"]["downloadLink"] = {
+                    "title": "Download link",
+                    "href": download_link,
+                    # TODO: download link is not always a ZIP archive
+                    "type": "application/zip",
+                }
+
+            feature_model = self.stac_metadata_model.model_validate(product.properties)
+            stac_extensions.update(feature_model.get_conformance_classes())
+            feature["properties"] = feature_model.model_dump(
+                exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE
+            )
+
+            # TODO: add provider? verify with openeo federation extension
+            # or keep it legacy eodag
+
+            feature["stac_extensions"] = list(stac_extensions)
 
             feature["links"] = ItemLinks(
                 collection_id=feature.get("collection"),
                 item_id=feature.get("id"),
                 request=request,
-            ).get_links(extra_links=feature.get("links"))
+            ).get_links(extra_links=feature.get("links"), request_json=request_json)
 
             features.append(feature)
 
-        itemcollection = ItemCollection(type="FeatureCollection", features=features)
+        itemcollection = ItemCollection(features=features)
 
         # pagination
         next_page = None
-        number_returned = len(search_result)
-        page = search_request.page or DEFAULT_PAGE
-        items_per_page = search_request.limit or DEFAULT_ITEMS_PER_PAGE
+        if search_request.page:
+            number_returned = len(search_result)
+            items_per_page = search_request.limit or DEFAULT_ITEMS_PER_PAGE
+            if not search_result.number_matched or (
+                (search_request.page - 1) * items_per_page + number_returned
+                < search_result.number_matched
+            ):
+                next_page = search_request.page + 1
 
-        if (page - 1) * items_per_page + number_returned < search_result.number_matched:
-            next_page = page + 1
-
-        itemcollection["links"] = await PagingLinks(
+        itemcollection["links"] = PagingLinks(
             request=request,
             next=next_page,
-            # prev="prev",
-        ).get_links()
+        ).get_links(request_json=request_json)
         return itemcollection
 
-    async def all_collections(self, request: Request, **kwargs) -> Collections:
-        """all collections"""
+    async def all_collections(
+        self,
+        request: Request,
+        datetime: Optional[str] = None,
+        limit: Optional[int] = None,
+        q: Optional[str] = None,
+    ) -> Collections:
+        """Get all collections from EODAG."""
         base_url = get_base_url(request)
 
-        product_types = request.app.state.dag.list_product_types()
+        all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
 
-        collections: list[Collection] = []
+        if any((q, datetime)):
+            try:
+                guessed_product_types = request.app.state.dag.guess_product_type(
+                    free_text=q,
+                    # missionStartDate=start.isoformat() if start else None,
+                    # missionEndDate=end.isoformat() if end else None,
+                )
+            except NoMatchingProductType:
+                product_types = []
+            else:
+                product_types = [pt for pt in all_pt if pt["ID"] in guessed_product_types]
+        else:
+            product_types = all_pt
 
-        for pt in product_types:
-            collection = self._get_collection(pt, request)
-            if collection is not None:
-                collections.append(collection)
+        collections = [self._get_collection(pt, request) for pt in product_types[:limit]]
 
         links = [
             {
@@ -195,12 +276,22 @@ class EodagCoreClient(AsyncBaseCoreClient):
         return Collections(collections=collections or [], links=links)
 
     async def get_collection(
-        self, collection_id: str, request: Request, **kwargs
+        self, collection_id: str, request: Request, **kwargs: Any
     ) -> Collection:
+        """Get collection by id.
+
+        Called with `GET /collections/{collection_id}`.
+
+        Args:
+            collection_id: ID of the collection.
+
+        Returns:
+            Collection.
+        """
         product_type = next(
             (
                 pt
-                for pt in request.app.state.dag.list_product_types()
+                for pt in request.app.state.dag.list_product_types(fetch_providers=False)
                 if pt["ID"] == collection_id
             ),
             None,
@@ -218,8 +309,20 @@ class EodagCoreClient(AsyncBaseCoreClient):
         datetime: Optional[Union[str, datetime]] = None,
         limit: Optional[int] = None,
         page: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ItemCollection:
+        """Get all items from a specific collection.
+
+        Called with `GET /collections/{collection_id}/items`
+
+        Args:
+            collection_id: id of the collection.
+            limit: number of items to return.
+            token: pagination token.
+
+        Returns:
+            An ItemCollection.
+        """
         # If collection does not exist, NotFoundError wil be raised
         await self.get_collection(collection_id, request=request)
 
@@ -240,7 +343,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             **clean,
         )
         item_collection = await self._search_base(search_request, request)
-        links = await ItemCollectionLinks(
+        links = ItemCollectionLinks(
             collection_id=collection_id, request=request
         ).get_links(extra_links=item_collection["links"])
         item_collection["links"] = links

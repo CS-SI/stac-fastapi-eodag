@@ -17,49 +17,73 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 import os
 from typing import AsyncGenerator
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import ORJSONResponse
 from stac_fastapi.api.app import StacApi
-from stac_fastapi.api.models import create_get_request_model, create_post_request_model
+from stac_fastapi.api.models import (
+    EmptyRequest,
+    ItemCollectionUri,
+    create_get_request_model,
+    create_post_request_model,
+    create_request_model,
+)
+from stac_fastapi.extensions.core import FilterExtension
 
-# from stac_fastapi.eodag.api import EodagStacApi
-from stac_fastapi.eodag.config import Settings
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
-from stac_fastapi.eodag.eodag_types.search import EodagSearch
+from stac_fastapi.eodag.extensions.collection_search import CollectionSearchExtension
+from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
+from stac_fastapi.eodag.extensions.filter import FiltersClient
+from stac_fastapi.eodag.extensions.pagination import PaginationExtension
+from stac_fastapi.eodag.extensions.stac import (
+    ElectroOpticalExtension,
+    OrderExtension,
+    ProcessingExtension,
+    SarExtension,
+    SatelliteExtension,
+    ScientificCitationExtension,
+    StorageExtension,
+    TimestampExtension,
+    ViewGeometryExtension,
+)
+from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
 
-logging.basicConfig(
-    format="%(asctime)-15s %(name)-32s [%(levelname)-8s] (tid=%(thread)d) %(message)s"
+settings = get_settings()
+
+stac_metadata_model = create_stac_metadata_model(
+    extensions=[
+        SarExtension(),
+        SatelliteExtension(),
+        TimestampExtension(),
+        ProcessingExtension(),
+        ViewGeometryExtension(),
+        ElectroOpticalExtension(),
+        ScientificCitationExtension(),
+        StorageExtension(),
+        OrderExtension(),
+        EcmwfExtension(),
+    ]
 )
 
-logger = logging.getLogger(__name__)
+extensions_map = {
+    "collection-search": CollectionSearchExtension(),
+    "pagination": PaginationExtension(),
+    "filter": FilterExtension(
+        client=FiltersClient(stac_metadata_model=stac_metadata_model)
+    ),
+}
 
-
-async def log_request_body(request: Request):
-    """log request body"""
-    logger.warning("Hello HERE!!!")
-    # body = await request.json()
-    # logger.debug(f"Request body: {body}")
-    return
-
-
-# @app.middleware("http")
-# async def log_request(request: Request, call_next):
-#     """log requ"""
-#     logging.info(f"{request.method} {request.url.path}")
-#     logger.debug(f"Request query parameters: {dict(request.query_params)}")
-#     logger.debug(f"Request headers: {dict(request.headers)}")
-#     response = await call_next(request)
-#     return response
-
-settings = Settings.from_environment()
-
-extensions = []
+if enabled_extensions := os.getenv("ENABLED_EXTENSIONS"):
+    extensions = [
+        extensions_map[extension_name] for extension_name in enabled_extensions.split(",")
+    ]
+else:
+    extensions = list(extensions_map.values())
 
 
 @asynccontextmanager
@@ -78,20 +102,39 @@ app = FastAPI(
 )
 
 
-post_request_model = create_post_request_model(extensions, base_model=EodagSearch)
-get_request_model = create_get_request_model(extensions)
+search_post_model = create_post_request_model(extensions)
+search_get_model = create_get_request_model(extensions)
+
+
+collections_model = create_request_model(
+    "CollectionsRequest",
+    base_model=EmptyRequest,
+    extensions=[e for e in extensions if isinstance(e, CollectionSearchExtension)],
+    request_type="GET",
+)
+
+item_collection_model = create_request_model(
+    "ItemsRequest",
+    base_model=ItemCollectionUri,
+    extensions=[e for e in extensions if isinstance(e, PaginationExtension)],
+    request_type="GET",
+)
+
+
+client = EodagCoreClient(
+    post_request_model=search_post_model, stac_metadata_model=stac_metadata_model
+)
+
 api = StacApi(
     app=app,
     settings=settings,
     extensions=extensions,
-    client=EodagCoreClient(post_request_model=post_request_model),
+    client=client,
     response_class=ORJSONResponse,
-    search_get_request_model=get_request_model,
-    search_post_request_model=post_request_model,
-    route_dependencies=[
-        ([{"path": "*", "method": "GET"}], [Depends(log_request_body)]),
-        ([{"path": "/search", "method": "POST"}], [Depends(log_request_body)]),
-    ],
+    search_get_request_model=search_get_model,
+    search_post_request_model=search_post_model,
+    collections_get_request_model=collections_model,
+    items_get_request_model=item_collection_model,
 )
 
 
@@ -100,28 +143,11 @@ def run():
     try:
         import uvicorn
 
-        logging_config = uvicorn.config.LOGGING_CONFIG
-        if settings.debug:
-            logging_config["loggers"]["uvicorn"]["level"] = "DEBUG"
-            logging_config["loggers"]["uvicorn.error"]["level"] = "DEBUG"
-            logging_config["loggers"]["uvicorn.access"]["level"] = "DEBUG"
-        logging_config["formatters"]["default"]["fmt"] = (
-            "%(asctime)-15s %(name)-32s [%(levelname)-8s] (tid=%(thread)d) %(message)s"
-        )
-        logging_config["formatters"]["access"]["fmt"] = (
-            "%(asctime)-15s %(name)-32s [%(levelname)-8s] %(message)s"
-        )
-        logging_config["loggers"]["eodag"] = {
-            "handlers": ["default"],
-            "level": "DEBUG" if settings.debug else "INFO",
-            "propagate": False,
-        }
-
         uvicorn.run(
             "stac_fastapi.eodag.app:app",
             host=settings.app_host,
             port=settings.app_port,
-            log_config=logging_config,
+            log_level="info",
             reload=settings.reload,
             root_path=os.getenv("UVICORN_ROOT_PATH", ""),
         )
