@@ -68,7 +68,7 @@ class EcmwfItemProperties(BaseModel):
     target: str | None = Field(default=None)
     time: str | None = Field(default=None)
     truncation: str | None = Field(default=None)
-    type: str | None = Field(default=None)
+    ecmwf_type: str | None = Field(default=None)
     use: str | None = Field(default=None)
 
 @attr.s

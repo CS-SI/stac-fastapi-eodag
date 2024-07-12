@@ -68,6 +68,7 @@ class FiltersClient(AsyncBaseFiltersClient):
             "Queryables",
             **eodag_queryables,
             __config__=ConfigDict(
+                protected_namespaces=(),
                 json_schema_extra=
                 {
                     "$schema": "https://json-schema.org/draft/2019-09/schema",

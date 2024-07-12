@@ -1,7 +1,8 @@
 """Collection Search extension."""
 
+from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Optional, Union
 
 import attr
 from fastapi import FastAPI, Query
@@ -29,13 +30,13 @@ class CollectionSearchConformanceClasses(str, Enum):
 @attr.s
 class CollectionSearchExtensionGetRequest(APIRequest):
     """Collection Search extension GET request model."""
-
     limit: Annotated[Optional[int], Query()] = attr.ib(default=None)
     bbox: Annotated[Optional[BBox], Query()] = attr.ib(default=None, converter=str2bbox)
-    datetime: Annotated[Optional[DateTimeType], Query()] = attr.ib(default=None, converter=str_to_interval)
+    datetime: Annotated[Optional[DateTimeType], Query()] = attr.ib(
+        default=None, converter=str_to_interval
+    )
     q: Annotated[Optional[str], Query()] = attr.ib(default=None)
 
-# TODO: make q and datetime work
 
 @attr.s
 class CollectionSearchExtension(ApiExtension):

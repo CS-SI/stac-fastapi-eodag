@@ -30,6 +30,7 @@ from pydantic import BaseModel, ValidationError
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
+from stac_fastapi.types.rfc3339 import DateTimeType
 from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
 from stac_pydantic.links import Relations
@@ -48,6 +49,7 @@ from stac_fastapi.eodag.models.links import (
     PagingLinks,
 )
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
+from stac_fastapi.eodag.utils import dt_range_to_eodag, format_datetime_range
 
 NumType = Union[float, int]
 
@@ -61,7 +63,9 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
     stac_metadata_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
-    def _get_collection(self, product_type: dict, request: Request) -> Collection:
+    def _get_collection(
+        self, product_type: dict[str, Any], request: Request
+    ) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
         instruments = [
             instrument
@@ -162,6 +166,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
         request_json = await request.json() if request.method == "POST" else None
 
         features: list[Item] = []
+
         for product in search_result:
             feature = Item(
                 id=product.properties["title"],
@@ -231,21 +236,28 @@ class EodagCoreClient(AsyncBaseCoreClient):
     async def all_collections(
         self,
         request: Request,
-        datetime: Optional[str] = None,
+        bbox: Optional[list[NumType]] = None,
+        datetime: Optional[DateTimeType] = None,
         limit: Optional[int] = None,
         q: Optional[str] = None,
     ) -> Collections:
         """Get all collections from EODAG."""
         base_url = get_base_url(request)
 
+        if bbox:
+            raise HTTPException(
+                status_code=400,
+                detail="bbox parameter is not yet supported in /collections.",
+            )
+
         all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
 
         if any((q, datetime)):
+            start, end = dt_range_to_eodag(datetime)
+
             try:
                 guessed_product_types = request.app.state.dag.guess_product_type(
-                    free_text=q,
-                    # missionStartDate=start.isoformat() if start else None,
-                    # missionEndDate=end.isoformat() if end else None,
+                    free_text=q, missionStartDate=start, missionEndDate=end
                 )
             except NoMatchingProductType:
                 product_types = []
@@ -360,25 +372,27 @@ class EodagCoreClient(AsyncBaseCoreClient):
         collections: Optional[list[str]] = None,
         ids: Optional[list[str]] = None,
         bbox: Optional[list[NumType]] = None,
-        datetime: Optional[Union[str, datetime]] = None,
+        datetime: Optional[DateTimeType] = None,
         limit: Optional[int] = None,
         query: Optional[str] = None,
         page: Optional[str] = None,
         intersects: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ItemCollection:
         base_args = {
             "collections": collections,
             "ids": ids,
             "bbox": bbox,
             "limit": limit,
-            "datetime": datetime,
             "query": orjson.loads(unquote_plus(query)) if query else query,
             "page": page,
             "intersects": orjson.loads(unquote_plus(intersects))
             if intersects
             else intersects,
         }
+
+        if datetime:
+            base_args["datetime"] = format_datetime_range(datetime)
 
         # Remove None values from dict
         clean = {}
@@ -388,10 +402,10 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         try:
             search_request = self.post_request_model(**clean)
-        except ValidationError as e:
+        except ValidationError as err:
             raise HTTPException(
-                status_code=400, detail=f"Invalid parameters provided {e}"
-            )
+                status_code=400, detail=f"Invalid parameters provided {err}"
+            ) from err
 
         return await self.post_search(search_request, request)
 
