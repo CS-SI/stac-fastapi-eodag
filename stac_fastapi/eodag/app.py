@@ -36,7 +36,9 @@ from stac_fastapi.extensions.core import FilterExtension
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
+from stac_fastapi.eodag.errors import add_exception_handlers
 from stac_fastapi.eodag.extensions.collection_search import CollectionSearchExtension
+from stac_fastapi.eodag.extensions.data_download import DataDownload
 from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
 from stac_fastapi.eodag.extensions.filter import FiltersClient
 from stac_fastapi.eodag.extensions.pagination import PaginationExtension
@@ -69,13 +71,13 @@ stac_metadata_model = create_stac_metadata_model(
         EcmwfExtension(),
     ]
 )
-
 extensions_map = {
     "collection-search": CollectionSearchExtension(),
     "pagination": PaginationExtension(),
     "filter": FilterExtension(
         client=FiltersClient(stac_metadata_model=stac_metadata_model)
     ),
+    "data-download": DataDownload(),
 }
 
 if enabled_extensions := os.getenv("ENABLED_EXTENSIONS"):
@@ -101,6 +103,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+add_exception_handlers(app)
 
 search_post_model = create_post_request_model(extensions)
 search_get_model = create_get_request_model(extensions)

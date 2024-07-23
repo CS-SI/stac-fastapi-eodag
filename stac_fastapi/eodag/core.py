@@ -17,6 +17,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
+from email.mime import base
 import logging
 from datetime import datetime
 from typing import Any, Optional, Set, Type, Union
@@ -40,8 +41,10 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.api.product._product import EOProduct
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.eodag_types.search import EodagSearch
+from stac_fastapi.eodag.errors import ResponseSearchError
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     ItemCollectionLinks,
@@ -142,6 +145,8 @@ class EodagCoreClient(AsyncBaseCoreClient):
     async def _search_base(
         self, search_request: BaseSearchPostRequest, request: Request
     ) -> ItemCollection:
+        settings = get_settings()
+
         base_args = {
             "items_per_page": search_request.limit,
             "geom": search_request.spatial_filter,
@@ -163,6 +168,9 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         search_result = request.app.state.dag.search(**base_args)
 
+        if search_result.errors:
+            raise ResponseSearchError(search_result.errors)
+
         request_json = await request.json() if request.method == "POST" else None
 
         features: list[Item] = []
@@ -180,14 +188,34 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
             feature["assets"] = {}
 
+            asset_proxy_url = (
+                (
+                    get_base_url(request)
+                    + f"data/{product.provider}/{feature['collection']}/{feature['id']}"
+                )
+                if self.extension_is_enabled("DataDownload")
+                else None
+            )
+
             for k, v in product.assets.items():
                 # TODO: download extension with origin link (make it optional ?)
                 asset_model = self.stac_metadata_model.model_validate(v)
                 stac_extensions.update(asset_model.get_conformance_classes())
                 feature["assets"][k] = asset_model.model_dump(exclude_none=True)
 
+                if asset_proxy_url:
+                    origin = deepcopy(feature["assets"][k])
+                    feature["assets"][k]["href"] = asset_proxy_url + "/" + k
+
+                    if settings.keep_origin_url:
+                        feature["assets"][k]["alternate"] = {"origin": origin}
+
             # TODO: remove downloadLink asset after EODAG assets rework
             if download_link := product.properties.get("downloadLink"):
+                origin_href = download_link
+                if asset_proxy_url:
+                    download_link = asset_proxy_url + "/downloadLink"
+
                 feature["assets"]["downloadLink"] = {
                     "title": "Download link",
                     "href": download_link,
@@ -195,26 +223,35 @@ class EodagCoreClient(AsyncBaseCoreClient):
                     "type": "application/zip",
                 }
 
-            feature_model = self.stac_metadata_model.model_validate(product.properties)
+                if settings.keep_origin_url:
+                    feature["assets"]["downloadLink"]["alternate"] = {
+                        "origin": {
+                            "title": "Origin asset link",
+                            "href": origin_href,
+                            # TODO: download link is not always a ZIP archive
+                            "type": "application/zip",
+                        },
+                    }
+
+            feature_model = self.stac_metadata_model.model_validate(
+                {**product.properties, **{"federation:backends": [product.provider]}}
+            )
             stac_extensions.update(feature_model.get_conformance_classes())
             feature["properties"] = feature_model.model_dump(
                 exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE
             )
 
-            # TODO: add provider? verify with openeo federation extension
-            # or keep it legacy eodag
-
             feature["stac_extensions"] = list(stac_extensions)
 
             feature["links"] = ItemLinks(
-                collection_id=feature.get("collection"),
-                item_id=feature.get("id"),
+                collection_id=feature["collection"],
+                item_id=feature["id"],
                 request=request,
             ).get_links(extra_links=feature.get("links"), request_json=request_json)
 
             features.append(feature)
 
-        itemcollection = ItemCollection(features=features)
+        collection = ItemCollection(features=features)
 
         # pagination
         next_page = None
@@ -227,11 +264,11 @@ class EodagCoreClient(AsyncBaseCoreClient):
             ):
                 next_page = search_request.page + 1
 
-        itemcollection["links"] = PagingLinks(
+        collection["links"] = PagingLinks(
             request=request,
             next=next_page,
         ).get_links(request_json=request_json)
-        return itemcollection
+        return collection
 
     async def all_collections(
         self,
@@ -351,9 +388,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             if v is not None and v != []:
                 clean[k] = v
 
-        search_request = self.post_request_model(
-            **clean,
-        )
+        search_request = self.post_request_model.model_validate(clean)
         item_collection = await self._search_base(search_request, request)
         links = ItemCollectionLinks(
             collection_id=collection_id, request=request
@@ -362,7 +397,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
         return item_collection
 
     async def post_search(
-        self, search_request: EodagSearch, request: Request, **kwargs
+        self, search_request: EodagSearch, request: Request, **kwargs: Any
     ) -> ItemCollection:
         return await self._search_base(search_request, request)
 
@@ -410,7 +445,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
         return await self.post_search(search_request, request)
 
     async def get_item(
-        self, item_id: str, collection_id: str, request: Request, **kwargs
+        self, item_id: str, collection_id: str, request: Request, **kwargs: Any
     ) -> Item:
         # If collection does not exist, NotFoundError wil be raised
         await self.get_collection(collection_id, request=request)

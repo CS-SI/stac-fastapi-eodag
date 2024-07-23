@@ -25,7 +25,6 @@ from typing import List, Union
 from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
 from stac_fastapi.types.config import ApiSettings
-from typing_extensions import Doc
 
 from eodag.rest.constants import DEFAULT_MAXSIZE, DEFAULT_TTL
 from eodag.utils import Annotated
@@ -41,17 +40,24 @@ class Settings(ApiSettings):
 
     debug: bool = False
 
+    keep_origin_url: bool = Field(
+        default=False,
+        description=(
+            "Keep origin as alternate URL when data-download extension is enabled."
+        ),
+    )
     origin_url_blacklist: Annotated[
-        Union[str, List[str]],
-        BeforeValidator(str2liststr),
-        Doc(
+        Union[str, List[str]], BeforeValidator(str2liststr)
+    ] = Field(
+        default=[],
+        description=(
             "Hide from clients items assets' origin URLs starting with URLs from the list"
         ),
-    ] = Field(default=[])
+    )
 
-    fetch_providers: Annotated[
-        bool, Doc("Fetch additional collections from all providers.")
-    ] = Field(default=False)
+    fetch_providers: bool = Field(
+        default=False, description="Fetch additional collections from all providers."
+    )
 
 
 @lru_cache(maxsize=1)

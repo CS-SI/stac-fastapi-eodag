@@ -1,0 +1,171 @@
+"""Data-download extension."""
+
+import glob
+import logging
+import os
+from io import BufferedReader
+from shutil import make_archive, rmtree
+from typing import Annotated, Iterator, cast
+
+import attr
+from eodag.api.core import EODataAccessGateway
+from eodag.api.product._product import EOProduct
+from fastapi import APIRouter, FastAPI, Path
+from fastapi.responses import StreamingResponse
+from h11 import Request
+from stac_fastapi.api.errors import NotFoundError
+from stac_fastapi.api.routes import create_async_endpoint
+from stac_fastapi.types.extension import ApiExtension
+from stac_fastapi.types.search import APIRequest
+
+logger = logging.getLogger(__name__)
+
+
+class BaseDataDownloadClient:
+    """Defines a pattern for implementing the data download extension."""
+
+    def _file_to_stream(
+        self,
+        file_path: str,
+    ) -> StreamingResponse:
+        """Break a file into chunck and return it as a byte stream"""
+        if os.path.isdir(file_path):
+            # do not zip if dir contains only one file
+            all_filenames = [
+                f
+                for f in glob.glob(os.path.join(file_path, "**", "*"), recursive=True)
+                if os.path.isfile(f)
+            ]
+            if len(all_filenames) == 1:
+                filepath_to_stream = all_filenames[0]
+            else:
+                filepath_to_stream = f"{file_path}.zip"
+                logger.debug(
+                    "Building archive for downloaded product path %s",
+                    filepath_to_stream,
+                )
+                make_archive(file_path, "zip", file_path)
+                rmtree(file_path)
+        else:
+            filepath_to_stream = file_path
+
+        filename = os.path.basename(filepath_to_stream)
+        return StreamingResponse(
+            content=self._read_file_chunks_and_delete(open(filepath_to_stream, "rb")),
+            headers={
+                "content-disposition": f"attachment; filename={filename}",
+            },
+        )
+
+    def _read_file_chunks_and_delete(
+        self, opened_file: BufferedReader, chunk_size: int = 64 * 1024
+    ) -> Iterator[bytes]:
+        """Yield file chunks and delete file when finished."""
+        while True:
+            data = opened_file.read(chunk_size)
+            if not data:
+                opened_file.close()
+                os.remove(opened_file.name)
+                logger.debug("%s deleted after streaming complete", opened_file.name)
+                break
+            yield data
+        yield data
+
+    def get_data(
+        self,
+        federation_backend: str,
+        collection_id: str,
+        item_id: str,
+        asset_name: str,
+        request: Request,
+    ) -> StreamingResponse:
+        """Download an asset"""
+
+        dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
+
+        search_results = dag.search(
+            id=item_id, productType=collection_id, provider=federation_backend
+        )
+        if len(search_results) > 0:
+            product = cast(EOProduct, search_results[0])
+
+        else:
+            raise NotFoundError(
+                f"Could not find {item_id} item in {collection_id} collection",
+                f" for backend {federation_backend}.",
+            )
+        auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+
+        try:
+            s = product.downloader._stream_download_dict(
+                product,
+                auth=auth,
+                asset=asset_name,
+                wait=-1,
+                timeout=-1,
+            )
+            download_stream = StreamingResponse(
+                s.content, headers=s.headers, media_type=s.media_type
+            )
+        except NotImplementedError:
+            logger.warning(
+                "Download streaming not supported for %s: downloading locally then delete",
+                product.downloader,
+            )
+            download_stream = self._file_to_stream(
+                dag.download(product, extract=False, asset=asset_name)
+            )
+
+        return download_stream
+
+
+@attr.s
+class DataDownloadUri(APIRequest):
+    """Download data."""
+
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = (
+        attr.ib()
+    )
+    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
+    item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
+    asset_name: Annotated[str, Path(description="Item ID")] = attr.ib()
+
+
+
+@attr.s
+class DataDownload(ApiExtension):
+    """Data-download Extension.
+
+    The download-data extension allow to download data directly through the EODAG STAC
+    server.
+    Attributes:
+        GET /data/{federation_backend}/{collection_id}/{item_id}/{asset_id}
+    """
+
+    client: BaseDataDownloadClient = attr.ib(factory=BaseDataDownloadClient)
+    router: APIRouter = attr.ib(factory=APIRouter)
+
+    def register(self, app: FastAPI) -> None:
+        """Register the extension with a FastAPI application.
+
+        Args:
+            app: target FastAPI application.
+
+        Returns:
+            None
+        """
+        self.router.prefix = app.state.router_prefix
+        self.router.add_api_route(
+            name="Download data",
+            path="/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}",
+            methods=["GET"],
+            responses={
+                200: {
+                    "content": {
+                        "application/octet-stream": {},
+                    },
+                }
+            },
+            endpoint=create_async_endpoint(self.client.get_data, DataDownloadUri),
+        )
+        app.include_router(self.router, tags=["Data download"])

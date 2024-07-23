@@ -7,7 +7,7 @@ authors = [
     {name = "CS GROUP - France (CSSI)", email = "eodag@csgroup.space"},
 ]
 license = {file = "LICENSE"}
-requires-python = ">= 3.8"
+requires-python = ">= 3.9"
 dependencies = [
     "eodag[all-providers]==v3.0.0b1",
     "orjson",
