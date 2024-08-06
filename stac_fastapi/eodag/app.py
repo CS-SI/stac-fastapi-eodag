@@ -93,6 +93,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """API init and tear-down"""
     init_dag(app)
     # init_cache(app)
+    app.state.stac_metadata_model = stac_metadata_model
     yield
 
 

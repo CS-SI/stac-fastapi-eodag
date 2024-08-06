@@ -1,16 +1,16 @@
 """helper functions"""
 
 from datetime import datetime
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from stac_fastapi.types.rfc3339 import DateTimeType
 
 
-def str2liststr(raw: Union[str, List[str]]) -> List[str]:
+def str2liststr(raw: Any) -> List[str]:
     """Convert str to list[str]"""
-    if isinstance(raw, list):
-        return raw
-    return raw.split(",")
+    if isinstance(raw, str):
+        return raw.split(",")
+    return raw
 
 
 def format_datetime_range(dt_range: Union[DateTimeType, str]) -> str:

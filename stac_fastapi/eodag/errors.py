@@ -15,11 +15,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Errors helper"""
+
 import logging
-from typing import NotRequired, Tuple, TypedDict
+from typing import NotRequired, Tuple, Type, TypedDict
 
 from fastapi import FastAPI, Request
 from fastapi.responses import ORJSONResponse
+from pydantic import BaseModel
 from starlette import status
 
 from eodag.rest.types.eodag_search import EODAGSearch
@@ -36,6 +39,8 @@ from eodag.utils.exceptions import (
     UnsupportedProvider,
     ValidationError,
 )
+
+from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
     AuthenticationError: status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -65,9 +70,23 @@ class SearchError(TypedDict):
 class ResponseSearchError(Exception):
     """Represent a EODAG search error response"""
 
-    def __init__(self, errors: list[Tuple[str, Exception]]) -> None:
+    _alias_to_field_cache: dict[str, str] = {}
+
+    def __init__(
+        self, errors: list[Tuple[str, Exception]], stac_metadata_model: Type[BaseModel]
+    ) -> None:
         """Initialize error response class."""
         self._errors = errors
+        self._stac_medatata_model = stac_metadata_model
+
+    def _eodag_to_stac(self, value: str) -> str:
+        """Convert EODAG name to STAC."""
+        if not self._alias_to_field_cache:
+            self._alias_to_field_cache = {
+                field.alias or str(field.validation_alias): name
+                for name, field in self._stac_medatata_model.model_fields.items()
+            }
+        return self._alias_to_field_cache.get(value, value)
 
     @property
     def errors(self):
@@ -98,7 +117,7 @@ class ResponseSearchError(Exception):
 
             if params := getattr(exc, "parameters", None):
                 for error_param in params:
-                    stac_param = EODAGSearch.to_stac(error_param)
+                    stac_param = self._eodag_to_stac(error_param)
                     exc.message = exc.message.replace(error_param, stac_param)
                 error["message"] = exc.message
 
@@ -148,7 +167,9 @@ async def eodag_errors_handler(request: Request, exc: EodagError) -> ORJSONRespo
     )
 
 
-def add_exception_handlers(app: FastAPI) -> None:
+def add_exception_handlers(
+    app: FastAPI
+) -> None:
     """Add exception handlers to the FastAPI application.
 
     Args:

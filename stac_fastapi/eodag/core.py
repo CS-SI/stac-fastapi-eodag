@@ -1,5 +1,3 @@
-"""Item crud client."""
-
 # -*- coding: utf-8 -*-
 # Copyright 2023, CS GROUP - France, https://www.csgroup.eu/
 #
@@ -17,7 +15,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-from email.mime import base
+"""Item crud client."""
+
 import logging
 from datetime import datetime
 from typing import Any, Optional, Set, Type, Union
@@ -169,7 +168,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
         search_result = request.app.state.dag.search(**base_args)
 
         if search_result.errors:
-            raise ResponseSearchError(search_result.errors)
+            raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
 
         request_json = await request.json() if request.method == "POST" else None
 

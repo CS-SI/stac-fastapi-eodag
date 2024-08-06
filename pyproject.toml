@@ -9,13 +9,13 @@ authors = [
 license = {file = "LICENSE"}
 requires-python = ">= 3.9"
 dependencies = [
-    "eodag[all-providers]==v3.0.0b1",
+    "eodag[all-providers]==v3.0.0b3",
     "orjson",
     "pydantic",
     "stac_pydantic==3.1.*",
-    "stac-fastapi.api~=3.0.0a3",
-    "stac-fastapi.extensions~=3.0.0a3",
-    "stac-fastapi.types~=3.0.0a3"
+    "stac-fastapi.api==3.0.0",
+    "stac-fastapi.extensions==3.0.0",
+    "stac-fastapi.types==3.0.0"
 ]
 
 [project.urls]
