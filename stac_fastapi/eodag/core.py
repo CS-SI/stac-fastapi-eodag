@@ -191,7 +191,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             asset_proxy_url = (
                 (
                     get_base_url(request)
-                    + f"data/{product.provider}/{feature['collection']}/{feature['id']}"
+                    + f"data/{product.provider}/{feature['collection']}/{feature['id']}" # type: ignore
                 )
                 if self.extension_is_enabled("DataDownload")
                 else None
