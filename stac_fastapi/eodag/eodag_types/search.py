@@ -2,10 +2,7 @@
 
 from typing import Optional
 
-from geojson_pydantic.geometries import (
-    Polygon,
-    _GeometryBase,
-)
+from geojson_pydantic.geometries import Polygon
 from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
 
@@ -37,7 +34,7 @@ class EodagSearch(BaseSearchPostRequest):
         return interval[1].isoformat() if interval[1] else None
 
     @property
-    def spatial_filter(self) -> Optional[_GeometryBase]:
+    def spatial_filter(self) -> Optional[str]:
         """Return a geojson-pydantic object representing the spatial filter for the search
         request.
 
@@ -45,18 +42,7 @@ class EodagSearch(BaseSearchPostRequest):
         mutually exclusive.
         """
         if self.bbox:
-            return Polygon(
-                type="Polygon",
-                coordinates=[
-                    [
-                        [self.bbox[0], self.bbox[3]],
-                        [self.bbox[2], self.bbox[3]],
-                        [self.bbox[2], self.bbox[1]],
-                        [self.bbox[0], self.bbox[1]],
-                        [self.bbox[0], self.bbox[3]],
-                    ]
-                ],
-            ).wkt
+            return Polygon.from_bounds(self.bbox[0], self.bbox[3], self.bbox[2], self.bbox[1]).wkt
         if self.intersects:
             return self.intersects.wkt
-        return
+        return None
