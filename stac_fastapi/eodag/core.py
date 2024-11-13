@@ -146,9 +146,10 @@ class EodagCoreClient(AsyncBaseCoreClient):
     ) -> ItemCollection:
         settings = get_settings()
 
+        geom = search_request.spatial_filter.wkt if search_request.spatial_filter else search_request.spatial_filter
         base_args = {
             "items_per_page": search_request.limit,
-            "geom": search_request.spatial_filter,
+            "geom": geom,
             "start": search_request.start_date.isoformat()
             if search_request.start_date
             else None,
@@ -167,7 +168,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         search_result = request.app.state.dag.search(**base_args)
 
-        if search_result.errors:
+        if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
 
         request_json = await request.json() if request.method == "POST" else None
