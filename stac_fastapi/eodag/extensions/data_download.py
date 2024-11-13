@@ -5,7 +5,7 @@ import logging
 import os
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, cast
+from typing import Annotated, Iterator, Optional, cast
 
 import attr
 from eodag.api.core import EODataAccessGateway
@@ -76,7 +76,7 @@ class BaseDataDownloadClient:
         federation_backend: str,
         collection_id: str,
         item_id: str,
-        asset_name: str,
+        asset_name: Optional[str],
         request: Request,
     ) -> StreamingResponse:
         """Download an asset"""
@@ -100,7 +100,7 @@ class BaseDataDownloadClient:
             s = product.downloader._stream_download_dict(
                 product,
                 auth=auth,
-                asset=asset_name,
+                asset=asset_name if asset_name != "downloadLink" else None,
                 wait=-1,
                 timeout=-1,
             )
