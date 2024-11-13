@@ -40,8 +40,6 @@ from eodag.utils.exceptions import (
     ValidationError,
 )
 
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
-
 EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
     AuthenticationError: status.HTTP_500_INTERNAL_SERVER_ERROR,
     DownloadError: status.HTTP_500_INTERNAL_SERVER_ERROR,
