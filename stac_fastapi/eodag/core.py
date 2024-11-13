@@ -177,6 +177,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         for product in search_result:
             feature = Item(
+                assets={},
                 id=product.properties["title"],
                 geometry=product.geometry.__geo_interface__,
                 bbox=product.geometry.bounds,
@@ -185,8 +186,6 @@ class EodagCoreClient(AsyncBaseCoreClient):
             )
 
             stac_extensions: Set[str] = set()
-
-            feature["assets"] = {}
 
             asset_proxy_url = (
                 (
