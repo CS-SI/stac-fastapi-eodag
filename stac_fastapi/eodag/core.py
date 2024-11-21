@@ -27,6 +27,8 @@ import orjson
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
+from pygeofilter.backends.cql2_json import to_cql2
+from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
@@ -52,6 +54,13 @@ from stac_fastapi.eodag.models.links import (
 )
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 from stac_fastapi.eodag.utils import dt_range_to_eodag, format_datetime_range
+
+from stac_fastapi.eodag.utils import (
+    dt_range_to_eodag,
+    extract_cql2_properties,
+    format_datetime_range,
+    str2json,
+)
 
 NumType = Union[float, int]
 
@@ -147,6 +156,10 @@ class EodagCoreClient(AsyncBaseCoreClient):
         settings = get_settings()
 
         geom = search_request.spatial_filter.wkt if search_request.spatial_filter else search_request.spatial_filter
+        # get the extracted CQL2 properties dictionary if the CQL2 filter exists
+        # TODO: find the right "search_request" class to remove the type hint
+        query_params = extract_cql2_properties(search_request.filter) if search_request.filter is not None else {}
+
         base_args = {
             "items_per_page": search_request.limit,
             "geom": geom,
@@ -156,6 +169,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             "end": search_request.end_date.isoformat()
             if search_request.end_date
             else None,
+            **query_params
         }
 
         # EODAG search support a single collection
@@ -411,6 +425,8 @@ class EodagCoreClient(AsyncBaseCoreClient):
         query: Optional[str] = None,
         page: Optional[str] = None,
         intersects: Optional[str] = None,
+        filter: Optional[str] = None,
+        filter_lang: Optional[str] = "cql2-text",
         **kwargs: Any,
     ) -> ItemCollection:
         base_args = {
@@ -427,6 +443,14 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         if datetime:
             base_args["datetime"] = format_datetime_range(datetime)
+
+        if filter:
+            if filter_lang == "cql2-text":
+                ast = parse_cql2_text(filter)
+                base_args["filter"] = str2json("filter", to_cql2(ast))  # type: ignore
+                base_args["filter-lang"] = "cql2-json"
+            elif filter_lang == "cql-json":
+                base_args["filter"] = str2json(filter)
 
         # Remove None values from dict
         clean = {}
