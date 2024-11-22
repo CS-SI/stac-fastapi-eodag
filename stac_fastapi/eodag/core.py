@@ -53,8 +53,6 @@ from stac_fastapi.eodag.models.links import (
     PagingLinks,
 )
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
-from stac_fastapi.eodag.utils import dt_range_to_eodag, format_datetime_range
-
 from stac_fastapi.eodag.utils import (
     dt_range_to_eodag,
     extract_cql2_properties,
