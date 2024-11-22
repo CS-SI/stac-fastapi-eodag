@@ -17,10 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from datetime import datetime as dt
-from typing import List, Optional, Set, Type, cast
+from typing import Dict, List, Optional, Set, Type, cast
 
 import attr
-from pydantic import BaseModel, Field, model_validator
+from pydantic import AliasChoices, AliasPath, BaseModel, Field, model_validator
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic.fields import FieldInfo
 from stac_pydantic.item import ItemProperties
@@ -72,6 +72,42 @@ class CommonStacMetadata(ItemProperties):
         This model is used for properties conversion not validation.
         """
         return self
+
+    @classmethod
+    def _create_to_eodag_map(cls) -> Dict[str, str | AliasChoices | AliasPath | None]:
+        """Create mapping to convert fields from STAC to EODAG"""
+        return {v.serialization_alias or k: v.validation_alias for k, v in cls.model_fields.items()}
+
+    @classmethod
+    def to_eodag(cls, field_name: str) -> str:
+        """Convert a STAC parameter to its matching EODAG name
+        Note: "ids" STAC parameter is not recognized since we are dealing with item properties
+        """
+        field_dict: Dict[str, str | AliasChoices | AliasPath | None] = {
+            stac_name: eodag_name for stac_name, eodag_name in cls._create_to_eodag_map().items() if field_name == stac_name
+        }
+        if field_dict:
+            if field_dict[field_name] is None:
+                return field_name
+            if isinstance(field_dict[field_name], (AliasChoices, AliasPath)):
+                raise NotImplementedError(
+                    f"Error for stac name {field_name}: AliasChoices and AliasPath are not currently handled to"
+                    "convert stac names to eodag names"
+                )
+            return field_dict[field_name] # type: ignore
+        return field_name
+
+    @classmethod
+    def to_stac(cls, field_name: str) -> str:
+        """Convert an EODAG parameter to its matching STAC name
+        Note: "ids" STAC parameter is not recognized since we are dealing with item properties
+        """
+        field_dict: Dict[str, str | AliasChoices | AliasPath | None] = {
+            stac_name: eodag_name for stac_name, eodag_name in cls._create_to_eodag_map().items() if field_name == eodag_name
+        }
+        if field_dict:
+            return list(field_dict.keys())[0]
+        return field_name
 
 
 def create_stac_metadata_model(

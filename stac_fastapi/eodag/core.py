@@ -42,6 +42,7 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.api.product._product import EOProduct
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
+
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.eodag_types.search import EodagSearch
@@ -157,6 +158,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
         # get the extracted CQL2 properties dictionary if the CQL2 filter exists
         # TODO: find the right "search_request" class to remove the type hint
         query_params = extract_cql2_properties(search_request.filter) if search_request.filter is not None else {}
+        query_params = {self.stac_metadata_model.to_eodag(k): v for k, v in query_params.items()}
 
         base_args = {
             "items_per_page": search_request.limit,
