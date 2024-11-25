@@ -53,7 +53,10 @@ from stac_fastapi.eodag.models.links import (
     ItemLinks,
     PagingLinks,
 )
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata, sortby2list
+from stac_fastapi.eodag.models.stac_metadata import (
+    CommonStacMetadata,
+    get_sortby_to_post,
+)
 from stac_fastapi.eodag.utils import (
     dt_range_to_eodag,
     extract_cql2_properties,
@@ -154,7 +157,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
     ) -> ItemCollection:
         settings = get_settings()
 
-        base_args = init_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+        base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
 
         search_result = request.app.state.dag.search(**base_args)
 
@@ -413,7 +416,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             "limit": limit,
             "query": orjson.loads(unquote_plus(query)) if query else query,
             "page": page,
-            "sortby": sortby2list(sortby),
+            "sortby": get_sortby_to_post(sortby),
             "intersects": orjson.loads(unquote_plus(intersects))
             if intersects
             else intersects,
@@ -494,8 +497,8 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         return StreamingResponse(**download_stream_dict)
 
-def init_search_base_args(search_request: BaseSearchPostRequest, model: Type[BaseModel]) -> Dict[str, Any]:
-    """Initialize arguments for an eodag search based on a search request
+def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[BaseModel]) -> Dict[str, Any]:
+    """Prepare arguments for an eodag search based on a search request
 
     :param search_request: the search request
     :param model: the model used to validate stac metadata
@@ -508,13 +511,13 @@ def init_search_base_args(search_request: BaseSearchPostRequest, model: Type[Bas
     # parse "sortby" search request attribute if it exists to make it work for an eodag search
     sort_by = {}
     # TODO: find the right "search_request" class to remove the type hint
-    if search_request.sortby:
+    if sortby := getattr(search_request, "sortby", None):
         sort_by_special_fields = {
             "start": "startTimeFromAscendingNode",
             "end": "completionTimeFromAscendingNode",
         }
         param_tuples = []
-        for param in search_request.sortby:
+        for param in sortby:
             dumped_param = param.model_dump(mode="json")
             param_tuples.append(
                 (
@@ -528,8 +531,10 @@ def init_search_base_args(search_request: BaseSearchPostRequest, model: Type[Bas
         sort_by["sort_by"] = param_tuples
 
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
-    query_params = extract_cql2_properties(search_request.filter) if search_request.filter is not None else {}
-    query_params = {model.to_eodag(k): v for k, v in query_params.items()}
+    eodag_filter = {}
+    if f := getattr(search_request, "filter", None):
+        cql_filter = extract_cql2_properties(f)
+        eodag_filter = {model.to_eodag(k): v for k, v in cql_filter.items()}
 
     base_args = {
         "items_per_page": search_request.limit,
@@ -541,7 +546,7 @@ def init_search_base_args(search_request: BaseSearchPostRequest, model: Type[Bas
         if search_request.end_date
         else None,
         **sort_by,
-        **query_params
+        **eodag_filter
     }
 
     # EODAG search support a single collection

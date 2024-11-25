@@ -161,7 +161,7 @@ def _get_conformance_classes(self: BaseModel) -> List[str]:
     return list(conformance_classes)
 
 
-def sortby2list(get_sortby: Optional[List[str]]) -> Optional[List[SortExtension]]:
+def get_sortby_to_post(get_sortby: Optional[List[str]]) -> Optional[List[SortExtension]]:
     """Convert sortby filter parameter GET syntax to POST syntax"""
     if not get_sortby:
         return None
