@@ -20,9 +20,16 @@ from datetime import datetime as dt
 from typing import Dict, List, Optional, Set, Type, cast
 
 import attr
-from pydantic import AliasChoices, AliasPath, BaseModel, Field, model_validator
+from pydantic import (
+    AliasChoices,
+    AliasPath,
+    BaseModel,
+    Field,
+    model_validator,
+)
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic.fields import FieldInfo
+from stac_pydantic.api.extensions.sort import SortDirections, SortExtension
 from stac_pydantic.item import ItemProperties
 from stac_pydantic.shared import Provider
 from typing_extensions import Self
@@ -152,3 +159,16 @@ def _get_conformance_classes(self: BaseModel) -> List[str]:
             conformance_classes.add(c)
 
     return list(conformance_classes)
+
+
+def sortby2list(get_sortby: Optional[List[str]]) -> Optional[List[SortExtension]]:
+    """Convert sortby filter parameter GET syntax to POST syntax"""
+    if not get_sortby:
+        return None
+    post_sortby: List[SortExtension] = []
+    for sortby_param in get_sortby:
+        sortby_param = sortby_param.strip()
+        direction = "desc" if sortby_param.startswith("-") else "asc"
+        field = sortby_param.lstrip("+-")
+        post_sortby.append(SortExtension(field=field, direction=SortDirections(direction)))
+    return post_sortby

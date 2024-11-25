@@ -19,7 +19,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Optional, Set, Type, Union
+from typing import Any, Dict, List, Optional, Set, Type, Union, cast
 from urllib.parse import unquote_plus, urljoin
 
 import attr
@@ -27,6 +27,7 @@ import orjson
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
+from pydantic.alias_generators import to_camel, to_snake
 from pygeofilter.backends.cql2_json import to_cql2
 from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.core import AsyncBaseCoreClient
@@ -42,7 +43,6 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.api.product._product import EOProduct
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
-
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.eodag_types.search import EodagSearch
@@ -53,7 +53,7 @@ from stac_fastapi.eodag.models.links import (
     ItemLinks,
     PagingLinks,
 )
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
+from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata, sortby2list
 from stac_fastapi.eodag.utils import (
     dt_range_to_eodag,
     extract_cql2_properties,
@@ -154,31 +154,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
     ) -> ItemCollection:
         settings = get_settings()
 
-        geom = search_request.spatial_filter.wkt if search_request.spatial_filter else search_request.spatial_filter
-        # get the extracted CQL2 properties dictionary if the CQL2 filter exists
-        # TODO: find the right "search_request" class to remove the type hint
-        query_params = extract_cql2_properties(search_request.filter) if search_request.filter is not None else {}
-        query_params = {self.stac_metadata_model.to_eodag(k): v for k, v in query_params.items()}
-
-        base_args = {
-            "items_per_page": search_request.limit,
-            "geom": geom,
-            "start": search_request.start_date.isoformat()
-            if search_request.start_date
-            else None,
-            "end": search_request.end_date.isoformat()
-            if search_request.end_date
-            else None,
-            **query_params
-        }
-
-        # EODAG search support a single collection
-        if search_request.collections:
-            base_args["productType"] = search_request.collections[0]
-
-        # EODAG core search only support a single Id
-        if search_request.ids:
-            base_args["id"] = search_request.ids[0]
+        base_args = init_search_base_args(search_request=search_request, model=self.stac_metadata_model)
 
         search_result = request.app.state.dag.search(**base_args)
 
@@ -424,6 +400,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
         limit: Optional[int] = None,
         query: Optional[str] = None,
         page: Optional[str] = None,
+        sortby: Optional[List[str]] = None,
         intersects: Optional[str] = None,
         filter: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
@@ -436,6 +413,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             "limit": limit,
             "query": orjson.loads(unquote_plus(query)) if query else query,
             "page": page,
+            "sortby": sortby2list(sortby),
             "intersects": orjson.loads(unquote_plus(intersects))
             if intersects
             else intersects,
@@ -515,3 +493,63 @@ class EodagCoreClient(AsyncBaseCoreClient):
         )
 
         return StreamingResponse(**download_stream_dict)
+
+def init_search_base_args(search_request: BaseSearchPostRequest, model: Type[BaseModel]) -> Dict[str, Any]:
+    """Initialize arguments for an eodag search based on a search request
+
+    :param search_request: the search request
+    :param model: the model used to validate stac metadata
+    :returns: a dictionnary containing arguments for the eodag search
+    """
+    model = cast(type[CommonStacMetadata], model)
+
+    geom = search_request.spatial_filter.wkt if search_request.spatial_filter else search_request.spatial_filter
+
+    # parse "sortby" search request attribute if it exists to make it work for an eodag search
+    sort_by = {}
+    # TODO: find the right "search_request" class to remove the type hint
+    if search_request.sortby:
+        sort_by_special_fields = {
+            "start": "startTimeFromAscendingNode",
+            "end": "completionTimeFromAscendingNode",
+        }
+        param_tuples = []
+        for param in search_request.sortby:
+            dumped_param = param.model_dump(mode="json")
+            param_tuples.append(
+                (
+                    sort_by_special_fields.get(
+                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
+                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
+                    ),
+                    dumped_param["direction"],
+                )
+            )
+        sort_by["sort_by"] = param_tuples
+
+    # get the extracted CQL2 properties dictionary if the CQL2 filter exists
+    query_params = extract_cql2_properties(search_request.filter) if search_request.filter is not None else {}
+    query_params = {model.to_eodag(k): v for k, v in query_params.items()}
+
+    base_args = {
+        "items_per_page": search_request.limit,
+        "geom": geom,
+        "start": search_request.start_date.isoformat()
+        if search_request.start_date
+        else None,
+        "end": search_request.end_date.isoformat()
+        if search_request.end_date
+        else None,
+        **sort_by,
+        **query_params
+    }
+
+    # EODAG search support a single collection
+    if search_request.collections:
+        base_args["productType"] = search_request.collections[0]
+
+    # EODAG core search only support a single Id
+    if search_request.ids:
+        base_args["id"] = search_request.ids[0]
+
+    return base_args

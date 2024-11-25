@@ -31,7 +31,7 @@ from stac_fastapi.api.models import (
     create_post_request_model,
     create_request_model,
 )
-from stac_fastapi.extensions.core import FilterExtension
+from stac_fastapi.extensions.core import FilterExtension, SortExtension
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
@@ -77,6 +77,7 @@ extensions_map = {
     "filter": FilterExtension(
         client=FiltersClient(stac_metadata_model=stac_metadata_model)
     ),
+    "sort": SortExtension(),
     "data-download": DataDownload(),
 }
 
