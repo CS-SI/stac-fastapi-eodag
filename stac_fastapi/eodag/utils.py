@@ -8,6 +8,13 @@ import orjson
 from stac_fastapi.types.rfc3339 import DateTimeType
 
 
+def is_dict_str_any(var: Any) -> bool:
+    """Verify whether the variable is of type dict[str, Any]"""
+    if isinstance(var, Dict):
+        return all(isinstance(k, str) for k in var.keys())  # type: ignore
+    return False
+
+
 def str2liststr(raw: Any) -> List[str]:
     """Convert str to list[str]"""
     if isinstance(raw, str):

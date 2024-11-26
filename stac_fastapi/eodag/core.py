@@ -28,6 +28,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
 from pydantic.alias_generators import to_camel, to_snake
+from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
 from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.core import AsyncBaseCoreClient
@@ -61,6 +62,7 @@ from stac_fastapi.eodag.utils import (
     dt_range_to_eodag,
     extract_cql2_properties,
     format_datetime_range,
+    is_dict_str_any,
     str2json,
 )
 
@@ -508,9 +510,19 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[
 
     geom = search_request.spatial_filter.wkt if search_request.spatial_filter else search_request.spatial_filter
 
+    base_args = {
+        "items_per_page": search_request.limit,
+        "geom": geom,
+        "start": search_request.start_date.isoformat()
+        if search_request.start_date
+        else None,
+        "end": search_request.end_date.isoformat()
+        if search_request.end_date
+        else None
+    }
+
     # parse "sortby" search request attribute if it exists to make it work for an eodag search
     sort_by = {}
-    # TODO: find the right "search_request" class to remove the type hint
     if sortby := getattr(search_request, "sortby", None):
         sort_by_special_fields = {
             "start": "startTimeFromAscendingNode",
@@ -530,24 +542,16 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[
             )
         sort_by["sort_by"] = param_tuples
 
+    eodag_query = {}
+    if query_attr := getattr(search_request, "query", None):
+        parsed_query = parse_query(query_attr)
+        eodag_query = {model.to_eodag(k): v for k, v in parsed_query.items()}
+
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
     eodag_filter = {}
     if f := getattr(search_request, "filter", None):
-        cql_filter = extract_cql2_properties(f)
-        eodag_filter = {model.to_eodag(k): v for k, v in cql_filter.items()}
-
-    base_args = {
-        "items_per_page": search_request.limit,
-        "geom": geom,
-        "start": search_request.start_date.isoformat()
-        if search_request.start_date
-        else None,
-        "end": search_request.end_date.isoformat()
-        if search_request.end_date
-        else None,
-        **sort_by,
-        **eodag_filter
-    }
+        parsed_filter = extract_cql2_properties(f)
+        eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
     # EODAG search support a single collection
     if search_request.collections:
@@ -557,4 +561,68 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[
     if search_request.ids:
         base_args["id"] = search_request.ids[0]
 
+    # merge all eodag search arguments
+    base_args = base_args | sort_by | eodag_filter | eodag_query
+
     return base_args
+
+def parse_query(query: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert a STAC query parameter filter with the "eq", "lte" or "in" operator to a dict.
+    """
+
+    def add_error(error_message: str, input: Any) -> None:
+        errors.append(
+            InitErrorDetails(
+                type=PydanticCustomError("invalid_query", error_message),  # type: ignore
+                loc=("query",),
+                input=input,
+            )
+        )
+
+    query_props: Dict[str, Any] = {}
+    errors: List[InitErrorDetails] = []
+    for property_name, conditions in cast(Dict[str, Any], query).items():
+        # Remove the prefix "properties." if present
+        prop = property_name.replace("properties.", "", 1)
+
+        # Check if exactly one operator is specified per property
+        if not is_dict_str_any(conditions) or len(conditions) != 1:  # type: ignore
+            add_error(
+                "Exactly 1 operator must be specified per property",
+                query[property_name],
+            )
+            continue
+
+        # Retrieve the operator and its value
+        operator, value = next(iter(cast(Dict[str, Any], conditions).items()))
+
+        # Validate the operator
+        # only eq, in and lte are allowed
+        # lte is only supported with eo:cloud_cover
+        # eo:cloud_cover only accept lte operator
+        if (
+            operator not in ("eq", "lte", "in")
+            or (operator == "lte" and prop != "eo:cloud_cover")
+            or (prop == "eo:cloud_cover" and operator != "lte")
+        ):
+            add_error(
+                f'operator "{operator}" is not supported for property "{prop}"',
+                query[property_name],
+            )
+            continue
+        if operator == "in" and not isinstance(value, list):
+            add_error(
+                f'operator "{operator}" requires a value of type list for property "{prop}"',
+                query[property_name],
+            )
+            continue
+
+        query_props[prop] = value
+
+    if errors:
+        raise ValidationError.from_exception_data(
+            title="EODAGSearch", line_errors=errors
+        )
+
+    return query_props
