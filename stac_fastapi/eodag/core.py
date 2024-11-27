@@ -30,6 +30,7 @@ from pydantic import BaseModel, ValidationError
 from pydantic.alias_generators import to_camel, to_snake
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
+from pygeofilter.parsers.cql2_json import parse as parse_json
 from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
@@ -46,6 +47,7 @@ from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
+from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.eodag_types.search import EodagSearch
 from stac_fastapi.eodag.errors import ResponseSearchError
 from stac_fastapi.eodag.models.links import (
@@ -60,7 +62,6 @@ from stac_fastapi.eodag.models.stac_metadata import (
 )
 from stac_fastapi.eodag.utils import (
     dt_range_to_eodag,
-    extract_cql2_properties,
     format_datetime_range,
     is_dict_str_any,
     str2json,
@@ -550,7 +551,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
     eodag_filter = {}
     if f := getattr(search_request, "filter", None):
-        parsed_filter = extract_cql2_properties(f)
+        parsed_filter = parse_cql2(f)
         eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
     # EODAG search support a single collection
@@ -626,3 +627,46 @@ def parse_query(query: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     return query_props
+
+def parse_cql2(filter_: Dict[str, Any]) -> Dict[str, Any]:
+    """Process CQL2 filter"""
+
+    def add_error(error_message: str) -> None:
+        errors.append(
+            InitErrorDetails(
+                type=PydanticCustomError("invalid_filter", error_message),  # type: ignore
+                loc=("filter",),
+            )
+        )
+
+    errors: List[InitErrorDetails] = []
+    try:
+        parsing_result = EodagEvaluator().evaluate(parse_json(filter_))  # type: ignore
+    except (ValueError, NotImplementedError) as e:
+        add_error(str(e))
+        raise ValidationError.from_exception_data(
+            title="EODAGSearch", line_errors=errors
+        ) from e
+
+    if not is_dict_str_any(parsing_result):
+        add_error("The parsed filter is not a proper dictionary")
+        raise ValidationError.from_exception_data(
+            title="EODAGSearch", line_errors=errors
+        )
+
+    cql_args: Dict[str, Any] = cast(Dict[str, Any], parsing_result)
+
+    invalid_keys = {
+        "collections": 'Use "collection" instead of "collections"',
+        "ids": 'Use "id" instead of "ids"',
+    }
+    for k, m in invalid_keys.items():
+        if k in cql_args:
+            add_error(m)
+
+    if errors:
+        raise ValidationError.from_exception_data(
+            title="EODAGSearch", line_errors=errors
+        )
+
+    return cql_args
