@@ -9,7 +9,7 @@ authors = [
 license = {file = "LICENSE"}
 requires-python = ">= 3.9"
 dependencies = [
-    "eodag[all-providers]",
+    "eodag[all-providers] @ git+https://github.com/CS-SI/eodag",
     "orjson",
     "pydantic",
     "pygeofilter",
