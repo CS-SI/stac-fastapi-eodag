@@ -34,9 +34,20 @@ from stac_pydantic.item import ItemProperties
 from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
+from eodag.api.product.metadata_mapping import (
+    OFFLINE_STATUS,
+    ONLINE_STATUS,
+    STAGING_STATUS,
+)
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
+
+STATUS_STAC_MATCHING = {
+    ONLINE_STATUS: "succeeded",
+    STAGING_STATUS: "shipping",
+    OFFLINE_STATUS: "orderable"
+}
 
 
 class CommonStacMetadata(ItemProperties):

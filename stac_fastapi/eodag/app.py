@@ -37,6 +37,7 @@ from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
 from stac_fastapi.eodag.errors import add_exception_handlers
+from stac_fastapi.eodag.extensions.collection_order import CollectionOrderExtension
 from stac_fastapi.eodag.extensions.collection_search import CollectionSearchExtension
 from stac_fastapi.eodag.extensions.data_download import DataDownload
 from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
@@ -79,6 +80,7 @@ extensions_map = {
     ),
     "query": QueryExtension(),
     "sort": SortExtension(),
+    "data-order": CollectionOrderExtension(),
     "data-download": DataDownload(),
 }
 
