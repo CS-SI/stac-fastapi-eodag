@@ -10,9 +10,8 @@ from typing import Annotated, Iterator, Optional, cast
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
-from fastapi import APIRouter, FastAPI, Path
+from fastapi import APIRouter, FastAPI, Path, Request
 from fastapi.responses import StreamingResponse
-from h11 import Request
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
