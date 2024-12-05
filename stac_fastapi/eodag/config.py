@@ -20,14 +20,13 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List, Union
+from typing import Annotated, List, Union
 
 from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
 from stac_fastapi.types.config import ApiSettings
 
 from eodag.rest.constants import DEFAULT_MAXSIZE, DEFAULT_TTL
-from eodag.utils import Annotated
 from stac_fastapi.eodag.utils import str2liststr
 
 
