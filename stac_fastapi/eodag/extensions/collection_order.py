@@ -160,7 +160,7 @@ class CollectionOrderExtension(ApiExtension):
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(
             name="Order collection",
-            path="/collections/{collection_id}/{federation_backend}/order",
+            path="/collections/{collection_id}/{federation_backend}/orders",
             methods=["POST"],
             responses={
                 200: {
