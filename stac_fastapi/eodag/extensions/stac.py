@@ -3,7 +3,17 @@
 from typing import Annotated, Any, Optional, Union
 
 import attr
-from pydantic import BaseModel, BeforeValidator, Field
+from eodag.api.product.metadata_mapping import (
+    OFFLINE_STATUS,
+    ONLINE_STATUS,
+    STAGING_STATUS,
+)
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    Field,
+    field_validator,
+)
 
 from stac_fastapi.eodag.utils import str2liststr
 
@@ -228,6 +238,13 @@ class ProductExtension(BaseStacExtension):
     field_name_prefix: str | None = attr.ib(default="product")
 
 
+STATUS_STAC_MATCHING = {
+    ONLINE_STATUS: "succeeded",
+    STAGING_STATUS: "shipping",
+    OFFLINE_STATUS: "orderable"
+}
+
+
 class StorageFields(BaseModel):
     """
     https://github.com/stac-extensions/storage#fields
@@ -237,6 +254,12 @@ class StorageFields(BaseModel):
     region: str | None = Field(default=None)
     requester_pays: bool | None = Field(default=None)
     tier: str | None = Field(default=None, validation_alias="storageStatus")
+
+    @field_validator("tier")
+    @classmethod
+    def tier_to_stac(cls, v: str | None) -> str:
+        """Convert tier from EODAG naming to STAC"""
+        return STATUS_STAC_MATCHING[v or OFFLINE_STATUS]
 
 
 @attr.s
@@ -257,7 +280,7 @@ class OrderFields(BaseModel):
     """
 
     status: str | None = Field(default=None)
-    order__id: str | None = Field(default=None, validation_alias="orderId")
+    id: str | None = Field(default=None, validation_alias="orderId")
     date: bool | None = Field(default=None)
 
 
