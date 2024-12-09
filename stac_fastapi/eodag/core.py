@@ -19,7 +19,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Type, Union, cast
+from typing import Any, Dict, List, Optional, Type, Union, cast
 from urllib.parse import unquote_plus, urljoin
 
 import attr
@@ -45,19 +45,17 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.api.product._product import EOProduct
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
-from stac_fastapi.eodag.config import get_settings
-from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.eodag_types.search import EodagSearch
 from stac_fastapi.eodag.errors import ResponseSearchError
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     ItemCollectionLinks,
-    ItemLinks,
     PagingLinks,
 )
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
+    create_stac_item,
     get_sortby_to_post,
 )
 from stac_fastapi.eodag.utils import (
@@ -158,8 +156,6 @@ class EodagCoreClient(AsyncBaseCoreClient):
     async def _search_base(
         self, search_request: BaseSearchPostRequest, request: Request
     ) -> ItemCollection:
-        settings = get_settings()
-
         base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
 
         search_result = request.app.state.dag.search(**base_args)
@@ -172,78 +168,13 @@ class EodagCoreClient(AsyncBaseCoreClient):
         features: list[Item] = []
 
         for product in search_result:
-            feature = Item(
-                assets={},
-                id=product.properties["title"],
-                geometry=product.geometry.__geo_interface__,
-                bbox=product.geometry.bounds,
-                collection=product.product_type,
-                stac_version=self.stac_version,
+            feature = create_stac_item(
+                product,
+                self.stac_metadata_model,
+                self.extension_is_enabled,
+                request,
+                request_json
             )
-
-            stac_extensions: Set[str] = set()
-
-            asset_proxy_url = (
-                (
-                    get_base_url(request)
-                    + f"data/{product.provider}/{feature['collection']}/{feature['id']}" # type: ignore
-                )
-                if self.extension_is_enabled("DataDownload")
-                else None
-            )
-
-            for k, v in product.assets.items():
-                # TODO: download extension with origin link (make it optional ?)
-                asset_model = self.stac_metadata_model.model_validate(v)
-                stac_extensions.update(asset_model.get_conformance_classes())
-                feature["assets"][k] = asset_model.model_dump(exclude_none=True)
-
-                if asset_proxy_url:
-                    origin = deepcopy(feature["assets"][k])
-                    feature["assets"][k]["href"] = asset_proxy_url + "/" + k
-
-                    if settings.keep_origin_url:
-                        feature["assets"][k]["alternate"] = {"origin": origin}
-
-            # TODO: remove downloadLink asset after EODAG assets rework
-            if download_link := product.properties.get("downloadLink"):
-                origin_href = download_link
-                if asset_proxy_url:
-                    download_link = asset_proxy_url + "/downloadLink"
-
-                feature["assets"]["downloadLink"] = {
-                    "title": "Download link",
-                    "href": download_link,
-                    # TODO: download link is not always a ZIP archive
-                    "type": "application/zip",
-                }
-
-                if settings.keep_origin_url:
-                    feature["assets"]["downloadLink"]["alternate"] = {
-                        "origin": {
-                            "title": "Origin asset link",
-                            "href": origin_href,
-                            # TODO: download link is not always a ZIP archive
-                            "type": "application/zip",
-                        },
-                    }
-
-            feature_model = self.stac_metadata_model.model_validate(
-                {**product.properties, **{"federation:backends": [product.provider]}}
-            )
-            stac_extensions.update(feature_model.get_conformance_classes())
-            feature["properties"] = feature_model.model_dump(
-                exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE
-            )
-
-            feature["stac_extensions"] = list(stac_extensions)
-
-            feature["links"] = ItemLinks(
-                collection_id=feature["collection"],
-                item_id=feature["id"],
-                request=request,
-            ).get_links(extra_links=feature.get("links"), request_json=request_json)
-
             features.append(feature)
 
         collection = ItemCollection(features=features)

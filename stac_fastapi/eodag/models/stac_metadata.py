@@ -17,9 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from datetime import datetime as dt
-from typing import Dict, List, Optional, Set, Type, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Type, cast
 
 import attr
+from fastapi import Request
 from pydantic import (
     AliasChoices,
     AliasPath,
@@ -29,25 +30,23 @@ from pydantic import (
 )
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic.fields import FieldInfo
+from stac_fastapi.types.errors import NotFoundError
+from stac_fastapi.types.requests import get_base_url
+from stac_fastapi.types.stac import Item
 from stac_pydantic.api.extensions.sort import SortDirections, SortExtension
+from stac_pydantic.api.version import STAC_API_VERSION
 from stac_pydantic.item import ItemProperties
 from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
-from eodag.api.product.metadata_mapping import (
-    OFFLINE_STATUS,
-    ONLINE_STATUS,
-    STAGING_STATUS,
-)
+from eodag.api.product._product import EOProduct
+from eodag.utils import deepcopy
+from stac_fastapi.eodag.config import Settings, get_settings
+from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
-
-STATUS_STAC_MATCHING = {
-    ONLINE_STATUS: "succeeded",
-    STAGING_STATUS: "shipping",
-    OFFLINE_STATUS: "orderable"
-}
+from stac_fastapi.eodag.models.links import ItemLinks
 
 
 class CommonStacMetadata(ItemProperties):
@@ -148,6 +147,94 @@ def create_stac_metadata_model(
     model._conformance_classes = {e.__class__.__name__: e.schema_href for e in extensions}
     model.get_conformance_classes = _get_conformance_classes
     return model
+
+def create_stac_item(
+        product: EOProduct, model: Type[BaseModel],
+        extension_is_enabled: Callable[[str], bool],
+        request: Request,
+        request_json: Any | None = None,
+    ) -> Item:
+    """Create a STAC item from an EODAG product"""
+    if product.product_type is None:
+        raise NotFoundError("A STAC item can not be created from an EODAG EOProduct without collection")
+
+    settings: Settings = get_settings()
+    feature = Item(
+        assets={},
+        id=product.properties["title"],
+        geometry=product.geometry.__geo_interface__,
+        bbox=product.geometry.bounds,
+        collection=product.product_type,
+        stac_version=STAC_API_VERSION,
+    )
+
+    stac_extensions: Set[str] = set()
+
+    asset_proxy_url = (
+        (
+            get_base_url(request)
+            + f"data/{product.provider}/{feature['collection']}/{feature['id']}" # type: ignore
+        )
+        if extension_is_enabled("DataDownload") # self.extension_is_enabled("DataDownload")
+        else None
+    )
+
+    for k, v in product.assets.items():
+        # TODO: download extension with origin link (make it optional ?)
+        asset_model = model.model_validate(v)
+        stac_extensions.update(asset_model.get_conformance_classes())
+        feature["assets"][k] = asset_model.model_dump(exclude_none=True)
+
+        if asset_proxy_url:
+            origin = deepcopy(feature["assets"][k])
+            feature["assets"][k]["href"] = asset_proxy_url + "/" + k
+
+            if settings.keep_origin_url:
+                feature["assets"][k]["alternate"] = {"origin": origin}
+
+    # TODO: remove downloadLink asset after EODAG assets rework
+    if download_link := product.properties.get("downloadLink"):
+        origin_href = download_link
+        if asset_proxy_url:
+            download_link = asset_proxy_url + "/downloadLink"
+
+        feature["assets"]["downloadLink"] = {
+            "title": "Download link",
+            "href": download_link,
+            # TODO: download link is not always a ZIP archive
+            "type": "application/zip",
+        }
+
+        if settings.keep_origin_url:
+            feature["assets"]["downloadLink"]["alternate"] = {
+                "origin": {
+                    "title": "Origin asset link",
+                    "href": origin_href,
+                    # TODO: download link is not always a ZIP archive
+                    "type": "application/zip",
+                },
+            }
+
+    feature_model = model.model_validate(
+        {**product.properties, **{"federation:backends": [product.provider]}}
+    )
+    stac_extensions.update(feature_model.get_conformance_classes())
+    feature["properties"] = feature_model.model_dump(
+        exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE
+    )
+
+    feature["stac_extensions"] = list(stac_extensions)
+
+    feature["links"] = ItemLinks(
+        collection_id=feature["collection"],
+        item_id=feature["id"],
+        order_link=product.properties.get("orderLink"),
+        federation_backend=feature["properties"]["federation:backends"][0],
+        dc_qs=product.properties.get("_dc_qs"),
+        request=request,
+    ).get_links(extra_links=feature.get("links"), request_json=request_json)
+
+    return feature
 
 
 def _get_conformance_classes(self: BaseModel) -> List[str]:
