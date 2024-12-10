@@ -237,8 +237,11 @@ class ItemLinks(CollectionLinksBase):
     """Create inferred links specific to items."""
 
     item_id: str = attr.ib()
+    order_link: str = attr.ib()
+    federation_backend: str = attr.ib()
+    dc_qs: str = attr.ib()
 
-    def link_self(self) -> dict[str, str]:
+    def link_self(self) -> Dict[str, str]:
         """Create the self link."""
         return {
             "rel": Relations.self.value,
@@ -248,10 +251,26 @@ class ItemLinks(CollectionLinksBase):
             ),
         }
 
-    def link_parent(self) -> dict[str, str]:
+    def link_parent(self) -> Dict[str, str]:
         """Create the `parent` link."""
         return self.collection_link(rel=Relations.parent.value)
 
-    def link_collection(self) -> dict[str, str]:
+    def link_collection(self) -> Dict[str, str]:
         """Create the `collection` link."""
         return self.collection_link()
+
+    def link_order(self) -> Dict[str, str] | None:
+        """Create the `order` link."""
+        if self.order_link is None:
+            return None
+        href = merge_params(
+            self.resolve(
+                f"/collections/{self.collection_id}/{self.federation_backend}/orders"
+            ),
+            {"dc_qs": [self.dc_qs]}
+        )
+        return {
+            "rel": "order",
+            "type": MimeTypes.geojson.value,
+            "href": href,
+        }
