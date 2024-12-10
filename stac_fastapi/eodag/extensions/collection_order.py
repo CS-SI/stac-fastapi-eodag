@@ -1,4 +1,4 @@
-"""Data-order extension."""
+"""Collection-order extension."""
 
 import logging
 from typing import (
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 @attr.s
 class BaseCollectionOrderClient():
-    """Defines a pattern for implementing the data order extension."""
+    """Defines a pattern for implementing the collection order extension."""
     stac_metadata_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
     extensions: List[ApiExtension] = attr.ib(default=[])
 
@@ -40,14 +40,14 @@ class BaseCollectionOrderClient():
         """Check if an api extension is enabled."""
         return any(type(ext).__name__ == extension for ext in self.extensions)
 
-    def order_data(
+    def order_collection(
         self,
         federation_backend: str,
         collection_id: str,
         dc_qs: str,
         request: Request,
     ) -> Item:
-        """Order a product"""
+        """Order a product with its collection id and a fake id"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
@@ -98,24 +98,24 @@ class BaseCollectionOrderClient():
 
 
 @attr.s
-class DataOrderUri(APIRequest):
-    """Download data."""
+class CollectionOrderUri(APIRequest):
+    """Order collection."""
 
     federation_backend: Annotated[str, Path(description="Federation backend name")] = (
         attr.ib()
     )
     collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
-    dc_qs: Annotated[str, Query()] = attr.ib()
+    dc_qs: Annotated[str, Query(description="Datacube query string")] = attr.ib()
 
 
 @attr.s
 class CollectionOrderExtension(ApiExtension):
     """Collection Order extension.
 
-    The download-data extension allow to download data directly through the EODAG STAC
+    The order-collection extension allow to order a collection directly through the EODAG STAC
     server.
     Attributes:
-        GET /data/{federation_backend}/{collection_id}/{item_id}/{asset_id}
+        POST /collections/{collection_id}/{federation_backend}/orders
     """
 
     client: BaseCollectionOrderClient = attr.ib(factory=BaseCollectionOrderClient)
@@ -142,6 +142,6 @@ class CollectionOrderExtension(ApiExtension):
                     },
                 }
             },
-            endpoint=create_async_endpoint(self.client.order_data, DataOrderUri),
+            endpoint=create_async_endpoint(self.client.order_collection, CollectionOrderUri),
         )
         app.include_router(self.router, tags=["Collection order"])
