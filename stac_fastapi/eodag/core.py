@@ -45,10 +45,10 @@ from stac_pydantic.shared import MimeTypes
 from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.utils import deepcopy, get_geometry_from_various
-from eodag.utils.exceptions import NoMatchingProductType
+from eodag.utils.exceptions import NoMatchingProductType as EodagNoMatchingProductType
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
-from stac_fastapi.eodag.errors import ResponseSearchError
+from stac_fastapi.eodag.errors import NoMatchingProductType, ResponseSearchError
 from stac_fastapi.eodag.landing_page import CustomCoreClient
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
@@ -246,7 +246,7 @@ class EodagCoreClient(CustomCoreClient):
                 guessed_product_types = request.app.state.dag.guess_product_type(
                     free_text=q, missionStartDate=start, missionEndDate=end
                 )
-            except NoMatchingProductType:
+            except EodagNoMatchingProductType:
                 product_types = []
             else:
                 product_types = [pt for pt in all_pt if pt["ID"] in guessed_product_types]

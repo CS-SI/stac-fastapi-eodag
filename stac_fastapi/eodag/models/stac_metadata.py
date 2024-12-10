@@ -334,6 +334,8 @@ def create_stac_item(
                 },
             }
 
+    # remove "id" property of the product since the STAC item will have "id" key out of its properties
+    del product.properties["id"]
     feature_model = model.model_validate(
         {**product.properties, **{"federation:backends": [product.provider], "providers": [provider_dict]}}
     )
@@ -346,7 +348,7 @@ def create_stac_item(
     feature["links"] = ItemLinks(
         collection_id=collection,
         item_id=quoted_id,
-        order_link=product.properties.get("orderLink"),
+        order_link=product.properties.get("orderLink") if feature["properties"]["storage:tier"] == "orderable" else None,
         federation_backend=feature["properties"]["federation:backends"][0],
         dc_qs=product.properties.get("_dc_qs"),
         request=request,

@@ -26,7 +26,11 @@ from typing import (
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import OFFLINE_STATUS
+from eodag.api.product.metadata_mapping import (
+    DEFAULT_GEOMETRY,
+    OFFLINE_STATUS,
+    ONLINE_STATUS,
+)
 from fastapi import APIRouter, FastAPI, Path, Query, Request
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.errors import NotFoundError
@@ -36,6 +40,8 @@ from stac_fastapi.types.stac import Item
 
 from stac_fastapi.eodag.errors import (
     MisconfiguredError,
+    NoMatchingProductType,
+    UnsupportedProductType,
 )
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
@@ -88,7 +94,7 @@ class BaseCollectionOrderClient:
 
         if product.properties.get("orderStatus"):
             raise NotFoundError(
-                "Product has been ordered previously. Please request the polling endpoint before download it."
+                "Product has already been ordered and polled, it can be directly downloaded."
             )
 
         raise_error = False
@@ -112,6 +118,65 @@ class BaseCollectionOrderClient:
         return create_stac_item(product, self.stac_metadata_model, self.extension_is_enabled, request)
 
 
+    def poll_collection(
+        self,
+        federation_backend: str,
+        collection_id: str,
+        order_id: str,
+        request: Request,
+    ) -> Item:
+        """Poll a collection previously ordered"""
+
+        dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
+
+        # check if the collection is correct
+        try:
+            product_type = dag.get_product_type_from_alias(collection_id)
+        except NoMatchingProductType as e:
+            raise UnsupportedProductType(f"{collection_id} is not available") from e
+
+        # set fake properties to make EOProduct initialization possible
+        # among these properties, "title" is set to deal with error while polling
+        fake_properties = {
+            "id": order_id,
+            "title": order_id,
+            "geometry": DEFAULT_GEOMETRY,
+        }
+
+        # "productType" kwarg must be set to convert the product to a STAC item
+        product = EOProduct(federation_backend, fake_properties, productType=product_type)
+        product.downloader = dag._plugins_manager.get_download_plugin(product)
+        # orderLink is set to auth provider conf matching url to create its auth plugin
+        product.properties["orderLink"] = product.properties["orderStatusLink"] = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"].format(orderId=order_id)
+        search_link = {
+            "searchLink": product.downloader.config.order_on_response["metadata_mapping"]["searchLink"].format(orderId=order_id)
+        } if product.downloader.config.order_on_response["metadata_mapping"].get("searchLink") else {}
+        product.properties = {**product.properties, **search_link}
+        product.downloader_auth = dag._plugins_manager.get_auth_plugin(product.downloader, product)
+
+        if not getattr(product.downloader, "order_download_status", None):
+            raise MisconfiguredError("Product downloader must have the order status request method")
+
+        auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+
+        logger.debug("Poll product")
+        _ = product.downloader.order_download_status(
+            product=product, auth=auth
+        )
+
+        if product.properties.get("storageStatus", OFFLINE_STATUS) != ONLINE_STATUS:
+            raise NotFoundError(
+                f"Polling failed. Please check 'order_id' argument: {order_id}"
+            )
+
+        return create_stac_item(
+            product,
+            self.stac_metadata_model,
+            self.extension_is_enabled,
+            request
+        )
+
+
 @attr.s
 class CollectionOrderUri(APIRequest):
     """Order collection."""
@@ -119,6 +184,15 @@ class CollectionOrderUri(APIRequest):
     federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
     collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
     dc_qs: Annotated[str, Query(description="Datacube query string")] = attr.ib()
+
+
+@attr.s
+class CollectionPollingUri(APIRequest):
+    """Polling collection."""
+
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
+    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
+    order_id: Annotated[str, Path(description="Order ID")] = attr.ib()
 
 
 @attr.s
@@ -157,5 +231,18 @@ class CollectionOrderExtension(ApiExtension):
                 }
             },
             endpoint=create_async_endpoint(self.client.order_collection, CollectionOrderUri),
+        )
+        self.router.add_api_route(
+            name="Poll collection",
+            path="/collections/{collection_id}/{federation_backend}/orders/{order_id}",
+            methods=["GET"],
+            responses={
+                200: {
+                    "content": {
+                        "application/geo+json": {},
+                    },
+                }
+            },
+            endpoint=create_async_endpoint(self.client.poll_collection, CollectionPollingUri),
         )
         app.include_router(self.router, tags=["Collection order"])

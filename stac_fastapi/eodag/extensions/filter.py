@@ -20,7 +20,6 @@
 from typing import Any, Optional, cast
 
 import attr
-from eodag.utils.exceptions import UnsupportedProductType
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, create_model
 from stac_fastapi.extensions.core.filter.client import AsyncBaseFiltersClient
@@ -29,6 +28,7 @@ from stac_fastapi.types.requests import get_base_url
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.eodag_types.queryables import QueryablesGetParams
+from stac_fastapi.eodag.errors import UnsupportedProductType
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 COMMON_QUERYABLES_PROPERTIES = {
