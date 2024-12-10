@@ -1,4 +1,4 @@
-"""Data-download extension."""
+"""Data-order extension."""
 
 import logging
 from typing import (
@@ -47,7 +47,7 @@ class BaseCollectionOrderClient():
         dc_qs: str,
         request: Request,
     ) -> Item:
-        """Download an asset"""
+        """Order a product"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
