@@ -83,7 +83,7 @@ extensions_map = {
     ),
     "query": QueryExtension(),
     "sort": SortExtension(),
-    "data-order": CollectionOrderExtension(
+    "collection-order": CollectionOrderExtension(
         client=BaseCollectionOrderClient(stac_metadata_model=stac_metadata_model)
     ),
     "data-download": DataDownload(),
