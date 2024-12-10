@@ -3,20 +3,17 @@
 import logging
 from typing import (
     Annotated,
+    List,
+    Type,
     cast,
 )
 
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import (
-    NOT_AVAILABLE,
-    OFFLINE_STATUS,
-    ONLINE_STATUS,
-    STAGING_STATUS,
-)
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from fastapi import APIRouter, FastAPI, Path, Query, Request
-from fastapi.responses import ORJSONResponse
+from pydantic import BaseModel
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
@@ -26,13 +23,22 @@ from stac_fastapi.types.stac import Item
 from stac_fastapi.eodag.errors import (
     MisconfiguredError,
 )
-from stac_fastapi.eodag.models.stac_metadata import STATUS_STAC_MATCHING
+from stac_fastapi.eodag.models.stac_metadata import (
+    CommonStacMetadata,
+    create_stac_item,
+)
 
 logger = logging.getLogger(__name__)
 
-
+@attr.s
 class BaseCollectionOrderClient():
     """Defines a pattern for implementing the data order extension."""
+    stac_metadata_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
+    extensions: List[ApiExtension] = attr.ib(default=[])
+
+    def extension_is_enabled(self, extension: str) -> bool:
+        """Check if an api extension is enabled."""
+        return any(type(ext).__name__ == extension for ext in self.extensions)
 
     def order_data(
         self,
@@ -40,11 +46,8 @@ class BaseCollectionOrderClient():
         collection_id: str,
         dc_qs: str,
         request: Request,
-    ) -> ORJSONResponse:
+    ) -> Item:
         """Download an asset"""
-
-        # arguments = dict(request.query_params)
-        # dc_qs: Dict[Literal["dc_qs"], str] = {"dc_qs": arguments["dc_qs"]} if arguments.get("dc_qs", None) else {}
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
@@ -57,7 +60,6 @@ class BaseCollectionOrderClient():
         else:
             raise NotFoundError(
                 f"Could not find any item in {collection_id} collection"
-                # f"Could not find {item_id} item in {collection_id} collection",
                 f" for backend {federation_backend}.",
             )
 
@@ -71,39 +73,13 @@ class BaseCollectionOrderClient():
                 "Product is not orderable. Please download it directly.",
             )
 
-        if product.properties.get("orderStatus"): # mettre s'il y a un orderId
-            return ORJSONResponse(
-                status_code=404,
-                content={
-                    "description": "Product has been ordered previously. Please request the polling endpoint before download it.",
-                },
+        if product.properties.get("orderStatus"):
+            raise NotFoundError(
+                "Product has been ordered previously. Please request the polling endpoint before download it."
             )
 
-        # if product.properties.get("storageStatus") != ONLINE_STATUS and hasattr( # pas nessaire car le but c'est d'aller à l'endpoint de polling si déjà ordered
-        #     product.downloader, "order_response_process"
-        # ):
-        #     # update product (including orderStatusLink) if product was previously ordered
-        #     logger.debug("Use given download query arguments to parse order link")
-        #     response = Mock(spec=RequestsResponse)
-        #     response.status_code = 200
-        #     response.json.return_value = product.search_kwargs # faire un {} au cas où ? # query_args
-        #     response.headers = {}
-        #     product.downloader.order_response_process(response, product)
-
-        if (
-            product.properties.get("storageStatus") == OFFLINE_STATUS
-            and NOT_AVAILABLE not in product.properties.get("orderStatusLink", NOT_AVAILABLE)
-        ):
-            product.properties["storageStatus"] = STAGING_STATUS # vraiment utile ? car on met à staging au début de order_download()
-
-        # if (
-        #     # product.properties.get("storageStatus") != ONLINE_STATUS
-        #     # and NOT_AVAILABLE in product.properties.get("orderStatusLink", "")
-        #     not getattr(product.downloader, "order_download")
-        # ):
-            # first order
         logger.debug("Order product")
-        product.downloader.order_download( #order_status_dict = product.downloader.order_download(
+        _ = product.downloader.order_download(
             product=product, auth=auth
         )
 
@@ -112,17 +88,14 @@ class BaseCollectionOrderClient():
                 "Download order failed. It can be due to a lack of product found, so you "
                 f"may change 'dc_qs' argument. The one used for this order was: {dc_qs}"
             )
-        # raise erreur si on a aucun asset et dire "Please check your 'dc_qs' argument: {dc_qs}"
-        # return un stacitem, pas un orjson
-        return ORJSONResponse(
-            status_code=200,
-            # headers={"Location": download_link}, # besoin de mettre un header qui correspond au contexte ?
-            content={
-                "description": "Product has been ordered with success. To make it available, please request the pooling endpoint by using the order:id property",
-                "order:status": STATUS_STAC_MATCHING[product.properties.get("storageStatus", OFFLINE_STATUS)],
-                "order:id": product.properties.get("orderId"),
-            },
+
+        return create_stac_item(
+            product,
+            self.stac_metadata_model,
+            self.extension_is_enabled,
+            request
         )
+
 
 @attr.s
 class DataOrderUri(APIRequest):
@@ -165,7 +138,7 @@ class CollectionOrderExtension(ApiExtension):
             responses={
                 200: {
                     "content": {
-                        "application/json": {},
+                        "application/geo+json": {},
                     },
                 }
             },

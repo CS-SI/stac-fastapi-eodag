@@ -37,7 +37,10 @@ from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
 from stac_fastapi.eodag.errors import add_exception_handlers
-from stac_fastapi.eodag.extensions.collection_order import CollectionOrderExtension
+from stac_fastapi.eodag.extensions.collection_order import (
+    BaseCollectionOrderClient,
+    CollectionOrderExtension,
+)
 from stac_fastapi.eodag.extensions.collection_search import CollectionSearchExtension
 from stac_fastapi.eodag.extensions.data_download import DataDownload
 from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
@@ -80,7 +83,9 @@ extensions_map = {
     ),
     "query": QueryExtension(),
     "sort": SortExtension(),
-    "data-order": CollectionOrderExtension(),
+    "data-order": CollectionOrderExtension(
+        client=BaseCollectionOrderClient(stac_metadata_model=stac_metadata_model)
+    ),
     "data-download": DataDownload(),
 }
 
@@ -90,6 +95,10 @@ if enabled_extensions := os.getenv("ENABLED_EXTENSIONS"):
     ]
 else:
     extensions = list(extensions_map.values())
+
+for e in extensions:
+    if isinstance(e, CollectionOrderExtension):
+        e.client.extensions = extensions
 
 
 @asynccontextmanager
