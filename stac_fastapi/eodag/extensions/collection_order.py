@@ -129,11 +129,11 @@ class BaseCollectionOrderClient:
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
-        # check if the collection is correct
+        # check if the collection is known
         try:
             product_type = dag.get_product_type_from_alias(collection_id)
         except NoMatchingProductType as e:
-            raise UnsupportedProductType(f"{collection_id} is not available") from e
+            raise NotFoundError(e) from e
 
         # set fake properties to make EOProduct initialization possible
         # among these properties, "title" is set to deal with error while polling

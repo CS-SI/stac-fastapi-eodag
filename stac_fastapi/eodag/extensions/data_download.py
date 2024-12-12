@@ -34,6 +34,8 @@ from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
 
+from stac_fastapi.eodag.errors import NoMatchingProductType
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,13 +97,19 @@ class BaseDataDownloadClient:
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
-        search_results = dag.search(id=item_id, productType=collection_id, provider=federation_backend)
+        # check if the collection is known
+        try:
+            product_type = dag.get_product_type_from_alias(collection_id)
+        except NoMatchingProductType as e:
+            raise NotFoundError(e) from e
+
+        search_results = dag.search(id=item_id, productType=product_type, provider=federation_backend)
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
         else:
             raise NotFoundError(
-                f"Could not find {item_id} item in {collection_id} collection",
+                f"Could not find {item_id} item in {product_type} collection",
                 f" for backend {federation_backend}.",
             )
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
