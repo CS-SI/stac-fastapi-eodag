@@ -29,7 +29,6 @@ from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import (
     DEFAULT_GEOMETRY,
     OFFLINE_STATUS,
-    ONLINE_STATUS,
 )
 from fastapi import APIRouter, FastAPI, Path, Query, Request
 from stac_fastapi.api.routes import create_async_endpoint
@@ -39,9 +38,11 @@ from stac_fastapi.types.search import APIRequest
 from stac_fastapi.types.stac import Item
 
 from stac_fastapi.eodag.errors import (
+    DownloadError,
     MisconfiguredError,
     NoMatchingProductType,
-    UnsupportedProductType,
+    NotAvailableError,
+    ValidationError,
 )
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
@@ -160,14 +161,21 @@ class BaseCollectionOrderClient:
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
         logger.debug("Poll product")
-        _ = product.downloader.order_download_status(
-            product=product, auth=auth
-        )
-
-        if product.properties.get("storageStatus", OFFLINE_STATUS) != ONLINE_STATUS:
-            raise NotFoundError(
-                f"Polling failed. Please check 'order_id' argument: {order_id}"
+        try:
+            _ = product.downloader.order_download_status(
+                product=product, auth=auth
             )
+        except NotAvailableError:
+            pass
+        except Exception as e:
+            if (
+                (isinstance(e, DownloadError) or isinstance(e, ValidationError))
+                and "order status could not be checked" in e.args[0]
+            ):
+                raise NotFoundError(
+                    f"Item {order_id} does not exist. Please order it first"
+                ) from e
+            raise NotFoundError(e) from e
 
         return create_stac_item(
             product,
