@@ -199,13 +199,14 @@ class CollectionPollingUri(APIRequest):
 class CollectionOrderExtension(ApiExtension):
     """Collection Order extension.
 
-    The order-collection extension allow to order a collection directly through the EODAG STAC
+    The order-collection extension allow to order and poll a collection directly through the EODAG STAC
     server.
 
     Usage:
     ------
 
-        ``POST /collections/{collection_id}/{federation_backend}/orders``
+        ``POST /collections/{collection_id}/{federation_backend}/retrieve``
+        ``GET /collections/{collection_id}/{federation_backend}/retrieve/{order_id}``
     """
 
     client: BaseCollectionOrderClient = attr.ib(factory=BaseCollectionOrderClient)
@@ -221,7 +222,7 @@ class CollectionOrderExtension(ApiExtension):
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(
             name="Order collection",
-            path="/collections/{collection_id}/{federation_backend}/orders",
+            path="/collections/{collection_id}/{federation_backend}/retrieve",
             methods=["POST"],
             responses={
                 200: {
@@ -234,7 +235,7 @@ class CollectionOrderExtension(ApiExtension):
         )
         self.router.add_api_route(
             name="Poll collection",
-            path="/collections/{collection_id}/{federation_backend}/orders/{order_id}",
+            path="/collections/{collection_id}/{federation_backend}/retrieve/{order_id}",
             methods=["GET"],
             responses={
                 200: {

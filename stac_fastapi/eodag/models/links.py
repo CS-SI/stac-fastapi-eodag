@@ -271,14 +271,14 @@ class ItemLinks(CollectionLinksBase):
         """Create the `collection` link."""
         return self.collection_link()
 
-    def link_order(self) -> Optional[dict[str, str]]:
-        """Create the `order` link."""
+    def link_retrieve(self) -> Optional[dict[str, str]]:
+        """Create the `retrieve` link."""
         if self.order_link is None:
             return None
-        orders_url = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/orders")
+        orders_url = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/retrieve")
         href = merge_params(orders_url, {"dc_qs": [self.dc_qs]}) if self.dc_qs is not None else orders_url
         return {
-            "rel": "order",
+            "rel": "retrieve",
             "type": MimeTypes.geojson.value,
             "href": href,
         }
