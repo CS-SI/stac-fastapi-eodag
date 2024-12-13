@@ -41,7 +41,7 @@ from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import ONLINE_STATUS
+from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS
 from eodag.utils import deepcopy
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
@@ -336,11 +336,19 @@ def create_stac_item(
 
     # remove "id" property of the product since the STAC item will have "id" key out of its properties
     del product.properties["id"]
+    # prepare the initialization of "order:status" STAC property according to "storageStatus" EODAG property
+    if product.properties["storageStatus"] == ONLINE_STATUS:
+        product.properties["status"] = "succeeded"
+    elif product.properties["storageStatus"] == STAGING_STATUS:
+        product.properties["status"] = "shipping"
+    else:
+        product.properties["status"] = "orderable"
+
     provider_dict = get_provider_dict(request, product.provider)
-    feature_model = model.model_validate({
-        **product.properties,
-        **{"federation:backends": [product.provider], "providers": [provider_dict]},
-    })
+
+    feature_model = model.model_validate(
+        {**product.properties, **{"federation:backends": [product.provider], "providers": [provider_dict]}}
+    )
     stac_extensions.update(feature_model.get_conformance_classes())
     feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
 
