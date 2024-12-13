@@ -27,7 +27,7 @@ from typing import Annotated, Iterator, Optional, cast
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import ONLINE_STATUS
+from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS
 from fastapi import APIRouter, FastAPI, Path, Request
 from fastapi.responses import StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
@@ -147,8 +147,9 @@ class BaseDataDownloadClient:
                 _ = product.downloader.order_download_status(
                     product=product, auth=auth
                 )
+            # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
-                pass
+                product.properties["storageStatus"] = STAGING_STATUS
             except Exception as e:
                 if (
                     (isinstance(e, DownloadError) or isinstance(e, ValidationError))

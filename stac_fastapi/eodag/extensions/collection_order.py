@@ -29,6 +29,7 @@ from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import (
     DEFAULT_GEOMETRY,
     OFFLINE_STATUS,
+    STAGING_STATUS,
 )
 from fastapi import APIRouter, FastAPI, Path, Query, Request
 from stac_fastapi.api.routes import create_async_endpoint
@@ -165,8 +166,9 @@ class BaseCollectionOrderClient:
             _ = product.downloader.order_download_status(
                 product=product, auth=auth
             )
+        # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
         except NotAvailableError:
-            pass
+            product.properties["storageStatus"] = STAGING_STATUS
         except Exception as e:
             if (
                 (isinstance(e, DownloadError) or isinstance(e, ValidationError))
