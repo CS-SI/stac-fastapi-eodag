@@ -255,6 +255,7 @@ class ItemLinks(CollectionLinksBase):
 
     item_id: str = attr.ib()
     order_link: Optional[str] = attr.ib()
+    order_status_link: Optional[str] = attr.ib()
     federation_backend: str = attr.ib()
     dc_qs: Optional[str] = attr.ib()
 
@@ -281,4 +282,17 @@ class ItemLinks(CollectionLinksBase):
             "rel": "retrieve",
             "type": MimeTypes.geojson.value,
             "href": href,
+        }
+
+    def link_poll(self) -> Dict[str, str] | None:
+        """Create the `poll` link."""
+        if self.order_status_link is None:
+            return None
+
+        return {
+            "rel": "poll",
+            "type": MimeTypes.geojson.value,
+            "href": self.resolve(
+                f"/collections/{self.collection_id}/{self.federation_backend}/retrieve/{self.item_id}"
+            ),
         }
