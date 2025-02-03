@@ -84,9 +84,6 @@ class BaseCollectionOrderClient:
                 f"Could not find any item in {collection_id} collection for backend {federation_backend}.",
             )
 
-        if not getattr(product.downloader, "order_download", None):
-            raise MisconfiguredError("Product downloader must have a the order method")
-
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
         if product.properties.get("orderLink") is None or product.properties.get("storageStatus") != OFFLINE_STATUS:
@@ -103,13 +100,12 @@ class BaseCollectionOrderClient:
         if product.downloader is None:
             logger.error("No downloader available for %s", product)
             raise_error = True
-
-        elif not hasattr(product.downloader, "order_download"):
-            logger.error("No order_download method available for %s of %s", product.downloader, product)
+        elif not hasattr(product.downloader, "_order"):
+            logger.error("No _order method available for %s of %s", product.downloader, product)
             raise_error = True
         else:
             logger.debug("Order product")
-            _ = product.downloader.order_download(product=product, auth=auth)
+            _ = product.downloader._order(product=product, auth=auth)
 
         if raise_error or product.properties.get("orderId") is None:
             raise NotFoundError(
@@ -156,14 +152,14 @@ class BaseCollectionOrderClient:
         product.properties = {**product.properties, **search_link}
         product.downloader_auth = dag._plugins_manager.get_auth_plugin(product.downloader, product)
 
-        if not getattr(product.downloader, "order_download_status", None):
+        if not getattr(product.downloader, "_order_status", None):
             raise MisconfiguredError("Product downloader must have the order status request method")
 
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
         logger.debug("Poll product")
         try:
-            _ = product.downloader.order_download_status(
+            _ = product.downloader._order_status(
                 product=product, auth=auth
             )
         # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled

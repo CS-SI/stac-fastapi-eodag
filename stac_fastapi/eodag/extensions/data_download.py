@@ -137,14 +137,14 @@ class BaseDataDownloadClient:
             if product.downloader.config.order_on_response["metadata_mapping"].get("searchLink"):
                 product.properties["searchLink"] = product.downloader.config.order_on_response["metadata_mapping"]["searchLink"].format(orderId=item_id)
 
-            if not getattr(product.downloader, "order_download_status", None):
+            if not getattr(product.downloader, "_order_status", None):
                 raise MisconfiguredError("Product downloader must have the order status request method")
 
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
             logger.debug("Poll product")
             try:
-                _ = product.downloader.order_download_status(
+                _ = product.downloader._order_status(
                     product=product, auth=auth
                 )
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
