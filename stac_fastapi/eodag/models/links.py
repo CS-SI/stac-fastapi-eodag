@@ -1,6 +1,23 @@
+# -*- coding: utf-8 -*-
+# Copyright 2025, CS GROUP - France, https://www.cs-soprasteria.com
+#
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """link helpers."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import ParseResult, parse_qs, unquote, urlencode, urljoin, urlparse
 
 import attr
@@ -85,9 +102,9 @@ class BaseLinks:
 
     def get_links(
         self,
-        extra_links: Optional[List[Dict[str, Any]]] = None,
-        request_json: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        extra_links: Optional[list[dict[str, Any]]] = None,
+        request_json: Optional[dict[str, Any]] = None,
+    ) -> list[dict[str, Any]]:
         """
         Generate all the links.
 
@@ -125,7 +142,7 @@ class PagingLinks(BaseLinks):
     next: Optional[int] = attr.ib(kw_only=True, default=None)
     prev: Optional[str] = attr.ib(kw_only=True, default=None)
 
-    def link_next(self) -> Optional[Dict[str, Any]]:
+    def link_next(self) -> Optional[dict[str, Any]]:
         """Create link for next page."""
         if self.next is not None:
             method = self.request.method
@@ -148,7 +165,7 @@ class PagingLinks(BaseLinks):
 
         return None
 
-    def link_prev(self) -> Optional[Dict[str, Any]]:
+    def link_prev(self) -> Optional[dict[str, Any]]:
         """Create link for previous page."""
         if self.prev is not None:
             method = self.request.method
@@ -241,33 +258,28 @@ class ItemLinks(CollectionLinksBase):
     federation_backend: str = attr.ib()
     dc_qs: str = attr.ib()
 
-    def link_self(self) -> Dict[str, str]:
+    def link_self(self) -> dict[str, str]:
         """Create the self link."""
         return {
             "rel": Relations.self.value,
             "type": MimeTypes.geojson.value,
-            "href": self.resolve(
-                f"collections/{self.collection_id}/items/{self.item_id}"
-            ),
+            "href": self.resolve(f"collections/{self.collection_id}/items/{self.item_id}"),
         }
 
-    def link_parent(self) -> Dict[str, str]:
+    def link_parent(self) -> dict[str, str]:
         """Create the `parent` link."""
         return self.collection_link(rel=Relations.parent.value)
 
-    def link_collection(self) -> Dict[str, str]:
+    def link_collection(self) -> dict[str, str]:
         """Create the `collection` link."""
         return self.collection_link()
 
-    def link_order(self) -> Dict[str, str] | None:
+    def link_order(self) -> Optional[dict[str, str]]:
         """Create the `order` link."""
         if self.order_link is None:
             return None
         href = merge_params(
-            self.resolve(
-                f"/collections/{self.collection_id}/{self.federation_backend}/orders"
-            ),
-            {"dc_qs": [self.dc_qs]}
+            self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/orders"), {"dc_qs": [self.dc_qs]}
         )
         return {
             "rel": "order",

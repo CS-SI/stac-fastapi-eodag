@@ -1,10 +1,8 @@
-"""Initialize EODAG"""
-
 # -*- coding: utf-8 -*-
-# Copyright 2024, CS GROUP - France, https://www.csgroup.eu/
+# Copyright 2024, CS GROUP - France, https://www.cs-soprasteria.com
 #
-# This file is part of EODAG project
-#     https://www.github.com/CS-SI/EODAG
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +15,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Initialize EODAG"""
+
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 from fastapi import FastAPI
 
@@ -35,14 +35,14 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_external_stac_collections(
-    product_types: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Any]]:
+    product_types: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
     """Load external STAC collections
 
-    :param dag: EODAG python instance
-    :type dag: :class:`eodag.api.core.EODataAccessGateway`
+    :param product_types: detailed product types dict list
+    :return: dict of external STAC collections indexed by product type ID
     """
-    ext_stac_collections: Dict[str, Dict[str, Any]] = {}
+    ext_stac_collections: dict[str, dict[str, Any]] = {}
 
     for product_type in product_types:
         file_path = product_type.get("stacCollection")
@@ -85,10 +85,8 @@ def init_dag(app: FastAPI) -> None:
             ext_col = ext_stac_collections.get(key)
             if not ext_col:
                 continue
-            platform: Union[str, List[str]] = ext_col.get("summaries", {}).get("platform")
-            constellation: Union[str, List[str]] = ext_col.get("summaries", {}).get(
-                "constellation"
-            )
+            platform: Union[str, list[str]] = ext_col.get("summaries", {}).get("platform")
+            constellation: Union[str, list[str]] = ext_col.get("summaries", {}).get("constellation")
             # Check if platform or constellation are lists
             # and join them into a string if they are
             if isinstance(platform, list):
@@ -100,9 +98,7 @@ def init_dag(app: FastAPI) -> None:
                 "title": ext_col.get("title"),
                 "abstract": ext_col["description"],
                 "keywords": ext_col.get("keywords"),
-                "instrument": ",".join(
-                    ext_col.get("summaries", {}).get("instruments", [])
-                ),
+                "instrument": ",".join(ext_col.get("summaries", {}).get("instruments", [])),
                 "platform": constellation,
                 "platformSerialIdentifier": platform,
                 "processingLevel": ext_col.get("summaries", {}).get("processing:level"),

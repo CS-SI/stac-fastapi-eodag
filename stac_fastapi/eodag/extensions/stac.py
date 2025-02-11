@@ -1,3 +1,20 @@
+# -*- coding: utf-8 -*-
+# Copyright 2025, CS GROUP - France, https://www.cs-soprasteria.com
+#
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """properties for extensions."""
 
 from typing import Annotated, Any, Optional, Union
@@ -26,7 +43,7 @@ class BaseStacExtension:
 
     schema_href: str = attr.ib(default=None)
 
-    field_name_prefix: str | None = attr.ib(default=None)
+    field_name_prefix: Optional[str] = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         """Add serialization validation_alias to extension properties
@@ -44,23 +61,21 @@ class SarFields(BaseModel):
     https://github.com/stac-extensions/sar#item-properties-or-asset-fields
     """
 
-    instrument_mode: str | None = Field(None, validation_alias="sensorMode")
-    frequency_band: str | None = Field(None, validation_alias="dopplerFrequency")
-    center_frequency: float | None = Field(None)
+    instrument_mode: Optional[str] = Field(None, validation_alias="sensorMode")
+    frequency_band: Optional[str] = Field(None, validation_alias="dopplerFrequency")
+    center_frequency: Optional[float] = Field(None)
     polarizations: Annotated[
         Optional[Union[str, list[str]]],
         BeforeValidator(str2liststr),
-    ] = Field(
-        None, validation_alias="polarizationChannels"
-    )  # TODO: EODAG split string by "," to get this list
-    resolution_range: float | None = Field(None)
-    resolution_azimuth: float | None = Field(None)
-    pixel_spacing_range: float | None = Field(None)
-    pixel_spacing_azimuth: float | None = Field(None)
-    looks_range: int | None = Field(None)
-    looks_azimuth: int | None = Field(None)
-    looks_equivalent_number: float | None = Field(None)
-    observation_direction: str | None = Field(None)
+    ] = Field(None, validation_alias="polarizationChannels")  # TODO: EODAG split string by "," to get this list
+    resolution_range: Optional[float] = Field(None)
+    resolution_azimuth: Optional[float] = Field(None)
+    pixel_spacing_range: Optional[float] = Field(None)
+    pixel_spacing_azimuth: Optional[float] = Field(None)
+    looks_range: Optional[int] = Field(None)
+    looks_azimuth: Optional[int] = Field(None)
+    looks_equivalent_number: Optional[float] = Field(None)
+    observation_direction: Optional[str] = Field(None)
 
 
 @attr.s
@@ -69,10 +84,8 @@ class SarExtension(BaseStacExtension):
 
     FIELDS = SarFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/sar/v1.0.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="sar")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/sar/v1.0.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="sar")
 
 
 class SatelliteFields(BaseModel):
@@ -80,13 +93,11 @@ class SatelliteFields(BaseModel):
     https://github.com/stac-extensions/sat#item-properties
     """
 
-    platform_international_designator: str | None = Field(
-        None, validation_alias="platform_international_designator"
-    )
-    orbit_state: str | None = Field(None, validation_alias="orbitDirection")
-    absolute_orbit: int | None = Field(None, validation_alias="orbitNumber")
-    relative_orbit: int | None = Field(None, validation_alias="relativeOrbitNumber")
-    anx_datetime: str | None = Field(None)
+    platform_international_designator: Optional[str] = Field(None, validation_alias="platform_international_designator")
+    orbit_state: Optional[str] = Field(None, validation_alias="orbitDirection")
+    absolute_orbit: Optional[int] = Field(None, validation_alias="orbitNumber")
+    relative_orbit: Optional[int] = Field(None, validation_alias="relativeOrbitNumber")
+    anx_datetime: Optional[str] = Field(None)
 
 
 @attr.s
@@ -95,10 +106,8 @@ class SatelliteExtension(BaseStacExtension):
 
     FIELDS = SatelliteFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/sat/v1.0.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="sat")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/sat/v1.0.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="sat")
 
 
 class TimestampFields(BaseModel):
@@ -106,9 +115,9 @@ class TimestampFields(BaseModel):
     https://github.com/stac-extensions/timestamps#item-properties
     """
 
-    published: str | None = Field(None, validation_alias="publicationDate")
-    unpublished: str | None = Field(None)
-    expires: str | None = Field(None)
+    published: Optional[str] = Field(None, validation_alias="publicationDate")
+    unpublished: Optional[str] = Field(None)
+    expires: Optional[str] = Field(None)
 
 
 @attr.s
@@ -117,9 +126,7 @@ class TimestampExtension(BaseStacExtension):
 
     FIELDS = TimestampFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/timestamps/v1.0.0/schema.json"
-    )
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/timestamps/v1.0.0/schema.json")
 
 
 class ProcessingFields(BaseModel):
@@ -128,10 +135,10 @@ class ProcessingFields(BaseModel):
     """
 
     expression: dict[str, Any] = Field(None)
-    lineage: str | None = Field(None)
-    level: str | None = Field(None, validation_alias="processingLevel")
-    facility: str | None = Field(None)
-    software: dict[str, str] | None = Field(None)
+    lineage: Optional[str] = Field(None)
+    level: Optional[str] = Field(None, validation_alias="processingLevel")
+    facility: Optional[str] = Field(None)
+    software: Optional[dict[str, str]] = Field(None)
 
 
 @attr.s
@@ -140,10 +147,8 @@ class ProcessingExtension(BaseStacExtension):
 
     FIELDS = ProcessingFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/processing/v1.0.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="processing")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/processing/v1.0.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="processing")
 
 
 class ViewGeometryFields(BaseModel):
@@ -151,13 +156,11 @@ class ViewGeometryFields(BaseModel):
     https://github.com/stac-extensions/view#item-properties
     """
 
-    off_nadir: float | None = Field(None)
-    incidence_angle: float | None = Field(None)
-    azimuth: float | None = Field(None)
-    sun_azimuth: float | None = Field(None, validation_alias="illuminationAzimuthAngle")
-    sun_elevation: float | None = Field(
-        None, validation_alias="illuminationElevationAngle"
-    )
+    off_nadir: Optional[float] = Field(None)
+    incidence_angle: Optional[float] = Field(None)
+    azimuth: Optional[float] = Field(None)
+    sun_azimuth: Optional[float] = Field(None, validation_alias="illuminationAzimuthAngle")
+    sun_elevation: Optional[float] = Field(None, validation_alias="illuminationElevationAngle")
 
 
 @attr.s
@@ -166,10 +169,8 @@ class ViewGeometryExtension(BaseStacExtension):
 
     FIELDS = ViewGeometryFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/view/v1.0.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="view")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/view/v1.0.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="view")
 
 
 class ElectroOpticalFields(BaseModel):
@@ -177,9 +178,9 @@ class ElectroOpticalFields(BaseModel):
     https://github.com/stac-extensions/eo#item-properties
     """
 
-    cloud_cover: float | None = Field(None, validation_alias="cloudCover")
-    snow_cover: float | None = Field(None, validation_alias="snowCover")
-    bands: list[dict[str, str | int]] | None = Field(None)
+    cloud_cover: Optional[float] = Field(None, validation_alias="cloudCover")
+    snow_cover: Optional[float] = Field(None, validation_alias="snowCover")
+    bands: Optional[list[dict[str, Union[str, int]]]] = Field(None)
 
 
 @attr.s
@@ -188,10 +189,8 @@ class ElectroOpticalExtension(BaseStacExtension):
 
     FIELDS = ElectroOpticalFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/eo/v1.0.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="eo")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/eo/v1.0.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="eo")
 
 
 class ScientificCitationFields(BaseModel):
@@ -199,9 +198,9 @@ class ScientificCitationFields(BaseModel):
     https://github.com/stac-extensions/scientific#item-properties
     """
 
-    doi: str | None = Field(None)
-    citation: str | None = Field(None)
-    publications: list[dict[str, str]] | None = Field(None)
+    doi: Optional[str] = Field(None)
+    citation: Optional[str] = Field(None)
+    publications: Optional[list[dict[str, str]]] = Field(None)
 
 
 @attr.s
@@ -210,10 +209,8 @@ class ScientificCitationExtension(BaseStacExtension):
 
     FIELDS = ScientificCitationFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/scientific/v1.0.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="sci")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/scientific/v1.0.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="sci")
 
 
 class ProductFields(BaseModel):
@@ -221,9 +218,9 @@ class ProductFields(BaseModel):
     https://github.com/stac-extensions/product#fields
     """
 
-    type: str | None = Field(None)
-    timeliness: str | None = Field(None)
-    timeliness_category: str | None = Field(None)
+    type: Optional[str] = Field(None)
+    timeliness: Optional[str] = Field(None)
+    timeliness_category: Optional[str] = Field(None)
 
 
 @attr.s
@@ -232,17 +229,11 @@ class ProductExtension(BaseStacExtension):
 
     FIELDS = ProductFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/product/v0.1.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="product")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/product/v0.1.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="product")
 
 
-STATUS_STAC_MATCHING = {
-    ONLINE_STATUS: "succeeded",
-    STAGING_STATUS: "shipping",
-    OFFLINE_STATUS: "orderable"
-}
+STATUS_STAC_MATCHING = {ONLINE_STATUS: "succeeded", STAGING_STATUS: "shipping", OFFLINE_STATUS: "orderable"}
 
 
 class StorageFields(BaseModel):
@@ -250,14 +241,14 @@ class StorageFields(BaseModel):
     https://github.com/stac-extensions/storage#fields
     """
 
-    platform: str | None = Field(default=None)
-    region: str | None = Field(default=None)
-    requester_pays: bool | None = Field(default=None)
-    tier: str | None = Field(default=None, validation_alias="storageStatus")
+    platform: Optional[str] = Field(default=None)
+    region: Optional[str] = Field(default=None)
+    requester_pays: Optional[bool] = Field(default=None)
+    tier: Optional[str] = Field(default=None, validation_alias="storageStatus")
 
     @field_validator("tier")
     @classmethod
-    def tier_to_stac(cls, v: str | None) -> str:
+    def tier_to_stac(cls, v: Optional[str]) -> str:
         """Convert tier from EODAG naming to STAC"""
         return STATUS_STAC_MATCHING[v or OFFLINE_STATUS]
 
@@ -268,10 +259,8 @@ class StorageExtension(BaseStacExtension):
 
     FIELDS = StorageFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/storage/v1.0.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="storage")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/storage/v1.0.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="storage")
 
 
 class OrderFields(BaseModel):
@@ -279,9 +268,9 @@ class OrderFields(BaseModel):
     https://github.com/stac-extensions/order#fields
     """
 
-    status: str | None = Field(default=None)
-    id: str | None = Field(default=None, validation_alias="orderId")
-    date: bool | None = Field(default=None)
+    status: Optional[str] = Field(default=None)
+    id: Optional[str] = Field(default=None, validation_alias="orderId")
+    date: Optional[bool] = Field(default=None)
 
 
 @attr.s
@@ -290,7 +279,5 @@ class OrderExtension(BaseStacExtension):
 
     FIELDS = OrderFields
 
-    schema_href: str = attr.ib(
-        default="https://stac-extensions.github.io/order/v1.1.0/schema.json"
-    )
-    field_name_prefix: str | None = attr.ib(default="order")
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/order/v1.1.0/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="order")

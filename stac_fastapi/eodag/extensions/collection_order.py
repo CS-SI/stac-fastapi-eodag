@@ -1,9 +1,25 @@
+# -*- coding: utf-8 -*-
+# Copyright 2025, CS GROUP - France, https://www.cs-soprasteria.com
+#
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Collection-order extension."""
 
 import logging
 from typing import (
     Annotated,
-    List,
     Type,
     cast,
 )
@@ -30,11 +46,13 @@ from stac_fastapi.eodag.models.stac_metadata import (
 
 logger = logging.getLogger(__name__)
 
+
 @attr.s
-class BaseCollectionOrderClient():
+class BaseCollectionOrderClient:
     """Defines a pattern for implementing the collection order extension."""
+
     stac_metadata_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
-    extensions: List[ApiExtension] = attr.ib(default=[])
+    extensions: list[ApiExtension] = attr.ib(default=[])
 
     def extension_is_enabled(self, extension: str) -> bool:
         """Check if an api extension is enabled."""
@@ -51,16 +69,13 @@ class BaseCollectionOrderClient():
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
-        search_results = dag.search(
-            id="fake_id", productType=collection_id, provider=federation_backend, _dc_qs=dc_qs
-        )
+        search_results = dag.search(id="fake_id", productType=collection_id, provider=federation_backend, _dc_qs=dc_qs)
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
         else:
             raise NotFoundError(
-                f"Could not find any item in {collection_id} collection"
-                f" for backend {federation_backend}.",
+                f"Could not find any item in {collection_id} collection for backend {federation_backend}.",
             )
 
         if not getattr(product.downloader, "order_download", None):
@@ -79,9 +94,7 @@ class BaseCollectionOrderClient():
             )
 
         logger.debug("Order product")
-        _ = product.downloader.order_download(
-            product=product, auth=auth
-        )
+        _ = product.downloader.order_download(product=product, auth=auth)
 
         if product.properties.get("orderId") is None:
             raise NotFoundError(
@@ -89,21 +102,14 @@ class BaseCollectionOrderClient():
                 f"may change 'dc_qs' argument. The one used for this order was: {dc_qs}"
             )
 
-        return create_stac_item(
-            product,
-            self.stac_metadata_model,
-            self.extension_is_enabled,
-            request
-        )
+        return create_stac_item(product, self.stac_metadata_model, self.extension_is_enabled, request)
 
 
 @attr.s
 class CollectionOrderUri(APIRequest):
     """Order collection."""
 
-    federation_backend: Annotated[str, Path(description="Federation backend name")] = (
-        attr.ib()
-    )
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
     collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
     dc_qs: Annotated[str, Query(description="Datacube query string")] = attr.ib()
 
@@ -114,21 +120,22 @@ class CollectionOrderExtension(ApiExtension):
 
     The order-collection extension allow to order a collection directly through the EODAG STAC
     server.
-    Attributes:
-        POST /collections/{collection_id}/{federation_backend}/orders
+
+    Usage:
+    ------
+
+        ``POST /collections/{collection_id}/{federation_backend}/orders``
     """
 
     client: BaseCollectionOrderClient = attr.ib(factory=BaseCollectionOrderClient)
     router: APIRouter = attr.ib(factory=APIRouter)
 
     def register(self, app: FastAPI) -> None:
-        """Register the extension with a FastAPI application.
+        """
+        Register the extension with a FastAPI application.
 
-        Args:
-            app: target FastAPI application.
-
-        Returns:
-            None
+        :param app: Target FastAPI application.
+        :returns: None
         """
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(

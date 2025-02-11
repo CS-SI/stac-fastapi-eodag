@@ -1,8 +1,24 @@
+# -*- coding: utf-8 -*-
+# Copyright 2025, CS GROUP - France, https://www.cs-soprasteria.com
+#
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Collection Search extension."""
 
-from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, List, Optional, Union
+from typing import Annotated, Optional
 
 import attr
 from fastapi import FastAPI, Query
@@ -30,11 +46,10 @@ class CollectionSearchConformanceClasses(str, Enum):
 @attr.s
 class CollectionSearchExtensionGetRequest(APIRequest):
     """Collection Search extension GET request model."""
+
     limit: Annotated[Optional[int], Query()] = attr.ib(default=None)
     bbox: Annotated[Optional[BBox], Query()] = attr.ib(default=None, converter=str2bbox)
-    datetime: Annotated[Optional[DateTimeType], Query()] = attr.ib(
-        default=None, converter=str_to_interval
-    )
+    datetime: Annotated[Optional[DateTimeType], Query()] = attr.ib(default=None, converter=str_to_interval)
     q: Annotated[Optional[str], Query()] = attr.ib(default=None)
 
 
@@ -46,14 +61,12 @@ class CollectionSearchExtension(ApiExtension):
     to filter and all additional behavior will be defined in extensions.
 
     https://github.com/stac-api-extensions/collection-search/blob/main/README.md
-
-    Attributes:
-        conformance_classes: Conformance classes provided by the extension
     """
 
     GET = CollectionSearchExtensionGetRequest
 
-    conformance_classes: List[str] = attr.ib(
+    #: Conformance classes provided by the extension
+    conformance_classes: list[str] = attr.ib(
         default=[
             CollectionSearchConformanceClasses.BASICS,
             CollectionSearchConformanceClasses.FREETEXT_SEARCH,
@@ -61,12 +74,10 @@ class CollectionSearchExtension(ApiExtension):
     )
 
     def register(self, app: FastAPI) -> None:
-        """Register the extension with a FastAPI application.
+        """
+        Register the extension with a FastAPI application.
 
-        Args:
-            app (fastapi.FastAPI): target FastAPI application.
-
-        Returns:
-            None
+        :param app: Target FastAPI application.
+        :returns: None
         """
         pass

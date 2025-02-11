@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024, CS GROUP - France, https://www.csgroup.eu/
+# Copyright 2024, CS GROUP - France, https://www.cs-soprasteria.com
 #
-# This file is part of EODAG project
-#     https://www.github.com/CS-SI/EODAG
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@
 """Errors helper"""
 
 import logging
-from typing import NotRequired, Tuple, Type, TypedDict
+from typing import Tuple, Type, TypedDict
 
 from fastapi import FastAPI, Request
 from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
 from starlette import status
+from typing_extensions import NotRequired
 
 from eodag.rest.types.eodag_search import EODAGSearch
 from eodag.utils.exceptions import (
@@ -70,9 +71,7 @@ class ResponseSearchError(Exception):
 
     _alias_to_field_cache: dict[str, str] = {}
 
-    def __init__(
-        self, errors: list[Tuple[str, Exception]], stac_metadata_model: Type[BaseModel]
-    ) -> None:
+    def __init__(self, errors: list[Tuple[str, Exception]], stac_metadata_model: Type[BaseModel]) -> None:
         """Initialize error response class."""
         self._errors = errors
         self._stac_medatata_model = stac_metadata_model
@@ -94,10 +93,7 @@ class ResponseSearchError(Exception):
             error: SearchError = {
                 "provider": name,
                 "error": exc.__class__.__name__,
-                "status_code": EODAG_DEFAULT_STATUS_CODES.get(
-                    type(exc), getattr(exc, "status_code", None)
-                )
-                or 500,
+                "status_code": EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", None)) or 500,
             }
 
             if exc.args:
@@ -108,9 +104,7 @@ class ResponseSearchError(Exception):
 
             if type(exc) in (MisconfiguredError, AuthenticationError):
                 logger.error("%s: %s", type(exc).__name__, str(exc))
-                error["message"] = (
-                    "Internal server error: please contact the administrator"
-                )
+                error["message"] = "Internal server error: please contact the administrator"
                 error.pop("detail", None)
 
             if params := getattr(exc, "parameters", None):
@@ -132,9 +126,7 @@ class ResponseSearchError(Exception):
         return 400
 
 
-async def response_search_error_handler(
-    request: Request, exc: ResponseSearchError
-) -> ORJSONResponse:
+async def response_search_error_handler(request: Request, exc: ResponseSearchError) -> ORJSONResponse:
     """Handle ResponseSearchError exceptions"""
     return ORJSONResponse(
         status_code=exc.status_code,
@@ -165,16 +157,12 @@ async def eodag_errors_handler(request: Request, exc: EodagError) -> ORJSONRespo
     )
 
 
-def add_exception_handlers(
-    app: FastAPI
-) -> None:
-    """Add exception handlers to the FastAPI application.
+def add_exception_handlers(app: FastAPI) -> None:
+    """
+    Add exception handlers to the FastAPI application.
 
-    Args:
-        app: the FastAPI application.
-
-    Returns:
-        None
+    :param app: The FastAPI application.
+    :returns: None
     """
     app.add_exception_handler(RequestError, eodag_errors_handler)
     for exc in EODAG_DEFAULT_STATUS_CODES:

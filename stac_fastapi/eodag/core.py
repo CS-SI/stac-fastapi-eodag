@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-# Copyright 2023, CS GROUP - France, https://www.csgroup.eu/
+# Copyright 2023, CS GROUP - France, https://www.cs-soprasteria.com
 #
-# This file is part of EODAG project
-#     https://www.github.com/CS-SI/EODAG
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type, Union, cast
+from typing import Any, Optional, Union, cast
 from urllib.parse import unquote_plus, urljoin
 
 import attr
@@ -75,17 +75,12 @@ logger = logging.getLogger()
 class EodagCoreClient(AsyncBaseCoreClient):
     """"""
 
-    stac_metadata_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
+    post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
+    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
-    def _get_collection(
-        self, product_type: dict[str, Any], request: Request
-    ) -> Collection:
+    def _get_collection(self, product_type: dict[str, Any], request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
-        instruments = [
-            instrument
-            for instrument in (product_type.get("instrument") or "").split(",")
-            if instrument
-        ]
+        instruments = [instrument for instrument in (product_type.get("instrument") or "").split(",") if instrument]
 
         summaries = {
             key: value
@@ -120,24 +115,17 @@ class EodagCoreClient(AsyncBaseCoreClient):
             summaries=summaries,
         )
 
-        ext_stac_collection = deepcopy(
-            request.app.state.ext_stac_collections.get(product_type["ID"], {})
-        )
+        ext_stac_collection = deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {}))
 
-        collection["links"] = CollectionLinks(
-            collection_id=collection["id"], request=request
-        ).get_links(
-            extra_links=product_type.get("links", [])
-            + ext_stac_collection.get("links", [])
+        collection["links"] = CollectionLinks(collection_id=collection["id"], request=request).get_links(
+            extra_links=product_type.get("links", []) + ext_stac_collection.get("links", [])
         )
 
         # merge "keywords" lists
         if "keywords" in ext_stac_collection:
             try:
                 ext_stac_collection["keywords"] = [
-                    k
-                    for k in set(ext_stac_collection["keywords"] + collection["keywords"])
-                    if k is not None
+                    k for k in set(ext_stac_collection["keywords"] + collection["keywords"]) if k is not None
                 ]
             except TypeError as e:
                 logger.warning(
@@ -153,9 +141,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         return collection
 
-    async def _search_base(
-        self, search_request: BaseSearchPostRequest, request: Request
-    ) -> ItemCollection:
+    async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
 
         search_result = request.app.state.dag.search(**base_args)
@@ -169,11 +155,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         for product in search_result:
             feature = create_stac_item(
-                product,
-                self.stac_metadata_model,
-                self.extension_is_enabled,
-                request,
-                request_json
+                product, self.stac_metadata_model, self.extension_is_enabled, request, request_json
             )
             features.append(feature)
 
@@ -185,8 +167,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             number_returned = len(search_result)
             items_per_page = search_request.limit or DEFAULT_ITEMS_PER_PAGE
             if not search_result.number_matched or (
-                (search_request.page - 1) * items_per_page + number_returned
-                < search_result.number_matched
+                (search_request.page - 1) * items_per_page + number_returned < search_result.number_matched
             ):
                 next_page = search_request.page + 1
 
@@ -204,7 +185,17 @@ class EodagCoreClient(AsyncBaseCoreClient):
         limit: Optional[int] = None,
         q: Optional[str] = None,
     ) -> Collections:
-        """Get all collections from EODAG."""
+        """
+        Get all collections from EODAG.
+
+        :param request: The request object.
+        :param bbox: Bounding box to filter the collections.
+        :param datetime: Date and time range to filter the collections.
+        :param limit: Maximum number of collections to return.
+        :param q: Query string to filter the collections.
+        :returns: All collections.
+        :raises HTTPException: If the unsupported bbox parameter is provided.
+        """
         base_url = get_base_url(request)
 
         if bbox:
@@ -250,25 +241,20 @@ class EodagCoreClient(AsyncBaseCoreClient):
         ]
         return Collections(collections=collections or [], links=links)
 
-    async def get_collection(
-        self, collection_id: str, request: Request, **kwargs: Any
-    ) -> Collection:
-        """Get collection by id.
+    async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
+        """
+        Get collection by id.
 
-        Called with `GET /collections/{collection_id}`.
+        Called with ``GET /collections/{collection_id}``.
 
-        Args:
-            collection_id: ID of the collection.
-
-        Returns:
-            Collection.
+        :param collection_id: ID of the collection.
+        :param request: The request object.
+        :param kwargs: Additional arguments.
+        :returns: The collection.
+        :raises NotFoundError: If the collection does not exist.
         """
         product_type = next(
-            (
-                pt
-                for pt in request.app.state.dag.list_product_types(fetch_providers=False)
-                if pt["ID"] == collection_id
-            ),
+            (pt for pt in request.app.state.dag.list_product_types(fetch_providers=False) if pt["ID"] == collection_id),
             None,
         )
         if product_type is None:
@@ -286,17 +272,20 @@ class EodagCoreClient(AsyncBaseCoreClient):
         page: Optional[str] = None,
         **kwargs: Any,
     ) -> ItemCollection:
-        """Get all items from a specific collection.
+        """
+        Get all items from a specific collection.
 
-        Called with `GET /collections/{collection_id}/items`
+        Called with ``GET /collections/{collection_id}/items``.
 
-        Args:
-            collection_id: id of the collection.
-            limit: number of items to return.
-            token: pagination token.
-
-        Returns:
-            An ItemCollection.
+        :param collection_id: ID of the collection.
+        :param request: The request object.
+        :param bbox: Bounding box to filter the items.
+        :param datetime: Date and time range to filter the items.
+        :param limit: Maximum number of items to return.
+        :param page: Page token for pagination.
+        :param kwargs: Additional arguments.
+        :returns: An ItemCollection.
+        :raises NotFoundError: If the collection does not exist.
         """
         # If collection does not exist, NotFoundError wil be raised
         await self.get_collection(collection_id, request=request)
@@ -316,15 +305,21 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         search_request = self.post_request_model.model_validate(clean)
         item_collection = await self._search_base(search_request, request)
-        links = ItemCollectionLinks(
-            collection_id=collection_id, request=request
-        ).get_links(extra_links=item_collection["links"])
+        links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
+            extra_links=item_collection["links"]
+        )
         item_collection["links"] = links
         return item_collection
 
-    async def post_search(
-        self, search_request: EodagSearch, request: Request, **kwargs: Any
-    ) -> ItemCollection:
+    async def post_search(self, search_request: EodagSearch, request: Request, **kwargs: Any) -> ItemCollection:
+        """
+        Handle POST search requests.
+
+        :param search_request: The search request parameters.
+        :param request: The HTTP request object.
+        :param kwargs: Additional keyword arguments.
+        :returns: Found items.
+        """
         return await self._search_base(search_request, request)
 
     async def get_search(
@@ -337,12 +332,31 @@ class EodagCoreClient(AsyncBaseCoreClient):
         limit: Optional[int] = None,
         query: Optional[str] = None,
         page: Optional[str] = None,
-        sortby: Optional[List[str]] = None,
+        sortby: Optional[list[str]] = None,
         intersects: Optional[str] = None,
         filter: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
         **kwargs: Any,
     ) -> ItemCollection:
+        """
+        Handles the GET search request for STAC items.
+
+        :param request: The request object.
+        :param collections: List of collection IDs to include in the search.
+        :param ids: List of item IDs to include in the search.
+        :param bbox: Bounding box to filter the search.
+        :param datetime: Date and time range to filter the search.
+        :param limit: Maximum number of items to return.
+        :param query: Query string to filter the search.
+        :param page: Page token for pagination.
+        :param sortby: List of fields to sort the results by.
+        :param intersects: GeoJSON geometry to filter the search.
+        :param filter: CQL filter to apply to the search.
+        :param filter_lang: Language of the filter (default is "cql2-text").
+        :param kwargs: Additional arguments.
+        :returns: Found items.
+        :raises HTTPException: If the provided parameters are invalid.
+        """
         base_args = {
             "collections": collections,
             "ids": ids,
@@ -351,9 +365,7 @@ class EodagCoreClient(AsyncBaseCoreClient):
             "query": orjson.loads(unquote_plus(query)) if query else query,
             "page": page,
             "sortby": get_sortby_to_post(sortby),
-            "intersects": orjson.loads(unquote_plus(intersects))
-            if intersects
-            else intersects,
+            "intersects": orjson.loads(unquote_plus(intersects)) if intersects else intersects,
         }
 
         if datetime:
@@ -376,62 +388,62 @@ class EodagCoreClient(AsyncBaseCoreClient):
         try:
             search_request = self.post_request_model(**clean)
         except ValidationError as err:
-            raise HTTPException(
-                status_code=400, detail=f"Invalid parameters provided {err}"
-            ) from err
+            raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
         return await self.post_search(search_request, request)
 
-    async def get_item(
-        self, item_id: str, collection_id: str, request: Request, **kwargs: Any
-    ) -> Item:
+    async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:
+        """
+        Get item by ID.
+
+        :param item_id: ID of the item.
+        :param collection_id: ID of the collection.
+        :param request: The request object.
+        :param kwargs: Additional arguments.
+        :returns: The item.
+        :raises NotFoundError: If the item does not exist.
+        """
         # If collection does not exist, NotFoundError wil be raised
         await self.get_collection(collection_id, request=request)
 
-        search_request = self.post_request_model(
-            ids=[item_id], collections=[collection_id], limit=1
-        )
+        search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
         item_collection = await self._search_base(search_request, request)
         if not item_collection["features"]:
-            raise NotFoundError(
-                f"Item {item_id} in Collection {collection_id} does not exist."
-            )
+            raise NotFoundError(f"Item {item_id} in Collection {collection_id} does not exist.")
 
         return Item(**item_collection["features"][0])
 
-    async def download_item(
-        self, item_id: str, collection_id: str, request: Request, **kwargs
-    ):
+    async def download_item(self, item_id: str, collection_id: str, request: Request, **kwargs) -> StreamingResponse:
+        """
+        Download item by ID.
+
+        :param item_id: ID of the item.
+        :param collection_id: ID of the collection.
+        :param request: The request object.
+        :param kwargs: Additional arguments.
+        :returns: Streaming response for the item download.
+        """
         product: EOProduct
-        product, _ = request.app.state.dag.search(
-            {"productType": collection_id, "id": item_id}
-        )[0]
+        product, _ = request.app.state.dag.search({"productType": collection_id, "id": item_id})[0]
 
         # when could this really happen ?
         if not product.downloader:
-            download_plugin = request.app.state.dag._plugins_manager.get_download_plugin(
-                product
-            )
-            auth_plugin = request.app.state.dag._plugins_manager.get_auth_plugin(
-                download_plugin.provider
-            )
+            download_plugin = request.app.state.dag._plugins_manager.get_download_plugin(product)
+            auth_plugin = request.app.state.dag._plugins_manager.get_auth_plugin(download_plugin.provider)
             product.register_downloader(download_plugin, auth_plugin)
 
         # required for auth. Can be removed when EODAG implements the auth interface
         auth = (
-            product.downloader_auth.authenticate()
-            if product.downloader_auth is not None
-            else product.downloader_auth
+            product.downloader_auth.authenticate() if product.downloader_auth is not None else product.downloader_auth
         )
 
         # can we make something more clean here ?
-        download_stream_dict = product.downloader._stream_download_dict(
-            product, auth=auth
-        )
+        download_stream_dict = product.downloader._stream_download_dict(product, auth=auth)
 
         return StreamingResponse(**download_stream_dict)
 
-def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[BaseModel]) -> Dict[str, Any]:
+
+def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[BaseModel]) -> dict[str, Any]:
     """Prepare arguments for an eodag search based on a search request
 
     :param search_request: the search request
@@ -445,12 +457,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[
     base_args = {
         "items_per_page": search_request.limit,
         "geom": geom,
-        "start": search_request.start_date.isoformat()
-        if search_request.start_date
-        else None,
-        "end": search_request.end_date.isoformat()
-        if search_request.end_date
-        else None
+        "start": search_request.start_date.isoformat() if search_request.start_date else None,
+        "end": search_request.end_date.isoformat() if search_request.end_date else None,
     }
 
     # parse "sortby" search request attribute if it exists to make it work for an eodag search
@@ -498,9 +506,13 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: Type[
 
     return base_args
 
-def parse_query(query: Dict[str, Any]) -> Dict[str, Any]:
+
+def parse_query(query: dict[str, Any]) -> dict[str, Any]:
     """
     Convert a STAC query parameter filter with the "eq", "lte" or "in" operator to a dict.
+
+    :param query: The query parameter filter.
+    :returns: The parsed query.
     """
 
     def add_error(error_message: str, input: Any) -> None:
@@ -512,9 +524,9 @@ def parse_query(query: Dict[str, Any]) -> Dict[str, Any]:
             )
         )
 
-    query_props: Dict[str, Any] = {}
-    errors: List[InitErrorDetails] = []
-    for property_name, conditions in cast(Dict[str, Any], query).items():
+    query_props: dict[str, Any] = {}
+    errors: list[InitErrorDetails] = []
+    for property_name, conditions in cast(dict[str, Any], query).items():
         # Remove the prefix "properties." if present
         prop = property_name.replace("properties.", "", 1)
 
@@ -527,7 +539,7 @@ def parse_query(query: Dict[str, Any]) -> Dict[str, Any]:
             continue
 
         # Retrieve the operator and its value
-        operator, value = next(iter(cast(Dict[str, Any], conditions).items()))
+        operator, value = next(iter(cast(dict[str, Any], conditions).items()))
 
         # Validate the operator
         # only eq, in and lte are allowed
@@ -553,14 +565,17 @@ def parse_query(query: Dict[str, Any]) -> Dict[str, Any]:
         query_props[prop] = value
 
     if errors:
-        raise ValidationError.from_exception_data(
-            title="EODAGSearch", line_errors=errors
-        )
+        raise ValidationError.from_exception_data(title="EODAGSearch", line_errors=errors)
 
     return query_props
 
-def parse_cql2(filter_: Dict[str, Any]) -> Dict[str, Any]:
-    """Process CQL2 filter"""
+
+def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
+    """Process CQL2 filter
+
+    :param filter_: The CQL2 filter.
+    :returns: The parsed CQL2 filter
+    """
 
     def add_error(error_message: str) -> None:
         errors.append(
@@ -570,22 +585,18 @@ def parse_cql2(filter_: Dict[str, Any]) -> Dict[str, Any]:
             )
         )
 
-    errors: List[InitErrorDetails] = []
+    errors: list[InitErrorDetails] = []
     try:
         parsing_result = EodagEvaluator().evaluate(parse_json(filter_))  # type: ignore
     except (ValueError, NotImplementedError) as e:
         add_error(str(e))
-        raise ValidationError.from_exception_data(
-            title="EODAGSearch", line_errors=errors
-        ) from e
+        raise ValidationError.from_exception_data(title="EODAGSearch", line_errors=errors) from e
 
     if not is_dict_str_any(parsing_result):
         add_error("The parsed filter is not a proper dictionary")
-        raise ValidationError.from_exception_data(
-            title="EODAGSearch", line_errors=errors
-        )
+        raise ValidationError.from_exception_data(title="EODAGSearch", line_errors=errors)
 
-    cql_args: Dict[str, Any] = cast(Dict[str, Any], parsing_result)
+    cql_args: dict[str, Any] = cast(dict[str, Any], parsing_result)
 
     invalid_keys = {
         "collections": 'Use "collection" instead of "collections"',
@@ -596,8 +607,6 @@ def parse_cql2(filter_: Dict[str, Any]) -> Dict[str, Any]:
             add_error(m)
 
     if errors:
-        raise ValidationError.from_exception_data(
-            title="EODAGSearch", line_errors=errors
-        )
+        raise ValidationError.from_exception_data(title="EODAGSearch", line_errors=errors)
 
     return cql_args

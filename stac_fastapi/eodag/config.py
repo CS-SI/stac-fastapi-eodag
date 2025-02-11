@@ -1,10 +1,8 @@
-"""EODAG STAC API configuration"""
-
 # -*- coding: utf-8 -*-
-# Copyright 2024, CS GROUP - France, https://www.csgroup.eu/
+# Copyright 2024, CS GROUP - France, https://www.cs-soprasteria.com
 #
-# This file is part of EODAG project
-#     https://www.github.com/CS-SI/EODAG
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,10 +15,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""EODAG STAC API configuration"""
+
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated, List, Union
+from typing import Annotated, Union
 
 from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
@@ -41,22 +41,14 @@ class Settings(ApiSettings):
 
     keep_origin_url: bool = Field(
         default=False,
-        description=(
-            "Keep origin as alternate URL when data-download extension is enabled."
-        ),
+        description=("Keep origin as alternate URL when data-download extension is enabled."),
     )
-    origin_url_blacklist: Annotated[
-        Union[str, List[str]], BeforeValidator(str2liststr)
-    ] = Field(
+    origin_url_blacklist: Annotated[Union[str, list[str]], BeforeValidator(str2liststr)] = Field(
         default=[],
-        description=(
-            "Hide from clients items assets' origin URLs starting with URLs from the list"
-        ),
+        description=("Hide from clients items assets' origin URLs starting with URLs from the list"),
     )
 
-    fetch_providers: bool = Field(
-        default=False, description="Fetch additional collections from all providers."
-    )
+    fetch_providers: bool = Field(default=False, description="Fetch additional collections from all providers.")
 
 
 @lru_cache(maxsize=1)

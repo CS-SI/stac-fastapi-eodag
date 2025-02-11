@@ -14,19 +14,22 @@ dependencies = [
     "pydantic",
     "pygeofilter",
     "stac_pydantic==3.1.*",
-    "stac-fastapi.api",
+    "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions",
     "stac-fastapi.types"
 ]
 
 [project.urls]
-Homepage = "https://github.com/CS-SI/stac-fastapo-eodag"
-Repository = "https://github.com/CS-SI/stac-fastapo-eodag.git"
+Homepage = "https://github.com/CS-SI/stac-fastapi-eodag"
+Repository = "https://github.com/CS-SI/stac-fastapi-eodag.git"
 "Bug Tracker" = "https://github.com/CS-SI/stac-fastapi-eodag/issues/"
 
 [project.optional-dependencies]
 server = [
     "uvicorn[standard]",
+]
+dev = [
+    "pre-commit",
 ]
 
 [tool.mypy]
@@ -35,24 +38,30 @@ explicit_package_bases = true
 exclude = ["tests", ".venv"]
 
 [tool.ruff]
-target-version = "py38" # minimum supported version
-line-length = 90
+target-version = "py39" # minimum supported version
+line-length = 120
+indent-width = 4
 
 [tool.ruff.format]
 quote-style = "double"
 
 [tool.ruff.lint]
+# https://docs.astral.sh/ruff/rules/
 select = [
-    "B",
-    "C",
-    "D1",
-    "E",
-    "F",
-    "I",
-    "W",
+    "B",        # flake8-bugbear
+    "E",        # pycodestyle errors
+    "W",        # pycodestyle warnings
+    "F",        # Pyflakes
+    "C90",      # mccabe (complexity)
+    "I",        # isort
+    "T20",      # flake8-print
+    "D1",       # pydocstyle - docstring presence only
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["stac_fastapi.eodag"]
 known-third-party = ["rasterio", "stac-pydantic", "fastapi", "stac_fastapi"]
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 18

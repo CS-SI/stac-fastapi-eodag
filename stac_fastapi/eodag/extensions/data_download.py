@@ -1,3 +1,20 @@
+# -*- coding: utf-8 -*-
+# Copyright 2025, CS GROUP - France, https://www.cs-soprasteria.com
+#
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Data-download extension."""
 
 import glob
@@ -31,9 +48,7 @@ class BaseDataDownloadClient:
         if os.path.isdir(file_path):
             # do not zip if dir contains only one file
             all_filenames = [
-                f
-                for f in glob.glob(os.path.join(file_path, "**", "*"), recursive=True)
-                if os.path.isfile(f)
+                f for f in glob.glob(os.path.join(file_path, "**", "*"), recursive=True) if os.path.isfile(f)
             ]
             if len(all_filenames) == 1:
                 filepath_to_stream = all_filenames[0]
@@ -56,9 +71,7 @@ class BaseDataDownloadClient:
             },
         )
 
-    def _read_file_chunks_and_delete(
-        self, opened_file: BufferedReader, chunk_size: int = 64 * 1024
-    ) -> Iterator[bytes]:
+    def _read_file_chunks_and_delete(self, opened_file: BufferedReader, chunk_size: int = 64 * 1024) -> Iterator[bytes]:
         """Yield file chunks and delete file when finished."""
         while True:
             data = opened_file.read(chunk_size)
@@ -82,9 +95,7 @@ class BaseDataDownloadClient:
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
-        search_results = dag.search(
-            id=item_id, productType=collection_id, provider=federation_backend
-        )
+        search_results = dag.search(id=item_id, productType=collection_id, provider=federation_backend)
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
@@ -103,17 +114,13 @@ class BaseDataDownloadClient:
                 wait=-1,
                 timeout=-1,
             )
-            download_stream = StreamingResponse(
-                s.content, headers=s.headers, media_type=s.media_type
-            )
+            download_stream = StreamingResponse(s.content, headers=s.headers, media_type=s.media_type)
         except NotImplementedError:
             logger.warning(
                 "Download streaming not supported for %s: downloading locally then delete",
                 product.downloader,
             )
-            download_stream = self._file_to_stream(
-                dag.download(product, extract=False, asset=asset_name)
-            )
+            download_stream = self._file_to_stream(dag.download(product, extract=False, asset=asset_name))
 
         return download_stream
 
@@ -122,13 +129,10 @@ class BaseDataDownloadClient:
 class DataDownloadUri(APIRequest):
     """Download data."""
 
-    federation_backend: Annotated[str, Path(description="Federation backend name")] = (
-        attr.ib()
-    )
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
     collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
     item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
     asset_name: Annotated[str, Path(description="Item ID")] = attr.ib()
-
 
 
 @attr.s
@@ -137,21 +141,22 @@ class DataDownload(ApiExtension):
 
     The download-data extension allow to download data directly through the EODAG STAC
     server.
-    Attributes:
-        GET /data/{federation_backend}/{collection_id}/{item_id}/{asset_id}
+
+    Usage:
+    ------
+
+        ``GET /data/{federation_backend}/{collection_id}/{item_id}/{asset_id}``
     """
 
     client: BaseDataDownloadClient = attr.ib(factory=BaseDataDownloadClient)
     router: APIRouter = attr.ib(factory=APIRouter)
 
     def register(self, app: FastAPI) -> None:
-        """Register the extension with a FastAPI application.
+        """
+        Register the extension with a FastAPI application.
 
-        Args:
-            app: target FastAPI application.
-
-        Returns:
-            None
+        :param app: Target FastAPI application.
+        :returns: None
         """
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(

@@ -1,10 +1,8 @@
-"""FastAPI application using EODAG."""
-
 # -*- coding: utf-8 -*-
-# Copyright 2024, CS GROUP - France, https://www.csgroup.eu/
+# Copyright 2024, CS GROUP - France, https://www.cs-soprasteria.com
 #
-# This file is part of EODAG project
-#     https://www.github.com/CS-SI/EODAG
+# This file is part of stac-fastapi-eodag project
+#     https://www.github.com/CS-SI/stac-fastapi-eodag
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +15,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""FastAPI application using EODAG."""
+
 import os
 from typing import AsyncGenerator
 
@@ -78,9 +78,7 @@ stac_metadata_model = create_stac_metadata_model(
 extensions_map = {
     "collection-search": CollectionSearchExtension(),
     "pagination": PaginationExtension(),
-    "filter": FilterExtension(
-        client=FiltersClient(stac_metadata_model=stac_metadata_model)
-    ),
+    "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
     "query": QueryExtension(),
     "sort": SortExtension(),
     "collection-order": CollectionOrderExtension(
@@ -90,9 +88,7 @@ extensions_map = {
 }
 
 if enabled_extensions := os.getenv("ENABLED_EXTENSIONS"):
-    extensions = [
-        extensions_map[extension_name] for extension_name in enabled_extensions.split(",")
-    ]
+    extensions = [extensions_map[extension_name] for extension_name in enabled_extensions.split(",")]
 else:
     extensions = list(extensions_map.values())
 
@@ -138,9 +134,7 @@ item_collection_model = create_request_model(
 )
 
 
-client = EodagCoreClient(
-    post_request_model=search_post_model, stac_metadata_model=stac_metadata_model
-)
+client = EodagCoreClient(post_request_model=search_post_model, stac_metadata_model=stac_metadata_model)
 
 api = StacApi(
     app=app,
