@@ -9,14 +9,20 @@ authors = [
 license = {file = "LICENSE"}
 requires-python = ">= 3.9"
 dependencies = [
+    "attr",
     "eodag[all-providers] @ git+https://github.com/CS-SI/eodag",
+    "fastapi",
+    "geojson-pydantic",
     "orjson",
     "pydantic",
+    "pydantic_core",
     "pygeofilter",
-    "stac_pydantic==3.1.*",
     "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions",
-    "stac-fastapi.types"
+    "stac-fastapi.types",
+    "stac-pydantic==3.1.*",
+    "starlette",
+    "typing_extensions",
 ]
 
 [project.urls]
@@ -29,7 +35,10 @@ server = [
     "uvicorn[standard]",
 ]
 dev = [
+    "importlib-metadata",
     "pre-commit",
+    "pytest",
+    "stdlib-list",
 ]
 
 [tool.mypy]
