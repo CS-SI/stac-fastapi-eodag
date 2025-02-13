@@ -1,7 +1,7 @@
 # stac-fastapi-eodag
 
 <p align="center">
-  <img src="https://camo.githubusercontent.com/d1ceef80d0bb911c060dce8c6a6ad1a62697ee2bf7b839378a59d15bdc25337f/68747470733a2f2f656f6461672e72656164746865646f63732e696f2f656e2f6c61746573742f5f7374617469632f656f6461675f627963732e706e67" style="vertical-align: middle; max-width: 400px; max-height: 100px;" height=100 />
+  <img src="https://eodag.readthedocs.io/en/latest/_static/eodag_bycs.png" style="vertical-align: middle; max-width: 400px; max-height: 100px;" height=100 />
   <img src="https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png" alt="FastAPI" style="vertical-align: middle; max-width: 400px; max-height: 100px;" width=200 />
 </p>
 
