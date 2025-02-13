@@ -48,8 +48,8 @@ class CollectionSearchExtensionGetRequest(APIRequest):
     """Collection Search extension GET request model."""
 
     limit: Annotated[Optional[int], Query()] = attr.ib(default=None)
-    bbox: Annotated[Optional[BBox], Query()] = attr.ib(default=None, converter=str2bbox)
-    datetime: Annotated[Optional[DateTimeType], Query()] = attr.ib(default=None, converter=str_to_interval)
+    bbox: Annotated[Optional[BBox], Query()] = attr.ib(default=None, converter=lambda x: str2bbox(x))
+    datetime: Annotated[Optional[DateTimeType], Query()] = attr.ib(default=None, converter=lambda x: str_to_interval(x))
     q: Annotated[Optional[str], Query()] = attr.ib(default=None)
 
 

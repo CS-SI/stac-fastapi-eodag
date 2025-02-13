@@ -17,8 +17,10 @@
 # limitations under the License.
 """FastAPI application using EODAG."""
 
+from __future__ import annotations
+
 import os
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
@@ -58,6 +60,10 @@ from stac_fastapi.eodag.extensions.stac import (
     ViewGeometryExtension,
 )
 from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
+
+if TYPE_CHECKING:
+    from typing import AsyncGenerator
+
 
 settings = get_settings()
 

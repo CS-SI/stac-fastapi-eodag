@@ -17,16 +17,18 @@
 # limitations under the License
 """Item crud client."""
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
-from typing import Any, Optional, Union, cast
+from typing import TYPE_CHECKING, cast
 from urllib.parse import unquote_plus, urljoin
 
 import attr
 import orjson
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 from pydantic.alias_generators import to_camel, to_snake
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
@@ -35,14 +37,11 @@ from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
-from stac_fastapi.types.rfc3339 import DateTimeType
-from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
-from eodag.api.product._product import EOProduct
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
@@ -65,7 +64,17 @@ from stac_fastapi.eodag.utils import (
     str2json,
 )
 
-NumType = Union[float, int]
+if TYPE_CHECKING:
+    from typing import Any, Optional, Union
+
+    from fastapi import Request
+    from pydantic import BaseModel
+    from stac_fastapi.types.rfc3339 import DateTimeType
+    from stac_fastapi.types.search import BaseSearchPostRequest
+
+    from eodag.api.product._product import EOProduct
+
+    NumType = Union[float, int]
 
 
 logger = logging.getLogger()
@@ -75,8 +84,8 @@ logger = logging.getLogger()
 class EodagCoreClient(AsyncBaseCoreClient):
     """"""
 
-    post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
-    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
+    post_request_model: type[EodagSearch] = attr.ib(default=EodagSearch)
+    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
     def _get_collection(self, product_type: dict[str, Any], request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
@@ -437,10 +446,16 @@ class EodagCoreClient(AsyncBaseCoreClient):
             product.downloader_auth.authenticate() if product.downloader_auth is not None else product.downloader_auth
         )
 
+        if product.downloader is None:
+            raise HTTPException(status_code=500, detail="No downloader found for this product")
         # can we make something more clean here ?
         download_stream_dict = product.downloader._stream_download_dict(product, auth=auth)
 
-        return StreamingResponse(**download_stream_dict)
+        return StreamingResponse(
+            content=download_stream_dict.content,
+            headers=download_stream_dict.headers,
+            media_type=download_stream_dict.media_type,
+        )
 
 
 def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[BaseModel]) -> dict[str, Any]:

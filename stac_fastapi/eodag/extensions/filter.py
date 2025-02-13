@@ -96,7 +96,7 @@ class FiltersClient(AsyncBaseFiltersClient):
             ),
         )
         queryables = queryables_model.model_json_schema()
-        properties = cast(dict[str, Any], queryables["properties"])
+        properties = queryables["properties"]
 
         for k, v in self.stac_metadata_model.model_fields.items():
             if v.validation_alias in properties:
@@ -106,8 +106,8 @@ class FiltersClient(AsyncBaseFiltersClient):
         # Only datetime is kept in queryables
         properties.pop("end_datetime", None)
 
-        for k, v in COMMON_QUERYABLES_PROPERTIES.items():
-            if k in properties:
-                properties[k] = v
+        for pk, pv in COMMON_QUERYABLES_PROPERTIES.items():
+            if pk in properties:
+                properties[pk] = pv
 
         return queryables

@@ -17,10 +17,10 @@
 # limitations under the License.
 """Initialize EODAG"""
 
-import logging
-from typing import Any, Union
+from __future__ import annotations
 
-from fastapi import FastAPI
+import logging
+from typing import TYPE_CHECKING
 
 from eodag import EODataAccessGateway, setup_logging
 from eodag.utils import obj_md5sum
@@ -30,6 +30,12 @@ from eodag.utils.exceptions import (
 )
 from eodag.utils.requests import fetch_json
 from stac_fastapi.eodag.config import get_settings
+
+if TYPE_CHECKING:
+    from typing import Any, Union
+
+    from fastapi import FastAPI
+
 
 logger = logging.getLogger(__name__)
 

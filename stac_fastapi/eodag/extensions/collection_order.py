@@ -20,7 +20,6 @@
 import logging
 from typing import (
     Annotated,
-    Type,
     cast,
 )
 
@@ -29,9 +28,8 @@ from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from fastapi import APIRouter, FastAPI, Path, Query, Request
-from pydantic import BaseModel
-from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
+from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
 from stac_fastapi.types.stac import Item
@@ -51,7 +49,7 @@ logger = logging.getLogger(__name__)
 class BaseCollectionOrderClient:
     """Defines a pattern for implementing the collection order extension."""
 
-    stac_metadata_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
+    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
     extensions: list[ApiExtension] = attr.ib(default=[])
 
     def extension_is_enabled(self, extension: str) -> bool:
@@ -67,7 +65,7 @@ class BaseCollectionOrderClient:
     ) -> Item:
         """Order a product with its collection id and a fake id"""
 
-        dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
+        dag = cast(EODataAccessGateway, request.app.state.dag)
 
         search_results = dag.search(id="fake_id", productType=collection_id, provider=federation_backend, _dc_qs=dc_qs)
         if len(search_results) > 0:
@@ -93,10 +91,19 @@ class BaseCollectionOrderClient:
                 "Product has been ordered previously. Please request the polling endpoint before download it."
             )
 
-        logger.debug("Order product")
-        _ = product.downloader.order_download(product=product, auth=auth)
+        raise_error = False
+        if product.downloader is None:
+            logger.error("No downloader available for %s", product)
+            raise_error = True
 
-        if product.properties.get("orderId") is None:
+        elif not hasattr(product.downloader, "order_download"):
+            logger.error("No order_download method available for %s of %s", product.downloader, product)
+            raise_error = True
+        else:
+            logger.debug("Order product")
+            _ = product.downloader.order_download(product=product, auth=auth)
+
+        if raise_error or product.properties.get("orderId") is None:
             raise NotFoundError(
                 "Download order failed. It can be due to a lack of product found, so you "
                 f"may change 'dc_qs' argument. The one used for this order was: {dc_qs}"

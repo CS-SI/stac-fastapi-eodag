@@ -17,20 +17,18 @@
 # limitations under the License.
 """Errors helper"""
 
-import logging
-from typing import Tuple, Type, TypedDict
+from __future__ import annotations
 
-from fastapi import FastAPI, Request
+import logging
+from typing import TYPE_CHECKING, TypedDict
+
 from fastapi.responses import ORJSONResponse
-from pydantic import BaseModel
 from starlette import status
-from typing_extensions import NotRequired
 
 from eodag.rest.types.eodag_search import EODAGSearch
 from eodag.utils.exceptions import (
     AuthenticationError,
     DownloadError,
-    EodagError,
     MisconfiguredError,
     NoMatchingProductType,
     NotAvailableError,
@@ -40,6 +38,12 @@ from eodag.utils.exceptions import (
     UnsupportedProvider,
     ValidationError,
 )
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI, Request
+    from pydantic import BaseModel
+    from typing_extensions import NotRequired
+
 
 EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
     AuthenticationError: status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -71,7 +75,7 @@ class ResponseSearchError(Exception):
 
     _alias_to_field_cache: dict[str, str] = {}
 
-    def __init__(self, errors: list[Tuple[str, Exception]], stac_metadata_model: Type[BaseModel]) -> None:
+    def __init__(self, errors: list[tuple[str, Exception]], stac_metadata_model: type[BaseModel]) -> None:
         """Initialize error response class."""
         self._errors = errors
         self._stac_medatata_model = stac_metadata_model
@@ -86,14 +90,14 @@ class ResponseSearchError(Exception):
         return self._alias_to_field_cache.get(value, value)
 
     @property
-    def errors(self):
+    def errors(self) -> list[SearchError]:
         """Return errors."""
         errors: list[SearchError] = []
         for name, exc in self._errors:
             error: SearchError = {
                 "provider": name,
                 "error": exc.__class__.__name__,
-                "status_code": EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", None)) or 500,
+                "status_code": EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500)),
             }
 
             if exc.args:
@@ -108,10 +112,10 @@ class ResponseSearchError(Exception):
                 error.pop("detail", None)
 
             if params := getattr(exc, "parameters", None):
+                error["message"] = getattr(exc, "message", "")
                 for error_param in params:
                     stac_param = self._eodag_to_stac(error_param)
-                    exc.message = exc.message.replace(error_param, stac_param)
-                error["message"] = exc.message
+                    error["message"] = error["message"].replace(error_param, stac_param)
 
             errors.append(error)
 
@@ -126,15 +130,15 @@ class ResponseSearchError(Exception):
         return 400
 
 
-async def response_search_error_handler(request: Request, exc: ResponseSearchError) -> ORJSONResponse:
+async def response_search_error_handler(request: Request, exc: Exception) -> ORJSONResponse:
     """Handle ResponseSearchError exceptions"""
     return ORJSONResponse(
-        status_code=exc.status_code,
-        content={"errors": exc.errors},
+        status_code=getattr(exc, "status_code", 500),
+        content={"errors": getattr(exc, "errors", [])},
     )
 
 
-async def eodag_errors_handler(request: Request, exc: EodagError) -> ORJSONResponse:
+async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONResponse:
     """Handler for EODAG errors"""
     code = EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500))
     detail = f"{type(exc).__name__}: {str(exc)}"
@@ -146,10 +150,10 @@ async def eodag_errors_handler(request: Request, exc: EodagError) -> ORJSONRespo
         detail = "Internal server error: please contact the administrator"
 
     if params := getattr(exc, "parameters", None):
+        detail = getattr(exc, "message", "")
         for error_param in params:
             stac_param = EODAGSearch.to_stac(error_param)
-            exc.message = exc.message.replace(error_param, stac_param)
-        detail = exc.message
+            detail = detail.replace(error_param, stac_param)
 
     return ORJSONResponse(
         status_code=code,

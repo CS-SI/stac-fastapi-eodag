@@ -17,14 +17,19 @@
 # limitations under the License.
 """cql2 evaluator."""
 
+from __future__ import annotations
+
 from datetime import datetime as dt
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING
 
 from pygeofilter import ast
 from pygeofilter.backends.evaluator import Evaluator, handle
 from pygeofilter.values import Geometry, Interval
 
-simpleNode = Union[ast.Attribute, str, int, complex, float, list[Any], tuple[Any, ...]]
+if TYPE_CHECKING:
+    from typing import Any, Optional, Union
+
+    simpleNode = Union[ast.Attribute, str, int, complex, float, list[Any], tuple[Any, ...]]
 
 
 class EodagEvaluator(Evaluator):

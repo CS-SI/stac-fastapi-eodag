@@ -17,11 +17,16 @@
 # limitations under the License.
 """stac_fastapi.types.search module."""
 
-from typing import Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from geojson_pydantic.geometries import Polygon
 from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
+
+if TYPE_CHECKING:
+    from typing import Optional
 
 
 class EodagSearch(BaseSearchPostRequest):

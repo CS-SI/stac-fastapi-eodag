@@ -39,13 +39,13 @@ from stac_fastapi.eodag.utils import str2liststr
 class BaseStacExtension:
     """Abstract base class for defining STAC extensions."""
 
-    FIELDS = None
+    FIELDS: Optional[type[BaseModel]] = None
 
     schema_href: str = attr.ib(default=None)
 
     field_name_prefix: Optional[str] = attr.ib(default=None)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         """Add serialization validation_alias to extension properties
         and extension metadata to the field.
         """
@@ -134,7 +134,7 @@ class ProcessingFields(BaseModel):
     https://github.com/stac-extensions/processing#item-properties
     """
 
-    expression: dict[str, Any] = Field(None)
+    expression: Optional[dict[str, Any]] = Field(None)
     lineage: Optional[str] = Field(None)
     level: Optional[str] = Field(None, validation_alias="processingLevel")
     facility: Optional[str] = Field(None)

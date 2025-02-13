@@ -112,7 +112,7 @@ class BaseLinks:
         available methods on this class that start with link_.
         """
         if self.request.method == "POST":
-            self.request.postbody = request_json
+            self.request.state.postbody = request_json
         # join passed in links with generated links
         # and update relative paths
         links = self.create_links()
@@ -160,7 +160,7 @@ class PagingLinks(BaseLinks):
                     "type": MimeTypes.geojson,
                     "method": method,
                     "href": f"{self.request.url}",
-                    "body": {**self.request.postbody, "page": self.next},
+                    "body": {**self.request.state.postbody, "page": self.next},
                 }
 
         return None
@@ -183,7 +183,7 @@ class PagingLinks(BaseLinks):
                     "type": MimeTypes.geojson,
                     "method": method,
                     "href": f"{self.request.url}",
-                    "body": {**self.request.postbody, "token": f"prev:{self.prev}"},
+                    "body": {**self.request.state.postbody, "token": f"prev:{self.prev}"},
                 }
         return None
 
@@ -254,9 +254,9 @@ class ItemLinks(CollectionLinksBase):
     """Create inferred links specific to items."""
 
     item_id: str = attr.ib()
-    order_link: str = attr.ib()
+    order_link: Optional[str] = attr.ib()
     federation_backend: str = attr.ib()
-    dc_qs: str = attr.ib()
+    dc_qs: Optional[str] = attr.ib()
 
     def link_self(self) -> dict[str, str]:
         """Create the self link."""
@@ -278,9 +278,8 @@ class ItemLinks(CollectionLinksBase):
         """Create the `order` link."""
         if self.order_link is None:
             return None
-        href = merge_params(
-            self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/orders"), {"dc_qs": [self.dc_qs]}
-        )
+        orders_url = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/orders")
+        href = merge_params(orders_url, {"dc_qs": [self.dc_qs]}) if self.dc_qs is not None else orders_url
         return {
             "rel": "order",
             "type": MimeTypes.geojson.value,

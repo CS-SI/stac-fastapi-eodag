@@ -19,14 +19,13 @@
 
 from collections.abc import Callable
 from datetime import datetime as dt
-from typing import Any, Optional, Union, cast
+from typing import Any, ClassVar, Optional, Union, cast
 
 import attr
 from fastapi import Request
 from pydantic import (
     AliasChoices,
     AliasPath,
-    BaseModel,
     Field,
     model_validator,
 )
@@ -73,6 +72,9 @@ class CommonStacMetadata(ItemProperties):
     constellation: Optional[str] = Field(default=None, validation_alias="platform")
     providers: Optional[list[Provider]] = None
     gsd: Optional[float] = Field(default=None, validation_alias="resolution", gt=0)
+
+    _conformance_classes: ClassVar[dict[str, str]]
+    get_conformance_classes: ClassVar[Callable[[Any], list[str]]]
 
     @model_validator(mode="after")
     def validate_datetime_or_start_end(self) -> Self:
@@ -136,7 +138,7 @@ class CommonStacMetadata(ItemProperties):
 def create_stac_metadata_model(
     extensions: Optional[list[BaseStacExtension]] = None,
     base_model: type[CommonStacMetadata] = CommonStacMetadata,
-) -> type[BaseModel]:
+) -> type[CommonStacMetadata]:
     """Create a pydantic model to validate item properties."""
     extension_models: list[ModelMetaclass] = []
 
@@ -149,15 +151,21 @@ def create_stac_metadata_model(
 
     models = [base_model] + extension_models
 
-    model = attr.make_class("StacMetadata", attrs={}, bases=tuple(models))
-    model._conformance_classes = {e.__class__.__name__: e.schema_href for e in extensions}
-    model.get_conformance_classes = _get_conformance_classes
+    model = attr.make_class(
+        "StacMetadata",
+        attrs={},
+        bases=tuple(models),
+        class_body={
+            "_conformance_classes": {e.__class__.__name__: e.schema_href for e in extensions},
+            "get_conformance_classes": _get_conformance_classes,
+        },
+    )
     return model
 
 
 def create_stac_item(
     product: EOProduct,
-    model: type[BaseModel],
+    model: type[CommonStacMetadata],
     extension_is_enabled: Callable[[str], bool],
     request: Request,
     request_json: Optional[Any] = None,
@@ -240,7 +248,7 @@ def create_stac_item(
     return feature
 
 
-def _get_conformance_classes(self: BaseModel) -> list[str]:
+def _get_conformance_classes(self) -> list[str]:
     """Extract list of conformance classes from set fields metadata"""
     conformance_classes: set[str] = set()
 

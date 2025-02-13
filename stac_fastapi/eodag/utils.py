@@ -17,12 +17,18 @@
 # limitations under the License.
 """helper functions"""
 
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING
 from urllib.parse import unquote_plus
 
 import orjson
-from stac_fastapi.types.rfc3339 import DateTimeType
+
+if TYPE_CHECKING:
+    from typing import Any, Optional, Union
+
+    from stac_fastapi.types.rfc3339 import DateTimeType
 
 
 def is_dict_str_any(var: Any) -> bool:

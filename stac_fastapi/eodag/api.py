@@ -17,20 +17,24 @@
 # limitations under the License.
 """override stac api for download handlers."""
 
-from typing import Type
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import attr
-from pydantic import BaseModel
 from stac_fastapi.api.app import StacApi
 
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 
 @attr.s
 class EodagStacApi(StacApi):
     """Override default API to include download endpoints handlers."""
 
-    item_properties_model: Type[BaseModel] = attr.ib(default=CommonStacMetadata)
+    item_properties_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
     # def register_download_item(self) -> None:
     #     """Register download item endpoint (GET /collections/{collection_id}/items/{item_id}/download).

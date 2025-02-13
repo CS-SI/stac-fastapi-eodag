@@ -106,6 +106,13 @@ class BaseDataDownloadClient:
             )
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
+        if product.downloader is None:
+            logger.error("No downloader available for %s", product)
+            raise NotFoundError(
+                f"Impossible to download {item_id} item in {collection_id} collection",
+                f" for backend {federation_backend}.",
+            )
+
         try:
             s = product.downloader._stream_download_dict(
                 product,
