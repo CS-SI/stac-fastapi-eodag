@@ -1,8 +1,8 @@
 # stac-fastapi-eodag
 
 <p align="center">
-  <img src="https://eodag.readthedocs.io/en/latest/_static/eodag_bycs.png" style="vertical-align: middle; max-width: 400px; max-height: 100px;" height=100 />
-  <img src="https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png" alt="FastAPI" style="vertical-align: middle; max-width: 400px; max-height: 100px;" width=200 />
+  <img src="https://eodag.readthedocs.io/en/latest/_static/eodag_bycs.png" height=80 />
+  <img src="https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png" alt="FastAPI" height=100 />
 </p>
 
 
