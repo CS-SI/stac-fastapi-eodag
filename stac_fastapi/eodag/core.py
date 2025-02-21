@@ -37,6 +37,7 @@ from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
+from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
@@ -45,7 +46,6 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
-from stac_fastapi.eodag.eodag_types.search import EodagSearch
 from stac_fastapi.eodag.errors import ResponseSearchError
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
@@ -70,7 +70,6 @@ if TYPE_CHECKING:
     from fastapi import Request
     from pydantic import BaseModel
     from stac_fastapi.types.rfc3339 import DateTimeType
-    from stac_fastapi.types.search import BaseSearchPostRequest
 
     from eodag.api.product._product import EOProduct
 
@@ -84,7 +83,7 @@ logger = logging.getLogger()
 class EodagCoreClient(AsyncBaseCoreClient):
     """"""
 
-    post_request_model: type[EodagSearch] = attr.ib(default=EodagSearch)
+    post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
     def _get_collection(self, product_type: dict[str, Any], request: Request) -> Collection:
@@ -320,7 +319,9 @@ class EodagCoreClient(AsyncBaseCoreClient):
         item_collection["links"] = links
         return item_collection
 
-    async def post_search(self, search_request: EodagSearch, request: Request, **kwargs: Any) -> ItemCollection:
+    async def post_search(
+        self, search_request: BaseSearchPostRequest, request: Request, **kwargs: Any
+    ) -> ItemCollection:
         """
         Handle POST search requests.
 
@@ -458,15 +459,13 @@ class EodagCoreClient(AsyncBaseCoreClient):
         )
 
 
-def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[BaseModel]) -> dict[str, Any]:
+def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[CommonStacMetadata]) -> dict[str, Any]:
     """Prepare arguments for an eodag search based on a search request
 
     :param search_request: the search request
     :param model: the model used to validate stac metadata
     :returns: a dictionnary containing arguments for the eodag search
     """
-    model = cast(type[CommonStacMetadata], model)
-
     geom = search_request.spatial_filter.wkt if search_request.spatial_filter else search_request.spatial_filter
 
     base_args = {
