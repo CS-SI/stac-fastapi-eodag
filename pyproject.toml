@@ -35,9 +35,15 @@ server = [
     "uvicorn[standard]",
 ]
 dev = [
+    "geojson",
+    "httpx",
     "importlib-metadata",
     "pre-commit",
     "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+    "pytest-socket",
+    "responses",
     "stdlib-list",
 ]
 
@@ -54,6 +60,10 @@ module = [
     "stac_fastapi.*",
 ]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--disable-socket --allow-unix-socket"
 
 [tool.ruff]
 target-version = "py39" # minimum supported version

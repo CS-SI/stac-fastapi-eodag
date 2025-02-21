@@ -22,7 +22,6 @@ import configparser
 import os
 import re
 import sys
-import unittest
 from typing import Any, Iterator
 
 from eodag.utils.exceptions import MisconfiguredError
@@ -112,30 +111,25 @@ def get_optional_dependencies(setup_cfg_path: str, extra: str) -> set[str]:
     return deps
 
 
-class TestRequirements(unittest.TestCase):
-    """Test requirements"""
+def test_all_requirements():
+    """Needed libraries must be in project requirements"""
 
-    def test_all_requirements(self):
-        """Needed libraries must be in project requirements"""
+    project_imports = get_project_imports(project_path)
+    setup_requires = get_self_dependencies(["server"])
+    import_required_dict = packages_distributions()
+    try:
+        default_libs = stdlib_list()
+    except FileNotFoundError:
+        # python version might not be supported by `stdlib_list`
+        # Since python3.10, we can use `sys.stdlib_module_names` instead
+        default_libs = list(sys.stdlib_module_names)
 
-        project_imports = get_project_imports(project_path)
-        setup_requires = get_self_dependencies(["server"])
-        import_required_dict = packages_distributions()
-        try:
-            default_libs = stdlib_list()
-        except FileNotFoundError:
-            # python version might not be supported by `stdlib_list`
-            # Since python3.10, we can use `sys.stdlib_module_names` instead
-            default_libs = list(sys.stdlib_module_names)
+    missing_imports = []
+    for project_import in project_imports:
+        required = import_required_dict.get(project_import, [project_import])
+        if not set(required).intersection(setup_requires) and project_import not in default_libs:
+            missing_imports.append(project_import)
 
-        missing_imports = []
-        for project_import in project_imports:
-            required = import_required_dict.get(project_import, [project_import])
-            if not set(required).intersection(setup_requires) and project_import not in default_libs:
-                missing_imports.append(project_import)
-
-        self.assertEqual(
-            len(missing_imports),
-            0,
-            f"The following libraries were not found in project requirements: {missing_imports}",
-        )
+    assert len(missing_imports) == 0, (
+        f"The following libraries were not found in project requirements: {missing_imports}"
+    )

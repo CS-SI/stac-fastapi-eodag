@@ -16,3 +16,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """eodag-fastapi tests."""
+
+from __future__ import annotations
+
+import contextlib
+import os
+
+TEST_RESOURCES_PATH = os.path.join(os.path.dirname(__file__), "resources")
+
+
+@contextlib.contextmanager
+def temporary_environment(**env_vars):
+    """
+    A context manager to temporarily set environment variables.
+    """
+    # Save the original environment variables
+    original_env = os.environ.copy()
+
+    # Set the new temporary environment variables
+    os.environ.update(env_vars)
+
+    try:
+        yield
+    finally:
+        # Restore the original environment variables
+        os.environ.clear()
+        os.environ.update(original_env)
