@@ -57,14 +57,13 @@ class EodagSearch(BaseSearchPostRequest):
 
     @property
     def spatial_filter(self) -> Optional[str]:
-        """Return a geojson-pydantic object representing the spatial filter for the search
-        request.
+        """Return the WKT of the spatial filter for the search request.
 
         Check for both because the ``bbox`` and ``intersects`` parameters are
         mutually exclusive.
         """
         if self.bbox:
-            return Polygon.from_bounds(self.bbox[0], self.bbox[3], self.bbox[2], self.bbox[1]).wkt
+            return Polygon.from_bounds(*self.bbox).wkt
         if self.intersects:
             return self.intersects.wkt
         return None

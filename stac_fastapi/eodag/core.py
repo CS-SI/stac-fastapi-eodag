@@ -150,6 +150,14 @@ class EodagCoreClient(AsyncBaseCoreClient):
         return collection
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
+        # check if the collection exists
+        if search_request.collections:
+            all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
+            # only check the first collection (EODAG search only support a single collection)
+            existing_pt = [pt for pt in all_pt if pt["ID"] == search_request.collections[0]]
+            if not existing_pt:
+                raise NoMatchingProductType(f"Collection {search_request.collections[0]} does not exist.")
+
         base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
 
         search_result = request.app.state.dag.search(**base_args)
@@ -466,14 +474,18 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     :param model: the model used to validate stac metadata
     :returns: a dictionnary containing arguments for the eodag search
     """
-    geom = search_request.spatial_filter.wkt if search_request.spatial_filter else search_request.spatial_filter
-
     base_args = {
+        "page": search_request.page,
         "items_per_page": search_request.limit,
-        "geom": geom,
-        "start": search_request.start_date.isoformat() if search_request.start_date else None,
-        "end": search_request.end_date.isoformat() if search_request.end_date else None,
+        "raise_errors": False,
+        "count": True,
     }
+    if search_request.spatial_filter is not None:
+        base_args["geom"] = search_request.spatial_filter.wkt
+    if search_request.start_date is not None:
+        base_args["start"] = search_request.start_date.isoformat()
+    if search_request.end_date is not None:
+        base_args["end"] = search_request.end_date.isoformat()
 
     # parse "sortby" search request attribute if it exists to make it work for an eodag search
     sort_by = {}

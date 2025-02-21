@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, TypedDict
 
 from fastapi.responses import ORJSONResponse
 from starlette import status
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from eodag.rest.types.eodag_search import EODAGSearch
 from eodag.utils.exceptions import (
@@ -161,6 +162,34 @@ async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONRespon
     )
 
 
+def starlette_exception_handler(request: Request, error: Exception) -> ORJSONResponse:
+    """Starlette errors handle"""
+    description = getattr(error, "description", None) or getattr(error, "detail", None) or str(error)
+    return ORJSONResponse(
+        status_code=getattr(error, "status_code", 500),
+        content={"description": description},
+    )
+
+
+def assertion_error_handler(request: Request, error: Exception) -> ORJSONResponse:
+    """Assertion errors handle"""
+    message = str(error) or f" ({str(error)})"
+    description = str(error) or f"The request bould not be validated{message}."
+    return ORJSONResponse(
+        status_code=getattr(error, "status_code", 400),
+        content={"description": description},
+    )
+
+
+def value_error_handler(request: Request, error: Exception) -> ORJSONResponse:
+    """Value errors handle"""
+    description = f"The request bould not be validated ({str(error)})."
+    return ORJSONResponse(
+        status_code=getattr(error, "status_code", 400),
+        content={"description": description},
+    )
+
+
 def add_exception_handlers(app: FastAPI) -> None:
     """
     Add exception handlers to the FastAPI application.
@@ -168,6 +197,9 @@ def add_exception_handlers(app: FastAPI) -> None:
     :param app: The FastAPI application.
     :returns: None
     """
+    app.add_exception_handler(StarletteHTTPException, starlette_exception_handler)
+    app.add_exception_handler(AssertionError, assertion_error_handler)
+    app.add_exception_handler(ValueError, value_error_handler)
     app.add_exception_handler(RequestError, eodag_errors_handler)
     for exc in EODAG_DEFAULT_STATUS_CODES:
         app.add_exception_handler(exc, eodag_errors_handler)
