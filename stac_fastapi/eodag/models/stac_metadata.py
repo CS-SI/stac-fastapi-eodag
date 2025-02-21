@@ -66,15 +66,23 @@ class CommonStacMetadata(ItemProperties):
     created: Optional[dt] = Field(default=None, validation_alias="creationDate")
     updated: Optional[dt] = Field(default=None, validation_alias="modificationDate")
     platform: Optional[str] = Field(default=None, validation_alias="platformSerialIdentifier")
-    instruments: Optional[list[str]] = Field(
-        default=None, validation_alias="instruments"
-    )  # TODO EODAG has instrument a string with "," separated instruments
+    instruments: Optional[list[str]] = Field(default=None, validation_alias="instrument")
     constellation: Optional[str] = Field(default=None, validation_alias="platform")
     providers: Optional[list[Provider]] = None
     gsd: Optional[float] = Field(default=None, validation_alias="resolution", gt=0)
 
     _conformance_classes: ClassVar[dict[str, str]]
     get_conformance_classes: ClassVar[Callable[[Any], list[str]]]
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_instruments(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        Convert instrument ``str`` to ``list``.
+        """
+        if instrument := values.get("instrument"):
+            values["instrument"] = ",".join(instrument.split()).split(",")
+        return values
 
     @model_validator(mode="after")
     def validate_datetime_or_start_end(self) -> Self:
@@ -176,6 +184,7 @@ def create_stac_item(
 
     settings: Settings = get_settings()
     feature = Item(
+        type="Feature",
         assets={},
         id=product.properties["title"],
         geometry=product.geometry.__geo_interface__,
