@@ -89,3 +89,17 @@ async def test_items_response(request_valid, tested_product_type):
 async def test_not_found(request_not_found, disable_product_types_fetch):
     """A request to eodag server with a not supported product type must return a 404 HTTP error code"""
     await request_not_found("search?collections=ZZZ&bbox=0,43,1,44")
+
+
+async def test_search_results_with_errors(request_valid, mock_search_result, tested_product_type):
+    """Search through eodag server must not display provider's error if it's not empty result"""
+    errors = [
+        ("usgs", Exception("foo error")),
+        ("aws_eos", Exception("boo error")),
+    ]
+    mock_search_result.errors.extend(errors)
+
+    await request_valid(
+        f"search?collections={tested_product_type}",
+        search_result=mock_search_result,
+    )
