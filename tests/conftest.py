@@ -37,34 +37,36 @@ from stac_fastapi.eodag.dag import init_dag
 from tests import TEST_RESOURCES_PATH
 
 
-@pytest.fixture(autouse=True)
-async def mock_user_dir(mocker):
+@pytest.fixture(autouse=True, scope="session")
+async def mock_user_dir(session_mocker):
     """Mock home and eodag conf directory to tmp dir."""
     tmp_home_dir = TemporaryDirectory()
-    mocker.patch("os.path.expanduser", return_value=tmp_home_dir.name)
+    session_mocker.patch("os.path.expanduser", return_value=tmp_home_dir.name)
     yield
     tmp_home_dir.cleanup()
 
 
-@pytest.fixture(autouse=True)
-async def mock_os_environ(mock_user_dir, mocker):
+@pytest.fixture(autouse=True, scope="session")
+async def mock_os_environ(mock_user_dir, session_mocker):
     """mock os.environ to empty env."""
-    mocker.patch.dict(os.environ, {}, clear=True)
+    session_mocker.patch.dict(os.environ, {}, clear=True)
 
 
-@pytest.fixture(autouse=True)
-async def disable_product_types_fetch(mock_os_environ, monkeypatch):
+@pytest.fixture(autouse=True, scope="session")
+async def disable_product_types_fetch(mock_os_environ):
     """Disable auto fetching product types from providers."""
-    monkeypatch.setenv("EODAG_EXT_PRODUCT_TYPES_CFG_FILE", "")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("EODAG_EXT_PRODUCT_TYPES_CFG_FILE", "")
 
 
-@pytest.fixture(autouse=True)
-async def fake_credentials(disable_product_types_fetch, monkeypatch):
+@pytest.fixture(autouse=True, scope="session")
+async def fake_credentials(disable_product_types_fetch):
     """load fake credentials to prevent providers needing auth for search to be pruned."""
-    monkeypatch.setenv("EODAG_CFG_FILE", os.path.join(TEST_RESOURCES_PATH, "wrong_credentials_conf.yml"))
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("EODAG_CFG_FILE", os.path.join(TEST_RESOURCES_PATH, "wrong_credentials_conf.yml"))
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="session")
 async def app():
     """
     Asynchronous generator that initializes and yields the FastAPI application.
@@ -88,7 +90,7 @@ async def app_client(app):
         yield c
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def mock_search_result():
     """generate eodag_api.search mock results"""
     search_result = SearchResult.from_geojson(
@@ -280,7 +282,7 @@ def request_valid_raw(
     return _request_valid_raw
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def assert_links_valid(app_client, request_valid_raw):
     """Checks that element links are valid"""
 
@@ -324,7 +326,7 @@ def assert_links_valid(app_client, request_valid_raw):
     return _assert_links_valid
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def request_valid(request_valid_raw, assert_links_valid) -> Any:
     """Make a request to the API and check the response."""
 
@@ -357,7 +359,7 @@ def request_valid(request_valid_raw, assert_links_valid) -> Any:
     return _request_valid
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def request_not_valid(app_client):
     """
     Fixture to test invalid requests and assert a 400 status code.
@@ -379,7 +381,7 @@ def request_not_valid(app_client):
     return _request_not_valid
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def request_not_found(app_client):
     """
     Fixture to test if a request returns a 404 Not Found error.
@@ -396,7 +398,7 @@ def request_not_found(app_client):
     return _request_not_found
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def request_accepted(app_client):
     """
     Fixture to test if a request is accepted and returns the expected response.
@@ -413,7 +415,7 @@ def request_accepted(app_client):
     return _request_accepted
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def tested_product_type():
     """
     Returns the product type for testing.
