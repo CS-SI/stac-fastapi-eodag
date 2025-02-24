@@ -26,7 +26,7 @@ from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
 from stac_fastapi.types.config import ApiSettings
 
-from eodag.rest.constants import DEFAULT_MAXSIZE, DEFAULT_TTL
+from stac_fastapi.eodag.constants import DEFAULT_MAXSIZE, DEFAULT_TTL
 from stac_fastapi.eodag.utils import str2liststr
 
 

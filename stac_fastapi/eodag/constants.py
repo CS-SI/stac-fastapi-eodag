@@ -29,3 +29,15 @@ ITEM_PROPERTIES_EXCLUDE = {
     "qs": True,
     "defaultGeometry": True,
 }
+
+DEFAULT_TTL = 600  # 10 min
+
+DEFAULT_MAXSIZE = 2048  # local cache maxsize
+
+CACHE_KEY_COLLECTIONS = "collections"
+CACHE_KEY_COLLECTION = "collection"
+CACHE_KEY_SEARCH = "search"
+CACHE_KEY_QUERYABLES = "queryables"
+
+#: default number of items per page from stac-fastapi
+DEFAULT_ITEMS_PER_PAGE = 10

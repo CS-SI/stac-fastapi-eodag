@@ -26,7 +26,6 @@ from fastapi.responses import ORJSONResponse
 from starlette import status
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from eodag.rest.types.eodag_search import EODAGSearch
 from eodag.utils.exceptions import (
     AuthenticationError,
     DownloadError,
@@ -105,7 +104,7 @@ class ResponseSearchError(Exception):
                 error["message"] = exc.args[0]
 
             if len(exc.args) > 1:
-                error["detail"] = " ".join(exc.args[1:])
+                error["detail"] = " ".join([str(i) for i in exc.args[1:]])
 
             if type(exc) in (MisconfiguredError, AuthenticationError):
                 logger.error("%s: %s", type(exc).__name__, str(exc))
@@ -153,7 +152,7 @@ async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONRespon
     if params := getattr(exc, "parameters", None):
         detail = getattr(exc, "message", "")
         for error_param in params:
-            stac_param = EODAGSearch.to_stac(error_param)
+            stac_param = request.app.state.stac_metadata_model.to_stac(error_param)
             detail = detail.replace(error_param, stac_param)
 
     return ORJSONResponse(
