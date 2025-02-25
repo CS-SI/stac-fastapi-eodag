@@ -163,10 +163,6 @@ async def test_search_item_id_from_collection(request_valid, defaults):
         expected_search_kwargs={
             "id": "foo",
             "productType": defaults.product_type,
-            "page": 1,
-            "items_per_page": 1,
-            "raise_errors": False,
-            "count": True,
         },
     )
 
@@ -245,4 +241,27 @@ async def test_date_post_search(request_valid, defaults, input_start, input_end,
             count=True,
             **expected_kwargs,
         ),
+    )
+
+
+async def test_ids_post_search(request_valid, defaults):
+    """POST search with ids filtering through eodag server should return a valid response"""
+    await request_valid(
+        "search",
+        method="POST",
+        post_data={
+            "collections": [defaults.product_type],
+            "ids": ["foo", "bar"],
+        },
+        search_call_count=2,
+        expected_search_kwargs=[
+            {
+                "id": "foo",
+                "productType": defaults.product_type,
+            },
+            {
+                "id": "bar",
+                "productType": defaults.product_type,
+            },
+        ],
     )

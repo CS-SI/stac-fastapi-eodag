@@ -19,7 +19,6 @@ This project is a WIP and not ready for any production usage. Use at your own ri
 - add missing item props using custom extensions
 - context extension ?
 - querier / filter extension, for queryables as well ?
-- multiple ids item search when supported by EODAG
 - unit tests
 - download extension
 - multi provider handling. Check the federation openeo extension ?

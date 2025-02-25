@@ -42,6 +42,7 @@ from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollectio
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
+from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
@@ -158,9 +159,19 @@ class EodagCoreClient(AsyncBaseCoreClient):
             if not existing_pt:
                 raise NoMatchingProductType(f"Collection {search_request.collections[0]} does not exist.")
 
-        base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
-
-        search_result = request.app.state.dag.search(**base_args)
+        # get products by ids
+        if search_request.ids:
+            search_result = SearchResult([])
+            ids = search_request.ids
+            for item_id in ids:
+                search_request.ids = [item_id]
+                base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+                search_result.extend(request.app.state.dag.search(**base_args))
+            search_result.number_matched = len(search_result)
+        else:
+            # search without ids
+            base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+            search_result = request.app.state.dag.search(**base_args)
 
         if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
@@ -474,12 +485,17 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     :param model: the model used to validate stac metadata
     :returns: a dictionnary containing arguments for the eodag search
     """
-    base_args = {
-        "page": search_request.page,
-        "items_per_page": search_request.limit,
-        "raise_errors": False,
-        "count": True,
-    }
+    base_args = (
+        {
+            "page": search_request.page,
+            "items_per_page": search_request.limit,
+            "raise_errors": False,
+            "count": True,
+        }
+        if search_request.ids is None
+        else {}
+    )
+
     if search_request.spatial_filter is not None:
         base_args["geom"] = search_request.spatial_filter.wkt
     # Also check datetime to bypass persistent dates between searches
@@ -525,7 +541,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     if search_request.collections:
         base_args["productType"] = search_request.collections[0]
 
-    # EODAG core search only support a single Id
+    # handle only one id from here (pre-filtered in _search_base)
     if search_request.ids:
         base_args["id"] = search_request.ids[0]
 
