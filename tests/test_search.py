@@ -265,3 +265,13 @@ async def test_ids_post_search(request_valid, defaults):
             },
         ],
     )
+
+
+# TODO: add test_provider_prefix_post_search when feature is ready
+
+
+async def test_search_response_contains_pagination_info(request_valid, defaults):
+    """Responses to valid search requests must return a geojson with pagination info in properties"""
+    response = await request_valid(f"search?collections={defaults.product_type}")
+    assert "numberMatched" in response
+    assert "numberReturned" in response

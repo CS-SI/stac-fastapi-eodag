@@ -186,7 +186,12 @@ class EodagCoreClient(AsyncBaseCoreClient):
             )
             features.append(feature)
 
-        collection = ItemCollection(type="FeatureCollection", features=features)
+        collection = ItemCollection(
+            type="FeatureCollection",
+            features=features,
+            numberMatched=search_result.number_matched,
+            numberReturned=len(features),
+        )
 
         # pagination
         next_page = None
