@@ -482,9 +482,11 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     }
     if search_request.spatial_filter is not None:
         base_args["geom"] = search_request.spatial_filter.wkt
-    if search_request.start_date is not None:
+    # Also check datetime to bypass persistent dates between searches
+    # until https://github.com/stac-utils/stac-pydantic/pull/171 is merged
+    if search_request.datetime is not None and search_request.start_date is not None:
         base_args["start"] = search_request.start_date.isoformat()
-    if search_request.end_date is not None:
+    if search_request.datetime is not None and search_request.end_date is not None:
         base_args["end"] = search_request.end_date.isoformat()
 
     # parse "sortby" search request attribute if it exists to make it work for an eodag search
