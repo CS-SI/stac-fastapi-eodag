@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote_plus, urljoin
 
 import attr
@@ -65,7 +65,7 @@ from stac_fastapi.eodag.utils import (
 )
 
 if TYPE_CHECKING:
-    from typing import Any, Optional, Union
+    from typing import Optional, Union
 
     from fastapi import Request
     from pydantic import BaseModel

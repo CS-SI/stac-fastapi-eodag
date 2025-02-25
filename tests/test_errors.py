@@ -18,6 +18,7 @@
 """Search tests."""
 
 import json
+import logging
 
 from eodag import SearchResult
 from eodag.utils.exceptions import AuthenticationError, RequestError, TimeOutError, ValidationError
@@ -95,3 +96,31 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
             record["detail"] = record["detail"].replace("{", "").replace("}", "").replace("'", "")
             record["detail"] = set(s.strip() for s in record["detail"].split(","))
     assert expected_response == response_content
+
+
+async def test_auth_error(app_client, mock_search, defaults, caplog):
+    """A request to eodag server raising a Authentication error must return a 500 HTTP error code"""
+    mock_search.side_effect = AuthenticationError("you are not authorized")
+    with caplog.at_level(logging.ERROR):
+        response = await app_client.get(f"search?collections={defaults.product_type}", follow_redirects=True)
+        response_content = json.loads(response.content.decode("utf-8"))
+
+        assert "description" in response_content
+        assert "AuthenticationError" in caplog.text
+        assert "you are not authorized" in caplog.text
+
+    assert response.status_code == 500
+
+
+async def test_timeout_error(app_client, mock_search, defaults, caplog):
+    """A request to eodag server raising a Authentication error must return a 500 HTTP error code"""
+    mock_search.side_effect = TimeOutError("too long")
+    with caplog.at_level(logging.ERROR):
+        response = await app_client.get(f"search?collections={defaults.product_type}", follow_redirects=True)
+        response_content = json.loads(response.content.decode("utf-8"))
+
+        assert "description" in response_content
+        assert "TimeOutError" in caplog.text
+        assert "too long" in caplog.text
+
+    assert response.status_code == 504

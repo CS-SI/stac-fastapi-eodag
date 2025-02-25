@@ -17,45 +17,44 @@
 # limitations under the License.
 """Search tests."""
 
+import pytest
+
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
 
 
-async def test_request_params(request_valid, request_not_valid, tested_product_type):
+@pytest.mark.parametrize("bbox", [("1",), ("0,43,1",), ("0,,1",), ("a,43,1,44",)])
+async def test_request_params_invalid(bbox, request_not_valid, defaults):
     """
-    Test the request parameters for the search endpoint.
+    Test the invalid request parameters for the search endpoint.
     """
-    await request_not_valid(f"search?collections={tested_product_type}&bbox=1")
-    await request_not_valid(f"search?collections={tested_product_type}&bbox=0,43,1")
-    await request_not_valid(f"search?collections={tested_product_type}&bbox=0,,1")
-    await request_not_valid(f"search?collections={tested_product_type}&bbox=a,43,1,44")
+    await request_not_valid(f"search?collections={defaults.product_type}&bbox={bbox}")
+
+
+@pytest.mark.parametrize("input_bbox,expected_geom", [(None, None), ("bbox_csv", "bbox_wkt")])
+async def test_request_params_valid(request_valid, defaults, input_bbox, expected_geom):
+    """
+    Test the valid request parameters for the search endpoint.
+    """
+    input_qs = f"&bbox={getattr(defaults, input_bbox)}" if input_bbox else ""
+    expected_kwargs = {"geom": getattr(defaults, expected_geom)} if expected_geom else {}
 
     await request_valid(
-        f"search?collections={tested_product_type}",
+        f"search?collections={defaults.product_type}{input_qs}",
         expected_search_kwargs=dict(
-            productType=tested_product_type,
+            productType=defaults.product_type,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=True,
-        ),
-    )
-    await request_valid(
-        f"search?collections={tested_product_type}&bbox=0,43,1,44",
-        expected_search_kwargs=dict(
-            productType=tested_product_type,
-            page=1,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            geom="POLYGON ((0.0 43.0, 1.0 43.0, 1.0 44.0, 0.0 44.0, 0.0 43.0))",
-            raise_errors=False,
-            count=True,
+            **expected_kwargs,
         ),
     )
 
 
-async def test_items_response(request_valid, tested_product_type):
+async def test_items_response(request_valid, defaults):
     """Returned items properties must be mapped as expected"""
     resp_json = await request_valid(
-        f"search?collections={tested_product_type}",
+        f"search?collections={defaults.product_type}",
     )
     res = resp_json["features"]
     assert len(res) == 2
@@ -86,12 +85,12 @@ async def test_items_response(request_valid, tested_product_type):
     assert res[1]["properties"]["storage:tier"] == "orderable"
 
 
-async def test_not_found(request_not_found, disable_product_types_fetch):
+async def test_not_found(request_not_found):
     """A request to eodag server with a not supported product type must return a 404 HTTP error code"""
     await request_not_found("search?collections=ZZZ&bbox=0,43,1,44")
 
 
-async def test_search_results_with_errors(request_valid, mock_search_result, tested_product_type):
+async def test_search_results_with_errors(request_valid, mock_search_result, defaults):
     """Search through eodag server must not display provider's error if it's not empty result"""
     errors = [
         ("usgs", Exception("foo error")),
@@ -100,6 +99,150 @@ async def test_search_results_with_errors(request_valid, mock_search_result, tes
     mock_search_result.errors.extend(errors)
 
     await request_valid(
-        f"search?collections={tested_product_type}",
+        f"search?collections={defaults.product_type}",
         search_result=mock_search_result,
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_start", "input_end", "expected_start", "expected_end"),
+    [
+        ("startz", "endz", "start", "end"),
+        ("startz", "..", "start", None),
+        ("..", "endz", None, "end"),
+        ("startz", None, "start", "start"),
+        (None, None, None, None),
+    ],
+)
+async def test_date_search(request_valid, defaults, input_start, input_end, expected_start, expected_end, mock_search):
+    """Search through eodag server /search endpoint using dates filering should return a valid response"""
+    input_date_qs = f"&datetime={getattr(defaults, input_start, input_start)}" if input_start else ""
+    input_date_qs += f"/{getattr(defaults, input_end, input_end)}" if input_end else ""
+
+    expected_kwargs = {"start": getattr(defaults, expected_start)} if expected_start else {}
+    expected_kwargs |= {"end": getattr(defaults, expected_end)} if expected_end else {}
+
+    await request_valid(
+        f"search?collections={defaults.product_type}&bbox={defaults.bbox_csv}{input_date_qs}",
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            geom=defaults.bbox_wkt,
+            raise_errors=False,
+            count=True,
+            **expected_kwargs,
+        ),
+    )
+
+
+@pytest.mark.parametrize("use_dates", [(False,), (True,)])
+async def test_date_search_from_items(request_valid, defaults, use_dates):
+    """Search through eodag server collection/items endpoint using dates filering should return a valid response"""
+    input_date_qs = f"&datetime={defaults.startz}/{defaults.endz}" if use_dates else ""
+    expected_kwargs = {"start": defaults.start, "end": defaults.end} if use_dates else {}
+
+    await request_valid(
+        f"collections/{defaults.product_type}/items?bbox={defaults.bbox_csv}{input_date_qs}",
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            geom=defaults.bbox_wkt,
+            raise_errors=False,
+            count=True,
+            **expected_kwargs,
+        ),
+    )
+
+
+async def test_search_item_id_from_collection(request_valid, defaults):
+    """Search by id through eodag server /collection endpoint should return a valid response"""
+    await request_valid(
+        f"collections/{defaults.product_type}/items/foo",
+        expected_search_kwargs={
+            "id": "foo",
+            "productType": defaults.product_type,
+            "page": 1,
+            "items_per_page": 1,
+            "raise_errors": False,
+            "count": True,
+        },
+    )
+
+
+async def test_cloud_cover_post_search(request_valid, defaults):
+    """POST search with cloudCover filtering through eodag server should return a valid response"""
+    await request_valid(
+        "search",
+        method="POST",
+        post_data={
+            "collections": [defaults.product_type],
+            "bbox": defaults.bbox_list,
+            "query": {"eo:cloud_cover": {"lte": 10}},
+        },
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            cloudCover=10,
+            geom=defaults.bbox_wkt,
+            raise_errors=False,
+            count=True,
+        ),
+    )
+
+
+async def test_intersects_post_search(request_valid, defaults):
+    """POST search with intersects filtering through eodag server should return a valid response"""
+    await request_valid(
+        "search",
+        method="POST",
+        post_data={
+            "collections": [defaults.product_type],
+            "intersects": defaults.bbox_geojson,
+        },
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            geom=defaults.bbox_wkt,
+            raise_errors=False,
+            count=True,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_start", "input_end", "expected_start", "expected_end"),
+    [
+        ("startz", "endz", "start", "end"),
+        ("startz", "..", "start", None),
+        ("..", "endz", None, "end"),
+        ("startz", None, "start", "start"),
+    ],
+)
+async def test_date_post_search(request_valid, defaults, input_start, input_end, expected_start, expected_end):
+    """POST search with datetime filtering through eodag server should return a valid response"""
+    input_date = getattr(defaults, input_start, input_start)
+    input_date += f"/{getattr(defaults, input_end, input_end)}" if input_end else ""
+
+    expected_kwargs = {"start": getattr(defaults, expected_start)} if expected_start else {}
+    expected_kwargs |= {"end": getattr(defaults, expected_end)} if expected_end else {}
+
+    await request_valid(
+        "search",
+        method="POST",
+        post_data={
+            "collections": [defaults.product_type],
+            "datetime": input_date,
+        },
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            raise_errors=False,
+            count=True,
+            **expected_kwargs,
+        ),
     )

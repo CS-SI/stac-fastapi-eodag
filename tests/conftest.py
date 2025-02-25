@@ -19,6 +19,7 @@
 
 import json
 import os
+from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
 from typing import Any, Optional, Union
 from urllib.parse import urljoin
@@ -38,7 +39,7 @@ from tests import TEST_RESOURCES_PATH
 
 
 @pytest.fixture(autouse=True, scope="session")
-async def mock_user_dir(session_mocker):
+def mock_user_dir(session_mocker):
     """Mock home and eodag conf directory to tmp dir."""
     tmp_home_dir = TemporaryDirectory()
     session_mocker.patch("os.path.expanduser", return_value=tmp_home_dir.name)
@@ -47,13 +48,13 @@ async def mock_user_dir(session_mocker):
 
 
 @pytest.fixture(autouse=True, scope="session")
-async def mock_os_environ(mock_user_dir, session_mocker):
-    """mock os.environ to empty env."""
+def mock_os_environ(mock_user_dir, session_mocker):
+    """Mock os.environ to empty env."""
     session_mocker.patch.dict(os.environ, {}, clear=True)
 
 
 @pytest.fixture(autouse=True, scope="session")
-async def disable_product_types_fetch(mock_os_environ):
+def disable_product_types_fetch(mock_os_environ):
     """Disable auto fetching product types from providers."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("EODAG_EXT_PRODUCT_TYPES_CFG_FILE", "")
@@ -67,7 +68,7 @@ async def fake_credentials(disable_product_types_fetch):
 
 
 @pytest.fixture(scope="session")
-async def app():
+def app():
     """
     Asynchronous generator that initializes and yields the FastAPI application.
     """
@@ -92,7 +93,7 @@ async def app_client(app):
 
 @pytest.fixture(scope="function")
 def mock_search_result():
-    """generate eodag_api.search mock results"""
+    """Generate eodag_api.search mock results."""
     search_result = SearchResult.from_geojson(
         {
             "features": [
@@ -229,12 +230,15 @@ def mock_search_result():
 
 
 @pytest.fixture(scope="function")
-def request_valid_raw(
-    mocker,
-    app,
-    app_client,
-    mock_search_result,
-):
+def mock_search(mocker, app):
+    """
+    Mocks the `search` method of the `app.state.dag` object.
+    """
+    return mocker.patch.object(app.state.dag, "search")
+
+
+@pytest.fixture(scope="function")
+def request_valid_raw(app_client, mock_search, mock_search_result):
     """Make a raw request to the API and check the response."""
 
     async def _request_valid_raw(
@@ -246,7 +250,6 @@ def request_valid_raw(
         search_result: Optional[SearchResult] = None,
         expected_status_code: int = 200,
     ):
-        mock_search = mocker.patch.object(app.state.dag, "search")
         if search_result:
             mock_search.return_value = search_result
         else:
@@ -272,14 +275,18 @@ def request_valid_raw(
             for single_search_kwargs in expected_search_kwargs:
                 mock_search.assert_any_call(**single_search_kwargs)
         elif expected_search_kwargs is not None:
-            mock_search.assert_called_once_with(**expected_search_kwargs)
+            try:
+                mock_search.assert_called_once_with(**expected_search_kwargs)
+            except AssertionError as e:
+                pytest.fail(f"Assertion failed: {e}\nAdditional context: {response.text}.")
 
         assert expected_status_code == response.status_code, (
             f"For {method}: {url}, body: {post_data}, got: {str(response)}"
         )
         return response
 
-    return _request_valid_raw
+    yield _request_valid_raw
+    mock_search.reset_mock()
 
 
 @pytest.fixture(scope="function")
@@ -415,9 +422,31 @@ def request_accepted(app_client):
     return _request_accepted
 
 
-@pytest.fixture(scope="function")
-def tested_product_type():
+@dataclass
+class TestDefaults:
     """
-    Returns the product type for testing.
+    A class to hold default test values.
     """
-    return "S2_MSI_L1C"
+
+    product_type: str = "S2_MSI_L1C"
+    bbox_wkt: str = "POLYGON ((0.0 43.0, 1.0 43.0, 1.0 44.0, 0.0 44.0, 0.0 43.0))"
+    bbox_geojson: dict[str, Any] = field(
+        default_factory=lambda: {
+            "type": "Polygon",
+            "coordinates": [[[0, 43], [1, 43], [1, 44], [0, 44], [0, 43]]],
+        }
+    )
+    bbox_csv: str = "0,43,1,44"
+    bbox_list: list = field(default_factory=lambda: [0, 43, 1, 44])
+    start: str = "2018-01-20T00:00:00+00:00"
+    end: str = "2018-01-25T00:00:00+00:00"
+    startz: str = "2018-01-20T00:00:00Z"
+    endz: str = "2018-01-25T00:00:00Z"
+
+
+@pytest.fixture(scope="module")
+def defaults():
+    """
+    Create and return an instance of TestDefaults.
+    """
+    return TestDefaults()
