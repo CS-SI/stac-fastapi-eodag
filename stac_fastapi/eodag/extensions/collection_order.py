@@ -22,8 +22,10 @@ from typing import (
     Annotated,
     cast,
 )
+from urllib.parse import quote_plus
 
 import attr
+import orjson
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import (
@@ -31,9 +33,10 @@ from eodag.api.product.metadata_mapping import (
     OFFLINE_STATUS,
     STAGING_STATUS,
 )
-from fastapi import APIRouter, FastAPI, Path, Query, Request
-from stac_fastapi.api.routes import create_async_endpoint
-from stac_fastapi.types.errors import NotFoundError
+from fastapi import APIRouter, Depends, FastAPI, Path, Request
+from pydantic import BaseModel, ConfigDict
+from stac_fastapi.api.errors import NotFoundError
+from stac_fastapi.api.routes import _wrap_response, create_async_endpoint, sync_to_async
 from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
 from stac_fastapi.types.stac import Item
@@ -52,6 +55,9 @@ from stac_fastapi.eodag.models.stac_metadata import (
 
 logger = logging.getLogger(__name__)
 
+class CollectionOrderBody(BaseModel):
+    """Collection order request body."""
+    model_config = ConfigDict(extra="allow")
 
 @attr.s
 class BaseCollectionOrderClient:
@@ -68,14 +74,18 @@ class BaseCollectionOrderClient:
         self,
         federation_backend: str,
         collection_id: str,
-        dc_qs: str,
         request: Request,
+        query_body: CollectionOrderBody,
     ) -> Item:
         """Order a product with its collection id and a fake id"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)
 
-        search_results = dag.search(id="fake_id", productType=collection_id, provider=federation_backend, _dc_qs=dc_qs)
+        encoded_dc_qs = quote_plus(orjson.dumps(query_body.model_dump()))
+
+        search_results = dag.search(
+            id="fake_id", productType=collection_id, provider=federation_backend, _dc_qs=encoded_dc_qs
+        )
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
@@ -110,7 +120,7 @@ class BaseCollectionOrderClient:
         if raise_error or product.properties.get("orderId") is None:
             raise NotFoundError(
                 "Download order failed. It can be due to a lack of product found, so you "
-                f"may change 'dc_qs' argument. The one used for this order was: {dc_qs}"
+                "may change the body of the request."
             )
 
         return create_stac_item(product, self.stac_metadata_model, self.extension_is_enabled, request)
@@ -189,7 +199,6 @@ class CollectionOrderUri(APIRequest):
 
     federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
     collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
-    dc_qs: Annotated[str, Query(description="Datacube query string")] = attr.ib()
 
 
 @attr.s
@@ -225,6 +234,15 @@ class CollectionOrderExtension(ApiExtension):
         :param app: Target FastAPI application.
         :returns: None
         """
+        func = sync_to_async(self.client.order_collection)
+        async def _retrieve_endpoint(
+            request: Request,
+            request_data: CollectionOrderBody = CollectionOrderBody(),
+            request_path: CollectionOrderUri = Depends()
+        ):
+            """Create "retrieve" endpoint."""
+            return _wrap_response(await func(request=request, query_body=request_data, **request_path.kwargs()))
+
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(
             name="Order collection",
@@ -237,7 +255,7 @@ class CollectionOrderExtension(ApiExtension):
                     },
                 }
             },
-            endpoint=create_async_endpoint(self.client.order_collection, CollectionOrderUri),
+            endpoint=_retrieve_endpoint,
         )
         self.router.add_api_route(
             name="Poll collection",

@@ -18,9 +18,10 @@
 """link helpers."""
 
 from typing import Any, Optional
-from urllib.parse import ParseResult, parse_qs, unquote, urlencode, urljoin, urlparse
+from urllib.parse import ParseResult, parse_qs, unquote, unquote_plus, urlencode, urljoin, urlparse
 
 import attr
+import orjson
 from stac_fastapi.types.requests import get_base_url
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
@@ -276,15 +277,16 @@ class ItemLinks(CollectionLinksBase):
         """Create the `retrieve` link."""
         if self.order_link is None:
             return None
-        orders_url = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/retrieve")
-        href = merge_params(orders_url, {"dc_qs": [self.dc_qs]}) if self.dc_qs is not None else orders_url
+        href = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/retrieve")
         return {
             "rel": "retrieve",
             "type": MimeTypes.geojson.value,
             "href": href,
+            "method": "POST",
+            "body": orjson.loads(unquote_plus(self.dc_qs or "{}")),
         }
 
-    def link_poll(self) -> Dict[str, str] | None:
+    def link_poll(self) -> dict[str, str] | None:
         """Create the `poll` link."""
         if self.order_status_link is None:
             return None
