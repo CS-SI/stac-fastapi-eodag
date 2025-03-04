@@ -50,6 +50,7 @@ class Settings(ApiSettings):
         pattern=r"(http|https):\/\/[\w:.-]+\/",
         validate_default=False,
     )
+    download_domain: str = Field(default="", description="domain to be used for download link")
 
 
 @lru_cache(maxsize=1)

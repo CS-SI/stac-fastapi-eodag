@@ -307,6 +307,18 @@ def create_stac_item(
     )
 
     stac_extensions: set[str] = set()
+    
+    download_base_url = settings.download_domain
+    if not download_base_url:
+        download_base_url = get_base_url(request)
+
+    asset_proxy_url = (
+        (
+            download_base_url + f"data/{product.provider}/{collection}/{feature['id']}" 
+        )
+        if extension_is_enabled("DataDownload")  # self.extension_is_enabled("DataDownload")
+        else None
+    )
 
     download_base_url = settings.download_base_url
     if not download_base_url:
@@ -363,7 +375,6 @@ def create_stac_item(
                 }
 
     provider_dict = get_provider_dict(request, product.provider)
-
     feature_model = model.model_validate(
         {
             **product.properties,
