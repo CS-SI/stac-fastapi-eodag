@@ -132,9 +132,10 @@ class ResponseSearchError(Exception):
 
 async def response_search_error_handler(request: Request, exc: Exception) -> ORJSONResponse:
     """Handle ResponseSearchError exceptions"""
+    code = getattr(exc, "status_code", 500)
     return ORJSONResponse(
-        status_code=getattr(exc, "status_code", 500),
-        content={"errors": getattr(exc, "errors", [])},
+        status_code=code,
+        content={"code": str(code), "errors": getattr(exc, "errors", [])},
     )
 
 
@@ -157,16 +158,17 @@ async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONRespon
 
     return ORJSONResponse(
         status_code=code,
-        content={"description": detail},
+        content={"code": str(code), "description": detail},
     )
 
 
 def starlette_exception_handler(request: Request, error: Exception) -> ORJSONResponse:
     """Starlette errors handle"""
     description = getattr(error, "description", None) or getattr(error, "detail", None) or str(error)
+    code = getattr(error, "status_code", 500)
     return ORJSONResponse(
-        status_code=getattr(error, "status_code", 500),
-        content={"description": description},
+        status_code=code,
+        content={"code": str(code), "description": description},
     )
 
 
@@ -174,18 +176,20 @@ def assertion_error_handler(request: Request, error: Exception) -> ORJSONRespons
     """Assertion errors handle"""
     message = str(error) or f" ({str(error)})"
     description = str(error) or f"The request bould not be validated{message}."
+    code = (getattr(error, "status_code", 400),)
     return ORJSONResponse(
-        status_code=getattr(error, "status_code", 400),
-        content={"description": description},
+        status_code=code,
+        content={"code": str(code), "description": description},
     )
 
 
 def value_error_handler(request: Request, error: Exception) -> ORJSONResponse:
     """Value errors handle"""
     description = f"The request bould not be validated ({str(error)})."
+    code = getattr(error, "status_code", 400)
     return ORJSONResponse(
-        status_code=getattr(error, "status_code", 400),
-        content={"description": description},
+        status_code=code,
+        content={"code": str(code), "description": description},
     )
 
 
