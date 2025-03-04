@@ -18,10 +18,10 @@
 """Search tests."""
 
 from unittest.mock import ANY
-
 import pytest
 from eodag.utils import format_dict_items
 
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
 
 
@@ -93,6 +93,22 @@ async def test_items_response(request_valid, defaults):
     assert first_props["product:type"] == "OCN"
     assert first_props["storage:tier"] == "succeeded"
     assert res[1]["properties"]["storage:tier"] == "orderable"
+    assert "assets" in res[0]
+    assert "asset1" in res[0]["assets"]
+    assert res[0]["assets"]["asset1"]["href"] == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
+
+
+async def test_assets_with_different_domain(request_valid, defaults):
+    settings = get_settings()
+    settings.download_domain = "http://otherserver/"
+    resp_json = await request_valid(
+        f"search?collections={defaults.product_type}",
+    )
+    res = resp_json["features"]
+    assert len(res) == 2
+    assert "assets" in res[0]
+    assert "asset1" in res[0]["assets"]
+    assert res[0]["assets"]["asset1"]["href"] == f"http://otherserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
 
 
 async def test_not_found(request_not_found):

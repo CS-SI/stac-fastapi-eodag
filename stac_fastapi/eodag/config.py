@@ -50,6 +50,8 @@ class Settings(ApiSettings):
 
     fetch_providers: bool = Field(default=False, description="Fetch additional collections from all providers.")
 
+    download_domain: str = Field(default="", description="domain to be used for download link")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

@@ -190,6 +190,11 @@ def mock_search_result():
                         ],
                         "type": "Polygon",
                     },
+                    "assets": {
+                        "asset1": {
+                            "title": "asset1"
+                        }
+                    }
                 },
                 {
                     "properties": {
@@ -249,6 +254,11 @@ def mock_search_result():
                         ],
                         "type": "Polygon",
                     },
+                    "assets": {
+                        "asset1": {
+                            "title": "asset1"
+                        }
+                    }
                 },
             ],
             "type": "FeatureCollection",
