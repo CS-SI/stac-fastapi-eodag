@@ -279,6 +279,7 @@ class ItemLinks(CollectionLinksBase):
             return None
         href = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/retrieve")
         return {
+            "title": "retrieve",
             "rel": "retrieve",
             "type": MimeTypes.geojson.value,
             "href": href,
