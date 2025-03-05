@@ -42,6 +42,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
         ),
     ]
     expected_response = {
+        "code": "400",
         "errors": [
             {
                 "provider": "usgs",
@@ -75,7 +76,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
                 "detail": {"startTimeFromAscendingNode", "modificationDate"},
                 "status_code": 400,
             },
-        ]
+        ],
     }
 
     mock_search = mocker.patch.object(app.state.dag, "search")
