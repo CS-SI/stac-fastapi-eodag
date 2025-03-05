@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 class CollectionOrderBody(BaseModel):
     """Collection order request body."""
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", json_schema_extra={"examples": [{"date": "string", "variable": "string"}]})
 
 @attr.s
 class BaseCollectionOrderClient:
