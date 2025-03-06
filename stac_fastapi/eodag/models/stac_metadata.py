@@ -196,10 +196,8 @@ def create_stac_item(
     stac_extensions: set[str] = set()
 
     asset_proxy_url = (
-        (
-            get_base_url(request) + f"data/{product.provider}/{feature['collection']}/{feature['id']}"  # type: ignore
-        )
-        if extension_is_enabled("DataDownload")  # self.extension_is_enabled("DataDownload")
+        (get_base_url(request) + f"data/{product.provider}/{feature['collection']}/{feature['id']}")
+        if extension_is_enabled("DataDownload")
         else None
     )
 
@@ -213,7 +211,12 @@ def create_stac_item(
             origin = deepcopy(feature["assets"][k])
             feature["assets"][k]["href"] = asset_proxy_url + "/" + k
 
-            if settings.keep_origin_url:
+            origin_href = origin.get("href")
+            if (
+                settings.keep_origin_url
+                and origin_href
+                and not origin_href.startswith(tuple(settings.origin_url_blacklist))
+            ):
                 feature["assets"][k]["alternate"] = {"origin": origin}
 
     # TODO: remove downloadLink asset after EODAG assets rework
@@ -229,7 +232,7 @@ def create_stac_item(
             "type": "application/zip",
         }
 
-        if settings.keep_origin_url:
+        if settings.keep_origin_url and not origin_href.startswith(tuple(settings.origin_url_blacklist)):
             feature["assets"]["downloadLink"]["alternate"] = {
                 "origin": {
                     "title": "Origin asset link",

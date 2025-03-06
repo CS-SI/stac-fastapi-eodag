@@ -19,6 +19,7 @@
 
 import pytest
 
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
 
 
@@ -275,3 +276,40 @@ async def test_search_response_contains_pagination_info(request_valid, defaults)
     response = await request_valid(f"search?collections={defaults.product_type}")
     assert "numberMatched" in response
     assert "numberReturned" in response
+
+
+@pytest.mark.parametrize(
+    ("keep_origin_url", "origin_url_blacklist", "expected_found_alt_urls"),
+    [
+        (None, None, [False, False, False, False]),
+        (True, None, [True, True, True, True]),
+        (True, "https://peps.cnes.fr", [False, False, True, False]),
+    ],
+    ids=[
+        "no alt links by default",
+        "alt links and no blacklist",
+        "alt links and blacklist",
+    ],
+)
+async def test_assets_alt_url_blacklist(
+    request_valid, defaults, mock_search_result, keep_origin_url, origin_url_blacklist, expected_found_alt_urls
+):
+    """Search through eodag server must not have alternate link if in blacklist"""
+
+    search_result = mock_search_result
+    search_result[0].assets.update({"foo": {"href": "https://peps.cnes.fr"}})
+    search_result[1].assets.update({"foo": {"href": "https://somewhere.fr"}})
+
+    try:
+        get_settings.cache_clear()
+        with pytest.MonkeyPatch.context() as mp:
+            if keep_origin_url is not None:
+                mp.setenv("KEEP_ORIGIN_URL", str(keep_origin_url))
+            if origin_url_blacklist is not None:
+                mp.setenv("ORIGIN_URL_BLACKLIST", origin_url_blacklist)
+
+            response = await request_valid(f"search?collections={defaults.product_type}")
+            response_items = [f for f in response["features"]]
+            assert ["alternate" in a for i in response_items for a in i["assets"].values()] == expected_found_alt_urls
+    finally:
+        get_settings.cache_clear()
