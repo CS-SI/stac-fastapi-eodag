@@ -116,10 +116,10 @@ class EodagCoreClient(AsyncBaseCoreClient):
 
         collection = Collection(
             id=product_type["ID"],
-            description=product_type["abstract"],
-            keywords=product_type["keywords"].split(","),
-            license=product_type["license"],
-            title=product_type["title"],
+            description=product_type.get("abstract", ""),
+            keywords=product_type.get("keywords", "").split(","),
+            license=product_type.get("license", "other"),
+            title=product_type.get("title", product_type["ID"]),
             extent=extent,
             summaries=summaries,
         )

@@ -238,6 +238,22 @@ def mock_search(mocker, app):
 
 
 @pytest.fixture(scope="function")
+def mock_list_product_types(mocker, app):
+    """
+    Mocks the `list_product_types` method of the `app.state.dag` object.
+    """
+    return mocker.patch.object(app.state.dag, "list_product_types")
+
+
+@pytest.fixture(scope="function")
+def mock_guess_product_type(mocker, app):
+    """
+    Mocks the `guess_product_type` method of the `app.state.dag` object.
+    """
+    return mocker.patch.object(app.state.dag, "guess_product_type")
+
+
+@pytest.fixture(scope="function")
 def request_valid_raw(app_client, mock_search, mock_search_result):
     """Make a raw request to the API and check the response."""
 
