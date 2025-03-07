@@ -81,7 +81,9 @@ class CommonStacMetadata(ItemProperties):
         Convert instrument ``str`` to ``list``.
         """
         if instrument := values.get("instrument"):
-            values["instrument"] = ",".join(instrument.split()).split(",")
+            values["instrument"] = (
+                ",".join(instrument.split()).split(",") if isinstance(instrument, str) else instrument
+            )
         return values
 
     @model_validator(mode="after")

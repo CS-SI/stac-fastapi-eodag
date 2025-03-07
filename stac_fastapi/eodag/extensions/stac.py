@@ -281,3 +281,21 @@ class OrderExtension(BaseStacExtension):
 
     schema_href: str = attr.ib(default="https://stac-extensions.github.io/order/v1.1.0/schema.json")
     field_name_prefix: Optional[str] = attr.ib(default="order")
+
+
+class FederationFields(BaseModel):
+    """
+    https://github.com/Open-EO/openeo-api/tree/master/extensions/federation
+    """
+
+    backends: Optional[str] = Field(default=None, validation_alias="provider")
+
+
+@attr.s
+class FederationExtension(BaseStacExtension):
+    """STAC federation extension."""
+
+    FIELDS = FederationFields
+
+    schema_href: str = attr.ib(default="https://api.openeo.org/extensions/federation/0.1.0")
+    field_name_prefix: Optional[str] = attr.ib(default="federation")

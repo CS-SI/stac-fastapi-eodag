@@ -50,6 +50,7 @@ from stac_fastapi.eodag.extensions.filter import FiltersClient
 from stac_fastapi.eodag.extensions.pagination import PaginationExtension
 from stac_fastapi.eodag.extensions.stac import (
     ElectroOpticalExtension,
+    FederationExtension,
     OrderExtension,
     ProcessingExtension,
     ProductExtension,
@@ -76,6 +77,7 @@ stac_metadata_model = create_stac_metadata_model(
         ProcessingExtension(),
         ViewGeometryExtension(),
         ElectroOpticalExtension(),
+        FederationExtension(),
         ScientificCitationExtension(),
         ProductExtension(),
         StorageExtension(),

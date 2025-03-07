@@ -18,6 +18,7 @@
 """Search tests."""
 
 import pytest
+from eodag.utils import format_dict_items
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
@@ -313,3 +314,56 @@ async def test_assets_alt_url_blacklist(
             assert ["alternate" in a for i in response_items for a in i["assets"].values()] == expected_found_alt_urls
     finally:
         get_settings.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("method", "url", "post_data", "expected_kwargs"),
+    [
+        # POST with provider specified
+        (
+            "POST",
+            "search",
+            {"collections": ["{defaults.product_type}"], "query": {"federation:backends": {"eq": "peps"}}},
+            {"provider": "peps"},
+        ),
+        # POST with no provider specified
+        ("POST", "search", {"collections": ["{defaults.product_type}"]}, {}),
+        # GET with provider specified
+        (
+            "GET",
+            'search?collections={defaults.product_type}&query={{"federation:backends":{{"eq":"peps"}} }}',
+            None,
+            {"provider": "peps"},
+        ),
+        # GET with no provider specified
+        ("GET", "search?collections={defaults.product_type}", None, {}),
+    ],
+    ids=[
+        "POST with provider specified",
+        "POST with no provider specified",
+        "GET with provider specified",
+        "GET with no provider specified",
+    ],
+)
+async def test_search_provider_in_downloadlink(request_valid, defaults, method, url, post_data, expected_kwargs):
+    """Search through eodag server and check that provider appears in downloadLink"""
+    # format defautls values
+    url = url.format(defaults=defaults)
+    post_data = format_dict_items(post_data, defaults=defaults) if post_data else None
+
+    response = await request_valid(
+        url=url,
+        method=method,
+        post_data=post_data,
+        check_links=False,
+        expected_search_kwargs=dict(
+            page=1,
+            items_per_page=10,
+            raise_errors=False,
+            count=True,
+            productType=defaults.product_type,
+            **expected_kwargs,
+        ),
+    )
+    response_items = [f for f in response["features"]]
+    assert all(["/data/peps/" in i["assets"]["downloadLink"]["href"] for i in response_items])
