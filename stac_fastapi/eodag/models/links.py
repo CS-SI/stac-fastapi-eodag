@@ -26,9 +26,12 @@ from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 from starlette.requests import Request
 
+from stac_fastapi.eodag.config import get_settings
+
 # These can be inferred from the item/collection so they aren't included in the database
 # Instead they are dynamically generated when querying the database using the classes defined below
 INFERRED_LINK_RELS = ["self", "item", "parent", "collection", "root"]
+stac_fastapi_title = get_settings().stac_fastapi_title
 
 
 def filter_links(links: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -76,11 +79,7 @@ class BaseLinks:
 
     def link_self(self) -> dict[str, str]:
         """Return the self link."""
-        return {
-            "rel": Relations.self.value,
-            "type": MimeTypes.json.value,
-            "href": self.url,
-        }
+        return {"rel": Relations.self.value, "type": MimeTypes.json.value, "href": self.url, "title": "Current Page"}
 
     def link_root(self) -> dict[str, str]:
         """Return the catalog root."""
@@ -88,6 +87,7 @@ class BaseLinks:
             "rel": Relations.root.value,
             "type": MimeTypes.json.value,
             "href": self.base_url,
+            "title": f"{stac_fastapi_title}",
         }
 
     def create_links(self) -> list[dict[str, Any]]:
@@ -153,6 +153,7 @@ class PagingLinks(BaseLinks):
                     "type": MimeTypes.geojson.value,
                     "method": method,
                     "href": href,
+                    "title": "Next page",
                 }
             if method == "POST":
                 return {
@@ -161,6 +162,7 @@ class PagingLinks(BaseLinks):
                     "method": method,
                     "href": f"{self.request.url}",
                     "body": {**self.request.state.postbody, "page": self.next},
+                    "title": "Next page",
                 }
 
         return None
@@ -176,6 +178,7 @@ class PagingLinks(BaseLinks):
                     "type": MimeTypes.geojson.value,
                     "method": method,
                     "href": href,
+                    "title": "Previous page",
                 }
             if method == "POST":
                 return {
@@ -184,6 +187,7 @@ class PagingLinks(BaseLinks):
                     "method": method,
                     "href": f"{self.request.url}",
                     "body": {**self.request.state.postbody, "token": f"prev:{self.prev}"},
+                    "title": "Previous page",
                 }
         return None
 
@@ -200,6 +204,7 @@ class CollectionLinksBase(BaseLinks):
             "rel": rel,
             "type": MimeTypes.json.value,
             "href": self.resolve(f"collections/{self.collection_id}"),
+            "title": f"{self.collection_id}",
         }
 
 
@@ -217,6 +222,7 @@ class CollectionLinks(CollectionLinksBase):
             "rel": Relations.parent.value,
             "type": MimeTypes.json.value,
             "href": self.base_url,
+            "title": f"{stac_fastapi_title}",
         }
 
     def link_items(self) -> dict[str, str]:
@@ -225,6 +231,7 @@ class CollectionLinks(CollectionLinksBase):
             "rel": "items",
             "type": MimeTypes.geojson.value,
             "href": self.resolve(f"collections/{self.collection_id}/items"),
+            "title": "Items",
         }
 
 
@@ -238,6 +245,7 @@ class ItemCollectionLinks(CollectionLinksBase):
             "rel": Relations.self.value,
             "type": MimeTypes.geojson.value,
             "href": self.resolve(f"collections/{self.collection_id}/items"),
+            "title": "Items",
         }
 
     def link_parent(self) -> dict[str, str]:
@@ -264,6 +272,7 @@ class ItemLinks(CollectionLinksBase):
             "rel": Relations.self.value,
             "type": MimeTypes.geojson.value,
             "href": self.resolve(f"collections/{self.collection_id}/items/{self.item_id}"),
+            "title": "Original item link",
         }
 
     def link_parent(self) -> dict[str, str]:

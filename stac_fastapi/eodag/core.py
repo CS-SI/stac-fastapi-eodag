@@ -34,7 +34,6 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
 from pygeofilter.parsers.cql2_json import parse as parse_json
 from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
-from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.search import BaseSearchPostRequest
@@ -46,8 +45,10 @@ from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import ResponseSearchError
+from stac_fastapi.eodag.landing_page import CustomCoreClient
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     ItemCollectionLinks,
@@ -81,7 +82,7 @@ logger = logging.getLogger()
 
 
 @attr.s
-class EodagCoreClient(AsyncBaseCoreClient):
+class EodagCoreClient(CustomCoreClient):
     """"""
 
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
@@ -253,22 +254,15 @@ class EodagCoreClient(AsyncBaseCoreClient):
             product_types = all_pt
 
         collections = [self._get_collection(pt, request) for pt in product_types[:limit]]
-
+        stac_fastapi_title = get_settings().stac_fastapi_title
         links = [
-            {
-                "rel": Relations.root.value,
-                "type": MimeTypes.json,
-                "href": base_url,
-            },
-            {
-                "rel": Relations.parent.value,
-                "type": MimeTypes.json,
-                "href": base_url,
-            },
+            {"rel": Relations.root.value, "type": MimeTypes.json, "href": base_url, "title": f"{stac_fastapi_title}"},
+            {"rel": Relations.parent.value, "type": MimeTypes.json, "href": base_url, "title": f"{stac_fastapi_title}"},
             {
                 "rel": Relations.self.value,
                 "type": MimeTypes.json,
                 "href": urljoin(base_url, "collections"),
+                "title": "Collection",
             },
         ]
         return Collections(collections=collections or [], links=links)

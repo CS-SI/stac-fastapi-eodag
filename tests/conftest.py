@@ -336,6 +336,8 @@ def assert_links_valid(app_client, request_valid_raw):
             assert link["rel"] in known_rel
             # must start with app base-url
             assert link["href"].startswith(str(app_client.base_url))
+            # must have a title
+            assert "title" in link
             # GET must be valid
             await request_valid_raw(link["href"])
             # TODO: support then test HEAD method
