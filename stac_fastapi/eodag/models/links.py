@@ -26,12 +26,9 @@ from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 from starlette.requests import Request
 
-from stac_fastapi.eodag.config import get_settings
-
 # These can be inferred from the item/collection so they aren't included in the database
 # Instead they are dynamically generated when querying the database using the classes defined below
-INFERRED_LINK_RELS = ["self", "item", "parent", "collection", "root"]
-stac_fastapi_title = get_settings().stac_fastapi_title
+INFERRED_LINK_RELS = ["self", "item", "collection"]
 
 
 def filter_links(links: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -81,15 +78,6 @@ class BaseLinks:
         """Return the self link."""
         return {"rel": Relations.self.value, "type": MimeTypes.json.value, "href": self.url, "title": "Current Page"}
 
-    def link_root(self) -> dict[str, str]:
-        """Return the catalog root."""
-        return {
-            "rel": Relations.root.value,
-            "type": MimeTypes.json.value,
-            "href": self.base_url,
-            "title": f"{stac_fastapi_title}",
-        }
-
     def create_links(self) -> list[dict[str, Any]]:
         """Return all inferred links."""
         links: list[dict[str, Any]] = []
@@ -121,7 +109,7 @@ class BaseLinks:
             # For extra links passed in,
             # add links modified with a resolved href.
             # Drop any links that are dynamically
-            # determined by the server (e.g. self, parent, etc.)
+            # determined by the server (e.g. self, item, etc.)
             # Resolving the href allows for relative paths
             # to be stored in pgstac and for the hrefs in the
             # links of response STAC objects to be resolved
@@ -216,15 +204,6 @@ class CollectionLinks(CollectionLinksBase):
         """Return the self link."""
         return self.collection_link(rel=Relations.self.value)
 
-    def link_parent(self) -> dict[str, str]:
-        """Create the `parent` link."""
-        return {
-            "rel": Relations.parent.value,
-            "type": MimeTypes.json.value,
-            "href": self.base_url,
-            "title": f"{stac_fastapi_title}",
-        }
-
     def link_items(self) -> dict[str, str]:
         """Create the `item` link."""
         return {
@@ -248,10 +227,6 @@ class ItemCollectionLinks(CollectionLinksBase):
             "title": "Items",
         }
 
-    def link_parent(self) -> dict[str, str]:
-        """Create the `parent` link."""
-        return self.collection_link(rel=Relations.parent.value)
-
     def link_collection(self) -> dict[str, str]:
         """Create the `collection` link."""
         return self.collection_link()
@@ -274,10 +249,6 @@ class ItemLinks(CollectionLinksBase):
             "href": self.resolve(f"collections/{self.collection_id}/items/{self.item_id}"),
             "title": "Original item link",
         }
-
-    def link_parent(self) -> dict[str, str]:
-        """Create the `parent` link."""
-        return self.collection_link(rel=Relations.parent.value)
 
     def link_collection(self) -> dict[str, str]:
         """Create the `collection` link."""

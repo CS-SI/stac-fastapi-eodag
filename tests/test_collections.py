@@ -25,7 +25,7 @@ async def test_collection(request_valid, defaults):
     result = await request_valid(f"collections/{defaults.product_type}")
     assert result["id"] == defaults.product_type
     for link in result["links"]:
-        assert link["rel"] in ["self", "root", "items", "parent"]
+        assert link["rel"] in ["self", "items"]
 
 
 async def test_list_collections(app_client, mock_list_product_types):

@@ -318,7 +318,6 @@ def assert_links_valid(app_client, request_valid_raw):
         known_rel = [
             "self",
             "root",
-            "parent",
             "child",
             "items",
             "service-desc",
@@ -329,7 +328,7 @@ def assert_links_valid(app_client, request_valid_raw):
             "collection",
             "http://www.opengis.net/def/rel/ogc/1.0/queryables",
         ]
-        required_links_rel = ["self", "root"]
+        required_links_rel = ["self"]
 
         for link in links:
             # known relations
