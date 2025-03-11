@@ -463,10 +463,8 @@ class TestDefaults:
     )
     bbox_csv: str = "0,43,1,44"
     bbox_list: list = field(default_factory=lambda: [0, 43, 1, 44])
-    start: str = "2018-01-20T00:00:00+00:00"
-    end: str = "2018-01-25T00:00:00+00:00"
-    startz: str = "2018-01-20T00:00:00Z"
-    endz: str = "2018-01-25T00:00:00Z"
+    start: str = "2018-01-20T00:00:00Z"
+    end: str = "2018-01-25T00:00:00Z"
 
 
 @pytest.fixture(scope="module")

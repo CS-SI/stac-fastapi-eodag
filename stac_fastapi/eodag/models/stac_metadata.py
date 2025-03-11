@@ -56,15 +56,15 @@ class CommonStacMetadata(ItemProperties):
     # TODO: replace dt by stac_pydantic.shared.UtcDatetime.
     # Requires timezone to be set in EODAG datetime properties
     # Tested with EFAS FORECAST
-    datetime: Optional[dt] = Field(default=None, validation_alias="startTimeFromAscendingNode")
-    start_datetime: Optional[dt] = Field(
+    datetime: Optional[str] = Field(default=None, validation_alias="startTimeFromAscendingNode")
+    start_datetime: Optional[str] = Field(
         default=None, validation_alias="startTimeFromAscendingNode"
     )  # TODO do not set if start = end
-    end_datetime: Optional[dt] = Field(
+    end_datetime: Optional[str] = Field(
         default=None, validation_alias="completionTimeFromAscendingNode"
     )  # TODO do not set if start = end
-    created: Optional[dt] = Field(default=None, validation_alias="creationDate")
-    updated: Optional[dt] = Field(default=None, validation_alias="modificationDate")
+    created: Optional[str] = Field(default=None, validation_alias="creationDate")
+    updated: Optional[str] = Field(default=None, validation_alias="modificationDate")
     platform: Optional[str] = Field(default=None, validation_alias="platformSerialIdentifier")
     instruments: Optional[list[str]] = Field(default=None, validation_alias="instrument")
     constellation: Optional[str] = Field(default=None, validation_alias="platform")

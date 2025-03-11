@@ -74,9 +74,9 @@ async def test_items_response(request_valid, defaults):
         "properties",
     }
     assert first_props["federation:backends"] == ["peps"]
-    assert first_props["datetime"] == "2018-02-15T23:53:22.871000+00:00"
-    assert first_props["start_datetime"] == "2018-02-15T23:53:22.871000+00:00"
-    assert first_props["end_datetime"] == "2018-02-16T00:12:14.035000+00:00"
+    assert first_props["datetime"] == "2018-02-15T23:53:22.871Z"
+    assert first_props["start_datetime"] == "2018-02-15T23:53:22.871Z"
+    assert first_props["end_datetime"] == "2018-02-16T00:12:14.035Z"
     assert first_props["license"] == "other"
     assert first_props["platform"] == "S1A"
     assert first_props["instruments"] == ["SAR-C", "SAR"]
@@ -109,14 +109,14 @@ async def test_search_results_with_errors(request_valid, mock_search_result, def
 @pytest.mark.parametrize(
     ("input_start", "input_end", "expected_start", "expected_end"),
     [
-        ("startz", "endz", "start", "end"),
-        ("startz", "..", "start", None),
-        ("..", "endz", None, "end"),
-        ("startz", None, "start", "start"),
+        ("start", "end", "start", "end"),
+        ("start", "..", "start", None),
+        ("..", "end", None, "end"),
+        ("start", None, "start", "start"),
         (None, None, None, None),
     ],
 )
-async def test_date_search(request_valid, defaults, input_start, input_end, expected_start, expected_end, mock_search):
+async def test_date_search(request_valid, defaults, input_start, input_end,  expected_start, expected_end, mock_search):
     """Search through eodag server /search endpoint using dates filering should return a valid response"""
     input_date_qs = f"&datetime={getattr(defaults, input_start, input_start)}" if input_start else ""
     input_date_qs += f"/{getattr(defaults, input_end, input_end)}" if input_end else ""
@@ -141,7 +141,7 @@ async def test_date_search(request_valid, defaults, input_start, input_end, expe
 @pytest.mark.parametrize("use_dates", [(False,), (True,)])
 async def test_date_search_from_items(request_valid, defaults, use_dates):
     """Search through eodag server collection/items endpoint using dates filering should return a valid response"""
-    input_date_qs = f"&datetime={defaults.startz}/{defaults.endz}" if use_dates else ""
+    input_date_qs = f"&datetime={defaults.start}/{defaults.end}" if use_dates else ""
     expected_kwargs = {"start": defaults.start, "end": defaults.end} if use_dates else {}
 
     await request_valid(
@@ -214,10 +214,10 @@ async def test_intersects_post_search(request_valid, defaults):
 @pytest.mark.parametrize(
     ("input_start", "input_end", "expected_start", "expected_end"),
     [
-        ("startz", "endz", "start", "end"),
-        ("startz", "..", "start", None),
-        ("..", "endz", None, "end"),
-        ("startz", None, "start", "start"),
+        ("start", "end", "start", "end"),
+        ("start", "..", "start", None),
+        ("..", "end", None, "end"),
+        ("start", None, "start", "start"),
     ],
 )
 async def test_date_post_search(request_valid, defaults, input_start, input_end, expected_start, expected_end):
