@@ -314,7 +314,7 @@ def request_valid_raw(app_client, mock_search, mock_search_result):
 
 
 @pytest.fixture(scope="function")
-def assert_links_valid(app_client, request_valid_raw):
+def assert_links_valid(app_client, request_valid_raw, request_not_valid):
     """Checks that element links are valid"""
 
     async def _assert_links_valid(element: Any):
@@ -345,9 +345,14 @@ def assert_links_valid(app_client, request_valid_raw):
             assert link["href"].startswith(str(app_client.base_url))
             # must have a title
             assert "title" in link
-            # GET must be valid
-            await request_valid_raw(link["href"])
-            # TODO: support then test HEAD method
+
+            if link["rel"] != "search" and not link["href"].endswith("/search"):
+                # GET must be valid
+                await request_valid_raw(link["href"])
+                # TODO: support then test HEAD method
+            else:
+                # search fails with missing collection
+                await request_not_valid(link["href"])
 
             if link["rel"] in required_links_rel:
                 required_links_rel.remove(link["rel"])

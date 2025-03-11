@@ -158,6 +158,8 @@ class EodagCoreClient(CustomCoreClient):
             existing_pt = [pt for pt in all_pt if pt["ID"] == search_request.collections[0]]
             if not existing_pt:
                 raise NoMatchingProductType(f"Collection {search_request.collections[0]} does not exist.")
+        else:
+            raise HTTPException(status_code=400, detail="A collection is required")
 
         # get products by ids
         if search_request.ids:
