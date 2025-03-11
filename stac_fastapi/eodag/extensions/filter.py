@@ -31,18 +31,122 @@ from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 COMMON_QUERYABLES_PROPERTIES = {
-    "id": {"description": "ID", "$ref": "https://schemas.stacspec.org/v1.0.0/item-spec/json-schema/item.json#/id"},
+    "id": {
+        "title": "Provider ID",
+        "description": "Provider item ID",
+        "type": "string",
+        "minLength": 1,
+    },
     "collection": {
-        "description": "Collection",
-        "$ref": "https://schemas.stacspec.org/v1.0.0/item-spec/json-schema/item.json#/collection",
+        "title": "Collection ID",
+        "description": "The ID of the STAC Collection this Item references to.",
+        "type": "string",
+        "minLength": 1,
     },
     "geometry": {
-        "description": "Geometry",
-        "$ref": "https://schemas.stacspec.org/v1.0.0/item-spec/json-schema/item.json#/geometry",
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://geojson.org/schema/Geometry.json",
+        "title": "GeoJSON Geometry",
+        "oneOf": [
+            {
+                "title": "GeoJSON Point",
+                "type": "object",
+                "required": ["type", "coordinates"],
+                "properties": {
+                    "type": {"type": "string", "enum": ["Point"]},
+                    "coordinates": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+                    "bbox": {"type": "array", "minItems": 4, "items": {"type": "number"}},
+                },
+            },
+            {
+                "title": "GeoJSON LineString",
+                "type": "object",
+                "required": ["type", "coordinates"],
+                "properties": {
+                    "type": {"type": "string", "enum": ["LineString"]},
+                    "coordinates": {
+                        "type": "array",
+                        "minItems": 2,
+                        "items": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+                    },
+                    "bbox": {"type": "array", "minItems": 4, "items": {"type": "number"}},
+                },
+            },
+            {
+                "title": "GeoJSON Polygon",
+                "type": "object",
+                "required": ["type", "coordinates"],
+                "properties": {
+                    "type": {"type": "string", "enum": ["Polygon"]},
+                    "coordinates": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "minItems": 4,
+                            "items": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+                        },
+                    },
+                    "bbox": {"type": "array", "minItems": 4, "items": {"type": "number"}},
+                },
+            },
+            {
+                "title": "GeoJSON MultiPoint",
+                "type": "object",
+                "required": ["type", "coordinates"],
+                "properties": {
+                    "type": {"type": "string", "enum": ["MultiPoint"]},
+                    "coordinates": {
+                        "type": "array",
+                        "items": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+                    },
+                    "bbox": {"type": "array", "minItems": 4, "items": {"type": "number"}},
+                },
+            },
+            {
+                "title": "GeoJSON MultiLineString",
+                "type": "object",
+                "required": ["type", "coordinates"],
+                "properties": {
+                    "type": {"type": "string", "enum": ["MultiLineString"]},
+                    "coordinates": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "minItems": 2,
+                            "items": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+                        },
+                    },
+                    "bbox": {"type": "array", "minItems": 4, "items": {"type": "number"}},
+                },
+            },
+            {
+                "title": "GeoJSON MultiPolygon",
+                "type": "object",
+                "required": ["type", "coordinates"],
+                "properties": {
+                    "type": {"type": "string", "enum": ["MultiPolygon"]},
+                    "coordinates": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "minItems": 4,
+                                "items": {"type": "array", "minItems": 2, "items": {"type": "number"}},
+                            },
+                        },
+                    },
+                    "bbox": {"type": "array", "minItems": 4, "items": {"type": "number"}},
+                },
+            },
+        ],
     },
     "datetime": {
-        "description": "Datetime",
-        "$ref": "https://schemas.stacspec.org/v1.0.0/item-spec/json-schema/datetime.json#/properties/datetime",
+        "title": "Date and Time",
+        "description": "The searchable date/time of the assets, in UTC (Formatted in RFC 3339) ",
+        "type": ["string", "null"],
+        "format": "date-time",
+        "pattern": "(\\+00:00|Z)$",
     },
 }
 
@@ -73,7 +177,7 @@ class FiltersClient(AsyncBaseFiltersClient):
             eodag_queryables = request.app.state.dag.list_queryables(productType=collection_id)
         except UnsupportedProductType as err:
             raise NotFoundError(err) from err
-        
+
         if "start" in eodag_queryables:
             start_queryable = eodag_queryables.pop("start")
             eodag_queryables["startTimeFromAscendingNode"] = start_queryable
@@ -99,7 +203,7 @@ class FiltersClient(AsyncBaseFiltersClient):
                         "description": f"Queryable names for the {stac_fastapi_title}.",
                         "additionalProperties": bool(not collection_id),
                     },
-                    arbitrary_types_allowed=True
+                    arbitrary_types_allowed=True,
                 ),
             ),
         )
