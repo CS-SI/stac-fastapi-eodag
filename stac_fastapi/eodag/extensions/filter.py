@@ -73,6 +73,13 @@ class FiltersClient(AsyncBaseFiltersClient):
             eodag_queryables = request.app.state.dag.list_queryables(productType=collection_id)
         except UnsupportedProductType as err:
             raise NotFoundError(err) from err
+        
+        if "start" in eodag_queryables:
+            start_queryable = eodag_queryables.pop("start")
+            eodag_queryables["startTimeFromAscendingNode"] = start_queryable
+        if "end" in eodag_queryables:
+            end_queryable = eodag_queryables.pop("end")
+            eodag_queryables["completionTimeFromAscendingNode"] = end_queryable
 
         base_url = get_base_url(request)
         stac_fastapi_title = get_settings().stac_fastapi_title
@@ -92,16 +99,21 @@ class FiltersClient(AsyncBaseFiltersClient):
                         "description": f"Queryable names for the {stac_fastapi_title}.",
                         "additionalProperties": bool(not collection_id),
                     },
+                    arbitrary_types_allowed=True
                 ),
             ),
         )
         queryables = queryables_model.model_json_schema()
         properties = queryables["properties"]
+        required = queryables.get("required", [])
 
         for k, v in self.stac_metadata_model.model_fields.items():
             if v.validation_alias in properties:
                 properties[v.serialization_alias or k] = properties[v.validation_alias]
                 del properties[v.validation_alias]
+            if v.validation_alias in required:
+                required.remove(v.validation_alias)
+                required.append(v.serialization_alias or k)
 
         # Only datetime is kept in queryables
         properties.pop("end_datetime", None)

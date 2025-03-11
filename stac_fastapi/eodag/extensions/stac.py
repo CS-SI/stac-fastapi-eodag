@@ -218,7 +218,7 @@ class ProductFields(BaseModel):
     https://github.com/stac-extensions/product#fields
     """
 
-    type: Optional[str] = Field(None, validation_alias="productType")
+    type: Optional[str] = Field(None, validation_alias="providerProductType")
     timeliness: Optional[str] = Field(None)
     timeliness_category: Optional[str] = Field(None)
 

@@ -70,6 +70,7 @@ class CommonStacMetadata(ItemProperties):
     constellation: Optional[str] = Field(default=None, validation_alias="platform")
     providers: Optional[list[Provider]] = None
     gsd: Optional[float] = Field(default=None, validation_alias="resolution", gt=0)
+    collection: Optional[str] = Field(default=None, validation_alias="productType")
 
     _conformance_classes: ClassVar[dict[str, str]]
     get_conformance_classes: ClassVar[Callable[[Any], list[str]]]

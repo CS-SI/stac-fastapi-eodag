@@ -132,7 +132,7 @@ class ResponseSearchError(Exception):
 
 async def response_search_error_handler(request: Request, exc: Exception) -> ORJSONResponse:
     """Handle ResponseSearchError exceptions"""
-    code = getattr(exc, "status_code", 500)
+    code = getattr(exc, "status_code", 500) or 500
     return ORJSONResponse(
         status_code=code,
         content={"code": str(code), "errors": getattr(exc, "errors", [])},
@@ -141,7 +141,7 @@ async def response_search_error_handler(request: Request, exc: Exception) -> ORJ
 
 async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONResponse:
     """Handler for EODAG errors"""
-    code = EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500))
+    code = EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500)) or 500
     detail = f"{type(exc).__name__}: {str(exc)}"
 
     if type(exc) in (MisconfiguredError, AuthenticationError, TimeOutError):

@@ -103,7 +103,7 @@ def mock_search_result():
                         "resolution": None,
                         "completionTimeFromAscendingNode": "2018-02-16T00:12:14.035Z",
                         "keyword": {},
-                        "productType": "OCN",
+                        "providerProductType": "OCN",
                         "downloadLink": (
                             "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7b/download"
                         ),
@@ -251,6 +251,14 @@ def mock_guess_product_type(mocker, app):
     Mocks the `guess_product_type` method of the `app.state.dag` object.
     """
     return mocker.patch.object(app.state.dag, "guess_product_type")
+
+
+@pytest.fixture(scope="function")
+def mock_list_queryables(mocker, app):
+    """
+    Mocks the `list_queryables` method of the `app.state.dag` object.
+    """
+    return mocker.patch.object(app.state.dag, "list_queryables")
 
 
 @pytest.fixture(scope="function")
