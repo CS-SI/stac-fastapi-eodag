@@ -150,7 +150,7 @@ class BaseDataDownloadClient:
 
             logger.debug("Poll product")
             try:
-                _ = product.downloader._order_status(product=product, auth=auth)
+                product.downloader._order_status(product=product, auth=auth)
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
                 product.properties["storageStatus"] = STAGING_STATUS
