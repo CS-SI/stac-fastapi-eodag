@@ -81,10 +81,8 @@ class BaseCollectionOrderClient:
 
         dag = cast(EODataAccessGateway, request.app.state.dag)
 
-        encoded_dc_qs = quote_plus(orjson.dumps(query_body.model_dump()))
-
         search_results = dag.search(
-            id="fake_id", productType=collection_id, provider=federation_backend, _dc_qs=encoded_dc_qs
+            productType=collection_id, provider=federation_backend, **query_body.model_dump()
         )
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
