@@ -35,7 +35,6 @@ from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
 from stac_fastapi.types.stac import Item
 
-from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
@@ -43,9 +42,12 @@ from stac_fastapi.eodag.models.stac_metadata import (
 
 logger = logging.getLogger(__name__)
 
+
 class CollectionOrderBody(BaseModel):
     """Collection order request body."""
+
     model_config = ConfigDict(extra="allow", json_schema_extra={"examples": [{"date": "string", "variable": "string"}]})
+
 
 @attr.s
 class BaseCollectionOrderClient:
@@ -69,9 +71,7 @@ class BaseCollectionOrderClient:
 
         dag = cast(EODataAccessGateway, request.app.state.dag)
 
-        search_results = dag.search(
-            productType=collection_id, provider=federation_backend, **query_body.model_dump()
-        )
+        search_results = dag.search(productType=collection_id, provider=federation_backend, **query_body.model_dump())
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
@@ -88,9 +88,7 @@ class BaseCollectionOrderClient:
             )
 
         if product.properties.get("orderStatus"):
-            raise NotFoundError(
-                "Product has already been ordered and polled, it can be directly downloaded."
-            )
+            raise NotFoundError("Product has already been ordered and polled, it can be directly downloaded.")
 
         raise_error = False
         if product.downloader is None:
@@ -143,10 +141,11 @@ class CollectionOrderExtension(ApiExtension):
         :returns: None
         """
         func = sync_to_async(self.client.order_collection)
+
         async def _retrieve_endpoint(
             request: Request,
             request_data: CollectionOrderBody = CollectionOrderBody(),
-            request_path: CollectionOrderUri = Depends()
+            request_path: CollectionOrderUri = Depends(),
         ):
             """Create "retrieve" endpoint."""
             return _wrap_response(await func(request=request, query_body=request_data, **request_path.kwargs()))

@@ -132,10 +132,16 @@ class BaseDataDownloadClient:
             # (the same one as order ID) to make error message clearer
             product.properties["title"] = product.properties["id"]
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
-            product.properties["orderLink"] = product.properties["orderStatusLink"] = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"].format(orderId=item_id)
+            product.properties["orderLink"] = product.properties["orderStatusLink"] = (
+                product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"].format(
+                    orderId=item_id
+                )
+            )
 
             if product.downloader.config.order_on_response["metadata_mapping"].get("searchLink"):
-                product.properties["searchLink"] = product.downloader.config.order_on_response["metadata_mapping"]["searchLink"].format(orderId=item_id)
+                product.properties["searchLink"] = product.downloader.config.order_on_response["metadata_mapping"][
+                    "searchLink"
+                ].format(orderId=item_id)
 
             if not getattr(product.downloader, "_order_status", None):
                 raise MisconfiguredError("Product downloader must have the order status request method")
@@ -144,20 +150,15 @@ class BaseDataDownloadClient:
 
             logger.debug("Poll product")
             try:
-                _ = product.downloader._order_status(
-                    product=product, auth=auth
-                )
+                _ = product.downloader._order_status(product=product, auth=auth)
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
                 product.properties["storageStatus"] = STAGING_STATUS
             except Exception as e:
                 if (
-                    (isinstance(e, DownloadError) or isinstance(e, ValidationError))
-                    and "order status could not be checked" in e.args[0]
-                ):
-                    raise NotFoundError(
-                        f"Item {item_id} does not exist. Please order it first"
-                    ) from e
+                    isinstance(e, DownloadError) or isinstance(e, ValidationError)
+                ) and "order status could not be checked" in e.args[0]:
+                    raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
         try:
