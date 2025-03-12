@@ -20,7 +20,6 @@
 import pytest
 from eodag.utils import format_dict_items
 
-from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
 
 
@@ -116,7 +115,7 @@ async def test_search_results_with_errors(request_valid, mock_search_result, def
         (None, None, None, None),
     ],
 )
-async def test_date_search(request_valid, defaults, input_start, input_end,  expected_start, expected_end, mock_search):
+async def test_date_search(request_valid, defaults, input_start, input_end, expected_start, expected_end):
     """Search through eodag server /search endpoint using dates filering should return a valid response"""
     input_date_qs = f"&datetime={getattr(defaults, input_start, input_start)}" if input_start else ""
     input_date_qs += f"/{getattr(defaults, input_end, input_end)}" if input_end else ""
@@ -293,7 +292,13 @@ async def test_search_response_contains_pagination_info(request_valid, defaults)
     ],
 )
 async def test_assets_alt_url_blacklist(
-    request_valid, defaults, mock_search_result, keep_origin_url, origin_url_blacklist, expected_found_alt_urls
+    request_valid,
+    defaults,
+    mock_search_result,
+    keep_origin_url,
+    origin_url_blacklist,
+    expected_found_alt_urls,
+    settings_cache_clear,
 ):
     """Search through eodag server must not have alternate link if in blacklist"""
 
@@ -301,19 +306,16 @@ async def test_assets_alt_url_blacklist(
     search_result[0].assets.update({"foo": {"href": "https://peps.cnes.fr"}})
     search_result[1].assets.update({"foo": {"href": "https://somewhere.fr"}})
 
-    try:
-        get_settings.cache_clear()
-        with pytest.MonkeyPatch.context() as mp:
-            if keep_origin_url is not None:
-                mp.setenv("KEEP_ORIGIN_URL", str(keep_origin_url))
-            if origin_url_blacklist is not None:
-                mp.setenv("ORIGIN_URL_BLACKLIST", origin_url_blacklist)
+    with pytest.MonkeyPatch.context() as mp:
+        if keep_origin_url is not None:
+            mp.setenv("KEEP_ORIGIN_URL", str(keep_origin_url))
+        if origin_url_blacklist is not None:
+            mp.setenv("ORIGIN_URL_BLACKLIST", origin_url_blacklist)
+            mp.setenv("STAC_FASTAPI_LANDING_ID", "aaaaaaaaaaaa")
 
-            response = await request_valid(f"search?collections={defaults.product_type}")
-            response_items = [f for f in response["features"]]
-            assert ["alternate" in a for i in response_items for a in i["assets"].values()] == expected_found_alt_urls
-    finally:
-        get_settings.cache_clear()
+        response = await request_valid(f"search?collections={defaults.product_type}")
+        response_items = [f for f in response["features"]]
+        assert ["alternate" in a for i in response_items for a in i["assets"].values()] == expected_found_alt_urls
 
 
 @pytest.mark.parametrize(

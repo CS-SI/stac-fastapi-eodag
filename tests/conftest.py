@@ -34,6 +34,7 @@ from eodag.plugins.download.base import Download
 from httpx import ASGITransport, AsyncClient
 
 from stac_fastapi.eodag.app import api, stac_metadata_model
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.dag import init_dag
 from tests import TEST_RESOURCES_PATH
 
@@ -65,6 +66,16 @@ async def fake_credentials(disable_product_types_fetch):
     """load fake credentials to prevent providers needing auth for search to be pruned."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("EODAG_CFG_FILE", os.path.join(TEST_RESOURCES_PATH, "wrong_credentials_conf.yml"))
+
+
+@pytest.fixture()
+async def settings_cache_clear():
+    """
+    Asynchronous generator function to clear the settings cache before and after a test.
+    """
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture(scope="session")
