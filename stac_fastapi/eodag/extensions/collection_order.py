@@ -126,73 +126,6 @@ class BaseCollectionOrderClient:
         return create_stac_item(product, self.stac_metadata_model, self.extension_is_enabled, request)
 
 
-    def poll_collection(
-        self,
-        federation_backend: str,
-        collection_id: str,
-        order_id: str,
-        request: Request,
-    ) -> Item:
-        """Poll a collection previously ordered"""
-
-        dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
-
-        # check if the collection is known
-        try:
-            product_type = dag.get_product_type_from_alias(collection_id)
-        except NoMatchingProductType as e:
-            raise NotFoundError(e) from e
-
-        # set fake properties to make EOProduct initialization possible
-        # among these properties, "title" is set to deal with error while polling
-        fake_properties = {
-            "id": order_id,
-            "title": order_id,
-            "geometry": DEFAULT_GEOMETRY,
-        }
-
-        # "productType" kwarg must be set to convert the product to a STAC item
-        product = EOProduct(federation_backend, fake_properties, productType=product_type)
-        product.downloader = dag._plugins_manager.get_download_plugin(product)
-        # orderLink is set to auth provider conf matching url to create its auth plugin
-        product.properties["orderLink"] = product.properties["orderStatusLink"] = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"].format(orderId=order_id)
-        search_link = {
-            "searchLink": product.downloader.config.order_on_response["metadata_mapping"]["searchLink"].format(orderId=order_id)
-        } if product.downloader.config.order_on_response["metadata_mapping"].get("searchLink") else {}
-        product.properties = {**product.properties, **search_link}
-        product.downloader_auth = dag._plugins_manager.get_auth_plugin(product.downloader, product)
-
-        if not getattr(product.downloader, "_order_status", None):
-            raise MisconfiguredError("Product downloader must have the order status request method")
-
-        auth = product.downloader_auth.authenticate() if product.downloader_auth else None
-
-        logger.debug("Poll product")
-        try:
-            _ = product.downloader._order_status(
-                product=product, auth=auth
-            )
-        # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
-        except NotAvailableError:
-            product.properties["storageStatus"] = STAGING_STATUS
-        except Exception as e:
-            if (
-                (isinstance(e, DownloadError) or isinstance(e, ValidationError))
-                and "order status could not be checked" in e.args[0]
-            ):
-                raise NotFoundError(
-                    f"Item {order_id} does not exist. Please order it first"
-                ) from e
-            raise NotFoundError(e) from e
-
-        return create_stac_item(
-            product,
-            self.stac_metadata_model,
-            self.extension_is_enabled,
-            request
-        )
-
-
 @attr.s
 class CollectionOrderUri(APIRequest):
     """Order collection."""
@@ -202,26 +135,15 @@ class CollectionOrderUri(APIRequest):
 
 
 @attr.s
-class CollectionPollingUri(APIRequest):
-    """Polling collection."""
-
-    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
-    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
-    order_id: Annotated[str, Path(description="Order ID")] = attr.ib()
-
-
-@attr.s
 class CollectionOrderExtension(ApiExtension):
     """Collection Order extension.
 
-    The order-collection extension allow to order and poll a collection directly through the EODAG STAC
-    server.
+    The order-collection extension allow to order a collection directly through the EODAG STAC server.
 
     Usage:
     ------
 
         ``POST /collections/{collection_id}/{federation_backend}/retrieve``
-        ``GET /collections/{collection_id}/{federation_backend}/retrieve/{order_id}``
     """
 
     client: BaseCollectionOrderClient = attr.ib(factory=BaseCollectionOrderClient)
@@ -256,18 +178,5 @@ class CollectionOrderExtension(ApiExtension):
                 }
             },
             endpoint=_retrieve_endpoint,
-        )
-        self.router.add_api_route(
-            name="Poll collection",
-            path="/collections/{collection_id}/{federation_backend}/retrieve/{order_id}",
-            methods=["GET"],
-            responses={
-                200: {
-                    "content": {
-                        "application/geo+json": {},
-                    },
-                }
-            },
-            endpoint=create_async_endpoint(self.client.poll_collection, CollectionPollingUri),
         )
         app.include_router(self.router, tags=["Collection order"])

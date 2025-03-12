@@ -286,16 +286,3 @@ class ItemLinks(CollectionLinksBase):
             "method": "POST",
             "body": orjson.loads(unquote_plus(self.dc_qs or "{}")),
         }
-
-    def link_poll(self) -> dict[str, str] | None:
-        """Create the `poll` link."""
-        if self.order_status_link is None:
-            return None
-
-        return {
-            "rel": "poll",
-            "type": MimeTypes.geojson.value,
-            "href": self.resolve(
-                f"/collections/{self.collection_id}/{self.federation_backend}/retrieve/{self.item_id}"
-            ),
-        }
