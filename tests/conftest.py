@@ -20,6 +20,8 @@
 import json
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
+from string import ascii_uppercase
 from tempfile import TemporaryDirectory
 from typing import Any, Optional, Union
 from urllib.parse import urljoin
@@ -31,6 +33,7 @@ from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.download.base import Download
+from eodag.utils import StreamResponse
 from httpx import ASGITransport, AsyncClient
 
 from stac_fastapi.eodag.app import api, stac_metadata_model
@@ -76,6 +79,17 @@ async def settings_cache_clear():
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture()
+async def stream_response():
+    """
+    Asynchronous generator function to provide a stream response
+    """
+    return StreamResponse(
+        content=iter(ascii_uppercase),
+        headers={"content-disposition": "attachment; filename=alphabet.txt", "content-type": "text/plain"},
+    )
 
 
 @pytest.fixture(scope="session")
@@ -270,6 +284,40 @@ def mock_list_queryables(mocker, app):
     Mocks the `list_queryables` method of the `app.state.dag` object.
     """
     return mocker.patch.object(app.state.dag, "list_queryables")
+
+
+@pytest.fixture(scope="function")
+def mock_download(mocker, app):
+    """
+    Mocks the `download` method of the `app.state.dag` object.
+    """
+    return mocker.patch.object(app.state.dag, "download")
+
+
+@pytest.fixture(scope="function")
+def mock_base_stream_download_dict(mocker):
+    """
+    Mocks the `_stream_download_dict` method of the `Download` plugin.
+    """
+    return mocker.patch.object(Download, "_stream_download_dict")
+
+
+@pytest.fixture(scope="function")
+def mock_base_authenticate(mocker, app):
+    """
+    Mocks the `authenticate` method of the `Authentication` plugin.
+    """
+    return mocker.patch.object(Authentication, "authenticate")
+
+
+@pytest.fixture(scope="function")
+def tmp_dir():
+    """
+    Get random temporary directory `Path`.
+    """
+    tmpdir = TemporaryDirectory()
+    yield Path(tmpdir.name)
+    tmpdir.cleanup()
 
 
 @pytest.fixture(scope="function")
