@@ -1,0 +1,268 @@
+---
+# Source: eodag-server/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eodag-test-eodag-server
+  namespace: "dedl"
+  labels:
+    app.kubernetes.io/name: eodag-server
+    helm.sh/chart: eodag-server-2.13.0
+    app.kubernetes.io/instance: eodag-test
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "3.0.0"
+automountServiceAccountToken: true
+---
+# Source: eodag-server/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: eodag-test-eodag-server-config
+  namespace: "dedl"
+  labels:
+    app.kubernetes.io/name: eodag-server
+    helm.sh/chart: eodag-server-2.13.0
+    app.kubernetes.io/instance: eodag-test
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "3.0.0"
+data:
+  otelcol_config.yml: |-
+    extensions:
+      health_check:
+      pprof:
+        endpoint: 0.0.0.0:1777
+      zpages:
+        endpoint: 0.0.0.0:55679
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+      # Collect own metrics
+      prometheus:
+        config:
+          scrape_configs:
+          - job_name: 'otel-collector'
+            scrape_interval: 10s
+            static_configs:
+            - targets: ['0.0.0.0:8888']
+    processors:
+      batch:
+    exporters:
+      debug:
+        verbosity: detailed
+      # Data sources: metrics
+      prometheus:
+        endpoint: 0.0.0.0:8000
+        namespace: eodag-otelcol-exporter
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug]
+        metrics:
+    #      receivers: [otlp, prometheus]
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug,prometheus]
+      extensions: [health_check, pprof, zpages]
+---
+# Source: eodag-server/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: eodag-test-eodag-server
+  namespace: "dedl"
+  labels:
+    app.kubernetes.io/name: eodag-server
+    helm.sh/chart: eodag-server-2.13.0
+    app.kubernetes.io/instance: eodag-test
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "3.0.0"
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+      nodePort: null
+    - port: 9090
+      targetPort: prom-exporter
+      protocol: TCP
+      name: metrics
+      nodePort: null
+  selector:
+    app.kubernetes.io/name: eodag-server
+    app.kubernetes.io/instance: eodag-test
+---
+# Source: eodag-server/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eodag-test-eodag-server
+  namespace: "dedl"
+  labels:
+    app.kubernetes.io/name: eodag-server
+    helm.sh/chart: eodag-server-2.13.0
+    app.kubernetes.io/instance: eodag-test
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "3.0.0"
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eodag-server
+      app.kubernetes.io/instance: eodag-test
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: eodag-server
+        helm.sh/chart: eodag-server-2.13.0
+        app.kubernetes.io/instance: eodag-test
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/version: "3.0.0"
+      annotations:
+        checksum/config: 6e4362d771065e1ae2ada48255fabba6c2f0ed823e12fad89ed7ffc6a89febf5
+    spec:
+      serviceAccountName: eodag-test-eodag-server
+      imagePullSecrets:
+        - name: dedl-registry
+      affinity:
+        podAffinity:
+          
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: eodag-test
+                    app.kubernetes.io/name: eodag-server
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+        nodeAffinity:
+          
+      initContainers:
+        - args:
+          - git clone https://clone:gxD6SsyGd9CuDRNogKkh@gitlab.si.c-s.fr/dedl/data.git &&
+            cd data && git sparse-checkout set --no-cone collections && git checkout
+          command:
+          - /bin/sh
+          - -c
+          image: alpine/git
+          name: fetch-collections
+          volumeMounts:
+          - mountPath: /git/data
+            name: collections-data
+      containers:
+        - name: eodag-server
+          image: registry.cloudferro.com/cs-group/dedl-containers/eodag-server:3.0.2-alpha10
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          env:
+            - name: EODAG_EXT_PRODUCT_TYPES_CFG_FILE
+              value: null
+            - name: EODAG_LOGGING
+              value: "3"
+            - name: EODAG_CORS_ALLOWED_ORIGINS
+              value: "*"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://localhost:4318"
+            - name: OTEL_EXPORTER_OTLP_TIMEOUT
+              value: "10"
+            - name: OTEL_METRIC_EXPORT_INTERVAL
+              value: "5000"
+          envFrom:
+            - secretRef:
+                name: eodag-server-credentials
+          resources:
+            limits: {}
+            requests: {}
+          volumeMounts:
+        - name: opentelemetry-collector
+          image: docker.io/otel/opentelemetry-collector-contrib:0.95.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: otlp-receiver
+              containerPort: 4318
+              protocol: TCP
+            - name: prom-exporter
+              containerPort: 8000
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/otelcol-contrib/config.yaml
+              subPath: otelcol_config.yml
+      volumes:
+        - name: config
+          configMap:
+            name: eodag-test-eodag-server-config
+        - name: download-data
+          emptyDir:
+            sizeLimit: "8Gi"
+        - emptyDir:
+            sizeLimit: 1Gi
+          name: collections-data
+---
+# Source: eodag-server/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: eodag-test-eodag-server
+  namespace: "dedl"
+  labels:
+    app.kubernetes.io/name: eodag-server
+    helm.sh/chart: eodag-server-2.13.0
+    app.kubernetes.io/instance: eodag-test
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "3.0.0"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: "nginx"
+  rules:
+    - host: eodag.dedl.csgroup.space
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: eodag-test-eodag-server
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - eodag.dedl.csgroup.space
+      secretName: eodag.dedl.csgroup.space-tls
+---
+# Source: eodag-server/templates/servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: eodag-test-eodag-server
+  namespace: "dedl"
+  labels:
+    app.kubernetes.io/name: eodag-server
+    helm.sh/chart: eodag-server-2.13.0
+    app.kubernetes.io/instance: eodag-test
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "3.0.0"
+spec:
+  endpoints:
+    - port: metrics
+      path: /metrics
+  namespaceSelector:
+    matchNames:
+      - dedl
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: eodag-server
+      app.kubernetes.io/instance: eodag-test

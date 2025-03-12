@@ -1,0 +1,62 @@
+global:
+  imagePullSecrets:
+    - dedl-registry
+
+ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  enabled: true
+  hostname: eodag.dedl.csgroup.space
+  ingressClassName: nginx
+  tls: true
+
+image:
+  registry: registry.cloudferro.com
+  repository: cs-group/dedl-containers/eodag-server
+  tag: 3.0.2-alpha10
+  pullPolicy: Always
+
+otel:
+  enabled: true
+  interval: "5000"
+  collector:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+
+replicaCount: 1
+
+resources: {}
+
+logLevel: 3
+
+extraEnvVars:
+  # keep it empty to disable dataset discovery
+  - name: EODAG_EXT_PRODUCT_TYPES_CFG_FILE
+    value:
+
+extraEnvVarsSecret: eodag-server-credentials
+
+initContainers:
+  - name: fetch-collections
+    image: alpine/git
+    command: ["/bin/sh", "-c"]
+    args:
+      - >-
+        git clone https://clone:gxD6SsyGd9CuDRNogKkh@gitlab.si.c-s.fr/dedl/data.git &&
+        cd data &&
+        git sparse-checkout set --no-cone collections &&
+        git checkout
+    volumeMounts:
+      - name: collections-data
+        mountPath: /git/data
+
+extraVolumes:
+  - name: collections-data
+    emptyDir:
+      sizeLimit: 1Gi
+
+extraVolumeMounts:
+  - name: collections-data
+    mountPath: /eodag/collections
+    subPath: collections
