@@ -290,8 +290,8 @@ def create_stac_item(
         if extension_is_enabled("DataDownload")
         else None
     )
-    # create assets only if product is online
-    if product.properties["storageStatus"] == ONLINE_STATUS:
+    # create assets only if product is not offline
+    if product.properties["storageStatus"] != ONLINE_STATUS:
         for k, v in product.assets.items():
             # TODO: download extension with origin link (make it optional ?)
             asset_model = model.model_validate(v)
