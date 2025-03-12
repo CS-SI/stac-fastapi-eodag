@@ -22,32 +22,20 @@ from typing import (
     Annotated,
     cast,
 )
-from urllib.parse import quote_plus
 
 import attr
-import orjson
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import (
-    DEFAULT_GEOMETRY,
-    OFFLINE_STATUS,
-    STAGING_STATUS,
-)
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from fastapi import APIRouter, Depends, FastAPI, Path, Request
 from pydantic import BaseModel, ConfigDict
 from stac_fastapi.api.errors import NotFoundError
-from stac_fastapi.api.routes import _wrap_response, create_async_endpoint, sync_to_async
+from stac_fastapi.api.routes import _wrap_response, sync_to_async
 from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
 from stac_fastapi.types.stac import Item
 
-from stac_fastapi.eodag.errors import (
-    DownloadError,
-    MisconfiguredError,
-    NoMatchingProductType,
-    NotAvailableError,
-    ValidationError,
-)
+from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
