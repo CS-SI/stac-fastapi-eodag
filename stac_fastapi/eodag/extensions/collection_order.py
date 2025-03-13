@@ -127,7 +127,7 @@ class CollectionOrderExtension(ApiExtension):
     Usage:
     ------
 
-        ``POST /collections/{collection_id}/{federation_backend}/retrieve``
+        ``POST /order/{federation_backend}/{collection_id}``
     """
 
     client: BaseCollectionOrderClient = attr.ib(factory=BaseCollectionOrderClient)
@@ -147,13 +147,13 @@ class CollectionOrderExtension(ApiExtension):
             request_data: CollectionOrderBody = CollectionOrderBody(),
             request_path: CollectionOrderUri = Depends(),
         ):
-            """Create "retrieve" endpoint."""
+            """Retrieve endpoint."""
             return _wrap_response(await func(request=request, query_body=request_data, **request_path.kwargs()))
 
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(
             name="Order collection",
-            path="/collections/{collection_id}/{federation_backend}/retrieve",
+            path="/order/{federation_backend}/{collection_id}",
             methods=["POST"],
             responses={
                 200: {

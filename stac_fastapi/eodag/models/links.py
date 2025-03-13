@@ -276,7 +276,7 @@ class ItemLinks(CollectionLinksBase):
         """Create the `retrieve` link."""
         if self.order_link is None:
             return None
-        href = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/retrieve")
+        href = self.resolve(f"/order/{self.federation_backend}/{self.collection_id}")
         return {
             "rel": "retrieve",
             "type": MimeTypes.geojson.value,
