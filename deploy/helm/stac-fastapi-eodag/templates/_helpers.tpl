@@ -1,7 +1,7 @@
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "eodag-server.serviceAccountName" -}}
+{{- define "stac-fastapi-eodag.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
     {{ default (include "common.names.fullname" .) .Values.serviceAccount.name | trunc 63 | trimSuffix "-" }}
 {{- else -}}
@@ -12,14 +12,14 @@ Create the name of the service account to use
 {{/*
 Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "eodag-server.imagePullSecrets" -}}
+{{- define "stac-fastapi-eodag.imagePullSecrets" -}}
 {{- include "common.images.pullSecrets" (dict "images" (list .Values.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
 Get the config secret.
 */}}
-{{- define "eodag-server.configSecretName" -}}
+{{- define "stac-fastapi-eodag.configSecretName" -}}
 {{- if .Values.configExistingSecret.name }}
     {{- printf "%s" (tpl .Values.configExistingSecret.name $) -}}
 {{- else -}}
@@ -30,7 +30,7 @@ Get the config secret.
 {{/*
 Get the client secret key.
 */}}
-{{- define "eodag-server.configSecretKey" -}}
+{{- define "stac-fastapi-eodag.configSecretKey" -}}
 {{- if .Values.configExistingSecret.key }}
     {{- printf "%s" (tpl .Values.configExistingSecret.key $) -}}
 {{- else -}}
@@ -41,21 +41,21 @@ Get the client secret key.
 {{/*
 Return  the proper Storage Class
 */}}
-{{- define "eodag-server.storageClass" -}}
+{{- define "stac-fastapi-eodag.storageClass" -}}
 {{- include "common.storage.class" (dict "persistence" .Values.persistence "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
 Create EODAG Server app version
 */}}
-{{- define "eodag-server.defaultTag" -}}
+{{- define "stac-fastapi-eodag.defaultTag" -}}
 {{- default .Chart.AppVersion .Values.image.tag }}
 {{- end -}}
 
 {{/*
 Return the proper EODAG server image name
 */}}
-{{- define "eodag-server.image" -}}
+{{- define "stac-fastapi-eodag.image" -}}
 {{- $registryName := .Values.image.registry -}}
 {{- $repositoryName := .Values.image.repository -}}
 {{- $separator := ":" -}}
