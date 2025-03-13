@@ -363,7 +363,7 @@ class EodagCoreClient(CustomCoreClient):
         page: Optional[str] = None,
         sortby: Optional[list[str]] = None,
         intersects: Optional[str] = None,
-        filter: Optional[str] = None,
+        filter_expr: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
         **kwargs: Any,
     ) -> ItemCollection:
@@ -380,7 +380,7 @@ class EodagCoreClient(CustomCoreClient):
         :param page: Page token for pagination.
         :param sortby: List of fields to sort the results by.
         :param intersects: GeoJSON geometry to filter the search.
-        :param filter: CQL filter to apply to the search.
+        :param filter_expr: CQL filter to apply to the search.
         :param filter_lang: Language of the filter (default is "cql2-text").
         :param kwargs: Additional arguments.
         :returns: Found items.
@@ -400,13 +400,13 @@ class EodagCoreClient(CustomCoreClient):
         if datetime:
             base_args["datetime"] = format_datetime_range(datetime)
 
-        if filter:
+        if filter_expr:
             if filter_lang == "cql2-text":
-                ast = parse_cql2_text(filter)
-                base_args["filter"] = str2json("filter", to_cql2(ast))  # type: ignore
+                ast = parse_cql2_text(filter_expr)
+                base_args["filter_expr"] = str2json("filter_expr", to_cql2(ast))  # type: ignore
                 base_args["filter-lang"] = "cql2-json"
             elif filter_lang == "cql-json":
-                base_args["filter"] = str2json(filter)
+                base_args["filter_expr"] = str2json(filter_expr)
 
         # Remove None values from dict
         clean = {}
@@ -533,7 +533,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
 
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
     eodag_filter = {}
-    if f := getattr(search_request, "filter", None):
+    if f := getattr(search_request, "filter_expr", None):
         parsed_filter = parse_cql2(f)
         eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
