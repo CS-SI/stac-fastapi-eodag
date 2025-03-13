@@ -1,0 +1,7 @@
+services:
+  stac_fastapi_eodag_server:
+    image: stac-fastapi-eodag:latest
+    container_name: eodag_server
+    build: .
+    ports:
+      - "8000:8000"  
