@@ -228,7 +228,7 @@ containerSecurityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
-    - all
+      - all
   readOnlyRootFilesystem: false
   runAsNonRoot: true
 
@@ -243,7 +243,7 @@ args: []
 ## EODAG Server application ports
 ## @param containerPorts.http EODAG Server application HTTP port number
 containerPorts:
-  http: 8000
+  http: 8080
 
 ## Enable persistence using Persistent Volume Claims
 ## ref: https://kubernetes.io/docs/user-guide/persistent-volumes/
