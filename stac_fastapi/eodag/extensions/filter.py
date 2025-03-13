@@ -180,16 +180,11 @@ class FiltersClient(AsyncBaseFiltersClient):
         validated_params = QueryablesGetParams.model_validate(
             {
                 **params,
-                **{
-                    "collection": collection_id
-                },
+                **{"collection": collection_id},
             }
         )
         validated_params = validated_params.model_dump(exclude_none=True, by_alias=True)
-        eodag_params = {
-            self.stac_metadata_model.to_eodag(param): validated_params[param]
-            for param in validated_params
-        }
+        eodag_params = {self.stac_metadata_model.to_eodag(param): validated_params[param] for param in validated_params}
         # get queryables from eodag
         try:
             eodag_queryables = request.app.state.dag.list_queryables(**eodag_params)

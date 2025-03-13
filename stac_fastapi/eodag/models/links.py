@@ -88,7 +88,7 @@ class BaseLinks:
                     links.append(link)
             elif "extension_link" in name and callable(getattr(self, name)):
                 extension_snake = name.split("_link")[0]
-                extension_name = ''.join(word.capitalize() for word in extension_snake.split("_"))
+                extension_name = "".join(word.capitalize() for word in extension_snake.split("_"))
                 if extension_name in extensions:
                     link = getattr(self, name)()
                     if link is not None:
@@ -220,7 +220,7 @@ class CollectionLinks(CollectionLinksBase):
             "href": self.resolve(f"collections/{self.collection_id}/items"),
             "title": "Items",
         }
-    
+
     def filter_extension_link_queryables(self) -> dict[str, str]:
         """Create the `queryables` link."""
         return {

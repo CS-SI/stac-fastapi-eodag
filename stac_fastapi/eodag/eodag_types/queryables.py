@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 # Copyright 2025, CS GROUP - France, https://www.cs-soprasteria.com
 #
@@ -16,12 +15,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""stac_fastapi.types.queryables module."""
+
+from typing import Any, Optional, Union
 
 from fastapi import HTTPException
-from stac_fastapi.types.rfc3339 import parse_single_date, str_to_interval
-from typing import Any, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
+from stac_fastapi.types.rfc3339 import parse_single_date, str_to_interval
 
 
 class QueryablesGetParams(BaseModel):
@@ -51,7 +51,7 @@ class QueryablesGetParams(BaseModel):
     @classmethod
     def validate_datetime(cls, values: Optional[str]) -> Optional[str]:
         """
-        datetimes must be either single datetime or range separated by "/", 
+        datetimes must be either single datetime or range separated by "/",
         we assume that only one datetime filter is used
         """
         try:
@@ -72,5 +72,5 @@ class QueryablesGetParams(BaseModel):
         if isinstance(federation_backends[0], str):
             data["federation:backends"] = federation_backends[0]
             return data
-        else: 
+        else:
             raise ValueError("federation:backends should be a string")

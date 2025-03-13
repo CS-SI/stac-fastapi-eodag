@@ -117,7 +117,9 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?datetime=2020-01-01T00:00:00Z",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"productType": "ABC_DEF", "startTimeFromAscendingNode": "2020-01-01T00:00:00Z"})
+    mock_list_queryables.assert_called_once_with(
+        **{"productType": "ABC_DEF", "startTimeFromAscendingNode": "2020-01-01T00:00:00Z"}
+    )
     mock_list_queryables.reset_mock()
     # queryables with invalid datetime filter
     response = await app_client.request(
@@ -126,4 +128,3 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         follow_redirects=True,
     )
     assert response.status_code == 400
-

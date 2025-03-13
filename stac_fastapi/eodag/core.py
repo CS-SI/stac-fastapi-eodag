@@ -205,7 +205,7 @@ class EodagCoreClient(CustomCoreClient):
                 (search_request.page - 1) * items_per_page + number_returned < search_result.number_matched
             ):
                 next_page = search_request.page + 1
-        
+
         extension_names = [type(ext).__name__ for ext in self.extensions]
         collection["links"] = PagingLinks(
             request=request,
