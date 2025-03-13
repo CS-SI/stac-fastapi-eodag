@@ -144,8 +144,8 @@ class CollectionOrderExtension(ApiExtension):
 
         async def _retrieve_endpoint(
             request: Request,
-            request_data: CollectionOrderBody = CollectionOrderBody(),
-            request_path: CollectionOrderUri = Depends(),
+            request_data: CollectionOrderBody,
+            request_path: CollectionOrderUri = Depends(),  # noqa: B008
         ):
             """Retrieve endpoint."""
             return _wrap_response(await func(request=request, query_body=request_data, **request_path.kwargs()))
