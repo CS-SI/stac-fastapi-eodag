@@ -152,6 +152,8 @@ spec:
             - name: ROOT_PATH
               value: {{ .Values.rootPath | quote }}
             {{- end }}
+            - name: APP_PORT
+              value: {{ .Values.containerPorts.http | quote }}
             - name: EODAG_CORS_ALLOWED_ORIGINS
               value: "*"
             - name: RELOAD
