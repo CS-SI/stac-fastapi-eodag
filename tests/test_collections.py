@@ -24,6 +24,8 @@ async def test_collection(request_valid, defaults):
     """Requesting a collection through eodag server should return a valid response"""
     result = await request_valid(f"collections/{defaults.product_type}")
     assert result["id"] == defaults.product_type
+    assert len(result["summaries"]["federation:backends"]) > 0
+    assert len(result["providers"]) > 0
     for link in result["links"]:
         assert link["rel"] in ["self", "items", "http://www.opengis.net/def/rel/ogc/1.0/queryables"]
 

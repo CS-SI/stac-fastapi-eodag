@@ -173,8 +173,13 @@ def create_stac_metadata_model(
     return model
 
 
-def _get_provider_dict(request, provider: str) -> dict[str, Any]:
-    """Generate STAC provider dict"""
+def get_provider_dict(request: Request, provider: str) -> dict[str, Any]:
+    """Generate STAC provider dict
+
+    :param request: FastAPI request
+    :param provider: provider name
+    :return: Provider dictionary
+    """
     provider_config = next(
         p for p in request.app.state.dag.providers_config.values() if provider in [p.name, getattr(p, "group", None)]
     )
@@ -182,6 +187,23 @@ def _get_provider_dict(request, provider: str) -> dict[str, Any]:
         "name": getattr(provider_config, "group", provider_config.name),
         "description": getattr(provider_config, "description", None),
         "roles": getattr(provider_config, "roles", None),
+        "url": getattr(provider_config, "url", None),
+    }
+
+
+def get_federation_backend_dict(request: Request, provider: str) -> dict[str, Any]:
+    """Generate Federation backend dict
+
+    :param request: FastAPI request
+    :param provider: provider name
+    :return: Federation backend dictionary
+    """
+    provider_config = next(
+        p for p in request.app.state.dag.providers_config.values() if provider in [p.name, getattr(p, "group", None)]
+    )
+    return {
+        "title": getattr(provider_config, "group", provider_config.name),
+        "description": getattr(provider_config, "description", None),
         "url": getattr(provider_config, "url", None),
     }
 
@@ -216,7 +238,7 @@ def create_stac_item(
         else None
     )
 
-    provider_dict = _get_provider_dict(request, product.provider)
+    provider_dict = get_provider_dict(request, product.provider)
 
     for k, v in product.assets.items():
         # TODO: download extension with origin link (make it optional ?)

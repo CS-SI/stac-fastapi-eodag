@@ -18,11 +18,19 @@
 """app tests."""
 
 import json
+from unittest.mock import ANY
 
 
-async def test_route(request_valid):
+async def test_landing_page(request_valid):
     """Test the root route."""
-    await request_valid("/")
+    response = await request_valid("/")
+    assert response["federation"]["peps"] == {
+        "title": "peps",
+        "description": ANY,
+        "url": "https://peps.cnes.fr",
+    }
+    assert len(response["federation"]) > 1
+    assert "https://api.openeo.org/extensions/federation/0.1.0" in response["stac_extensions"]
 
 
 async def test_forward(app_client):

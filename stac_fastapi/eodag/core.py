@@ -56,6 +56,7 @@ from stac_fastapi.eodag.models.links import (
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
+    get_provider_dict,
     get_sortby_to_post,
 )
 from stac_fastapi.eodag.utils import (
@@ -90,6 +91,7 @@ class EodagCoreClient(CustomCoreClient):
     def _get_collection(self, product_type: dict[str, Any], request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
         instruments = [instrument for instrument in (product_type.get("instrument") or "").split(",") if instrument]
+        federation_backends = request.app.state.dag.available_providers(product_type["ID"])
 
         summaries = {
             key: value
@@ -98,6 +100,7 @@ class EodagCoreClient(CustomCoreClient):
                 "constellation": product_type.get("platform"),
                 "processing:level": product_type.get("processingLevel"),
                 "instruments": instruments,
+                "federation:backends": federation_backends,
             }.items()
             if value
         }
@@ -122,6 +125,7 @@ class EodagCoreClient(CustomCoreClient):
             title=product_type.get("title", product_type["ID"]),
             extent=extent,
             summaries=summaries,
+            providers=[get_provider_dict(request, fb) for fb in federation_backends],
         )
 
         ext_stac_collection = deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {}))
