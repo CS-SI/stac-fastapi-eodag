@@ -1,4 +1,5 @@
 exclude: '^$'
+exclude: 'deploy/helm/'
 fail_fast: false
 repos:
 
