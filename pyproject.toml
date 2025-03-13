@@ -34,6 +34,13 @@ Repository = "https://github.com/CS-SI/stac-fastapi-eodag.git"
 server = [
     "uvicorn[standard]",
 ]
+observability = [
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-instrumentation-eodag @ git+https://github.com/CS-SI/opentelemetry-instrumentation-eodag",
+    "opentelemetry-instrumentation-fastapi"
+]
 dev = [
     "geojson",
     "httpx",
