@@ -173,6 +173,19 @@ def create_stac_metadata_model(
     return model
 
 
+def _get_provider_dict(request, provider: str) -> dict[str, Any]:
+    """Generate STAC provider dict"""
+    provider_config = next(
+        p for p in request.app.state.dag.providers_config.values() if provider in [p.name, getattr(p, "group", None)]
+    )
+    return {
+        "name": getattr(provider_config, "group", provider_config.name),
+        "description": getattr(provider_config, "description", None),
+        "roles": getattr(provider_config, "roles", None),
+        "url": getattr(provider_config, "url", None),
+    }
+
+
 def create_stac_item(
     product: EOProduct,
     model: type[CommonStacMetadata],
@@ -202,6 +215,8 @@ def create_stac_item(
         if extension_is_enabled("DataDownload")
         else None
     )
+
+    provider_dict = _get_provider_dict(request, product.provider)
 
     for k, v in product.assets.items():
         # TODO: download extension with origin link (make it optional ?)
@@ -244,7 +259,9 @@ def create_stac_item(
                 },
             }
 
-    feature_model = model.model_validate({**product.properties, **{"federation:backends": [product.provider]}})
+    feature_model = model.model_validate(
+        {**product.properties, **{"federation:backends": [product.provider], "providers": [provider_dict]}}
+    )
     stac_extensions.update(feature_model.get_conformance_classes())
     feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
 

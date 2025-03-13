@@ -17,6 +17,8 @@
 # limitations under the License.
 """Search tests."""
 
+from unittest.mock import ANY
+
 import pytest
 from eodag.utils import format_dict_items
 
@@ -71,6 +73,13 @@ async def test_items_response(request_valid, defaults):
         "id",
         "geometry",
         "properties",
+    }
+    assert len(first_props["providers"]) == 1
+    assert first_props["providers"][0] == {
+        "name": "peps",
+        "description": ANY,
+        "roles": ["host"],
+        "url": "https://peps.cnes.fr",
     }
     assert first_props["federation:backends"] == ["peps"]
     assert first_props["datetime"] == "2018-02-15T23:53:22.871Z"
