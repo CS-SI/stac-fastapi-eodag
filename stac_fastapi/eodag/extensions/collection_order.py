@@ -65,13 +65,13 @@ class BaseCollectionOrderClient:
         federation_backend: str,
         collection_id: str,
         request: Request,
-        query_body: CollectionOrderBody,
+        request_body: CollectionOrderBody,
     ) -> Item:
         """Order a product with its collection id and a fake id"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)
 
-        search_results = dag.search(productType=collection_id, provider=federation_backend, **query_body.model_dump())
+        search_results = dag.search(productType=collection_id, provider=federation_backend, **request_body.model_dump())
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
@@ -148,7 +148,7 @@ class CollectionOrderExtension(ApiExtension):
             request_path: CollectionOrderUri = Depends(),  # noqa: B008
         ):
             """Retrieve endpoint."""
-            return _wrap_response(await func(request=request, query_body=request_data, **request_path.kwargs()))
+            return _wrap_response(await func(request=request, request_body=request_data, **request_path.kwargs()))
 
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(
