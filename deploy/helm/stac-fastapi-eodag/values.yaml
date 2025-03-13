@@ -32,12 +32,6 @@ fullnameOverride: ""
 ## @param namespaceOverride String to fully override common.names.namespaceapi
 ##
 namespaceOverride: ""
-## @param landingTitle String to fully override STAC_FASTAPI_LANDING_TITLE
-##
-landingTitle: ""
-## @param rootPath String to fully override ROOT_PATH
-##
-rootPath: ""
 ## @param commonLabels Labels to add to all deployed objects
 ##
 commonLabels: {}
@@ -406,6 +400,23 @@ sidecars: []
 ##    command: ['sh', '-c', 'echo "hello world"']
 ##
 initContainers: []
+
+## @param api.title API title
+## @param api.description API description
+## @param api.landingId ID of the landing page
+##
+api:
+  title: EODAG STAC FastAPI
+  description: STAC API powered by EODAG and STAC FastAPI
+  landingId: eodag-stac-fastapi
+
+## @param rootPath Application root path
+##
+rootPath:
+
+## @param keepOriginUrl Keep the original URL in the response headers
+##
+keepOriginUrl: false
 
 ## @param logLevel Supported values are 0 (no log), 1 (no logging but progress bar), 2 (INFO) or 3 (DEBUG).
 logLevel: 2

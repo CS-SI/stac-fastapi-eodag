@@ -138,16 +138,34 @@ spec:
             {{- end }}
             {{- if or .Values.config .Values.configExistingSecret.name }}
             - name: EODAG_CFG_FILE
-              value: /eodag/eodag/resources/eodag.yml
+              value: /eodag/resources/eodag.yml
+            {{- end }}
+            {{- if .Values.productTypes }}
+            - name: EODAG_PRODUCT_TYPES_CFG_FILE
+              value: /eodag/resources/product_types.yml
+            {{- end }}
+            {{- if .Values.providers }}
+            - name: EODAG_PROVIDERS_CFG_FILE
+              value: /eodag/resources/providers.yml
             {{- end }}
             {{- if gt (.Values.logLevel | int) 0 }}
             - name: EODAG_LOGGING
               value: {{ .Values.logLevel | quote }}
             {{- end }}
-            {{- if .Values.landingTitle }}
-            - name: STAC_FASTAPI_LANDING_TITLE
-              value: {{ .Values.landingTitle | quote }}
+            {{- if .Values.api.title }}
+            - name: STAC_FASTAPI_TITLE
+              value: {{ .Values.api.title | quote }}
             {{- end }}
+            {{- if .Values.api.description }}
+            - name: STAC_FASTAPI_DESCRIPTION
+              value: {{ .Values.api.description | quote }}
+            {{- end }}
+            {{- if .Values.api.landingId }}
+            - name: STAC_FASTAPI_LANDING_ID
+              value: {{ .Values.api.landingId | quote }}
+            {{- end }}
+            - name: STAC_FASTAPI_VERSION
+              value: {{ .Chart.Version | quote }}
             {{- if .Values.rootPath }}
             - name: ROOT_PATH
               value: {{ .Values.rootPath | quote }}
@@ -158,6 +176,10 @@ spec:
               value: "*"
             - name: RELOAD
               value: "false"
+            {{- if .Values.keepOriginUrl }}
+            - name: KEEP_ORIGIN_URL
+              value: {{ .Values.keepOriginUrl | quote }}
+            {{- end }}
             {{- if .Values.otel.enabled }}
             {{- if .Values.otel.endpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -189,17 +211,17 @@ spec:
           volumeMounts:
             {{- if .Values.productTypes }}
             - name: config
-              mountPath: /eodag/eodag/resources/product_types.yml
+              mountPath: /eodag/resources/product_types.yml
               subPath: product_types.yml
             {{- end }}
             {{- if .Values.providers }}
             - name: config
-              mountPath: /eodag/eodag/resources/providers.yml
+              mountPath: /eodag/resources/providers.yml
               subPath: providers.yml
             {{- end }}
             {{- if or .Values.config .Values.configExistingSecret.name }}
             - name: eodag-config
-              mountPath: /eodag/eodag/resources/eodag.yml
+              mountPath: /eodag/resources/eodag.yml
               subPath: eodag.yml
             {{- end }}
         {{- if .Values.otel.collector.enabled }}
