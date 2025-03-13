@@ -256,7 +256,6 @@ class ItemLinks(CollectionLinksBase):
 
     item_id: str = attr.ib()
     order_link: Optional[str] = attr.ib()
-    order_status_link: Optional[str] = attr.ib()
     federation_backend: str = attr.ib()
     dc_qs: Optional[str] = attr.ib()
 

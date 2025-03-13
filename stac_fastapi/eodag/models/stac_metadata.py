@@ -361,9 +361,6 @@ def create_stac_item(
         order_link=(
             product.properties.get("orderLink") if feature["properties"]["order:status"] == "orderable" else None
         ),
-        order_status_link=(
-            product.properties.get("orderStatusLink") if feature["properties"]["order:status"] == "shipping" else None
-        ),
         federation_backend=feature["properties"]["federation:backends"][0],
         dc_qs=product.properties.get("_dc_qs"),
         request=request,
