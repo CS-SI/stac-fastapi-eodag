@@ -154,6 +154,8 @@ spec:
             {{- end }}
             - name: EODAG_CORS_ALLOWED_ORIGINS
               value: "*"
+            - name: RELOAD
+              value: False
             {{- if .Values.otel.enabled }}
             {{- if .Values.otel.endpoint }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
