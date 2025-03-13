@@ -32,9 +32,9 @@ fullnameOverride: ""
 ## @param namespaceOverride String to fully override common.names.namespaceapi
 ##
 namespaceOverride: ""
-## @param landingId String to fully override STAC_FASTAPI_LANDING_ID
+## @param landingTitle String to fully override STAC_FASTAPI_LANDING_TITLE
 ##
-landingId: ""
+landingTitle: ""
 ## @param rootPath String to fully override ROOT_PATH
 ##
 rootPath: ""
