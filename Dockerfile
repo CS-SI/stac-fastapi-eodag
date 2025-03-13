@@ -1,13 +1,23 @@
-FROM python:3.12
+ARG PYTHON_VERSION=3.12
 
-# start from root
-WORKDIR /stac-fastapi-eodag
+FROM python:${PYTHON_VERSION}-slim as base
 
-# copy necessary files
-COPY pyproject.toml pyproject.toml
-COPY stac_fastapi/eodag stac_fastapi/eodag
+# Any python libraries that require system libraries to be installed will likely
+# need the following packages in order to build
+RUN apt-get update && \
+    apt-get -y upgrade && \
+    apt-get install -y build-essential git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# install server
+ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+FROM base as builder
+
+WORKDIR /app
+
+COPY . /app
+
 RUN python -m pip install .[server]
 
 ENTRYPOINT ["/bin/bash", "-c", "python stac_fastapi/eodag/app.py"] 
