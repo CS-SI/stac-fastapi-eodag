@@ -1,5 +1,4 @@
 exclude: '^$'
-exclude: 'deploy/helm/'
 fail_fast: false
 repos:
 
@@ -12,6 +11,7 @@ repos:
     -   id: check-json
     -   id: check-yaml
         args: [--allow-multiple-documents, --unsafe]
+        exclude: '^deploy/helm/eodag/templates/.*$'
     -   id: check-xml
     -   id: check-added-large-files
         args: ['--maxkb=1600']
