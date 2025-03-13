@@ -4,4 +4,4 @@ services:
     container_name: eodag_server
     build: .
     ports:
-      - "8000:8000"  
+      - "8000:8000"

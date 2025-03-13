@@ -38,6 +38,7 @@ dev = [
     "geojson",
     "httpx",
     "importlib-metadata",
+    "mypy",
     "pre-commit",
     "pytest",
     "pytest-asyncio",
@@ -46,6 +47,8 @@ dev = [
     "pytest-socket",
     "responses",
     "stdlib-list",
+    "tox",
+    "tox-uv",
 ]
 
 [tool.mypy]
@@ -63,7 +66,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "--disable-socket --allow-unix-socket --cov=stac_fastapi"
+addopts = "--disable-socket --allow-unix-socket"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 testpaths = [

@@ -20,4 +20,4 @@ COPY . /app
 
 RUN python -m pip install .[server]
 
-ENTRYPOINT ["/bin/bash", "-c", "python stac_fastapi/eodag/app.py"] 
+ENTRYPOINT ["/bin/bash", "-c", "python stac_fastapi/eodag/app.py"]
