@@ -18,7 +18,6 @@
 """property fields."""
 
 from collections.abc import Callable
-from datetime import datetime as dt
 from typing import Any, ClassVar, Optional, Union, cast
 
 import attr

@@ -43,11 +43,10 @@ class CustomCoreClient(AsyncBaseCoreClient):
         if "links" in landing_page and isinstance(landing_page["links"], list):
             collections_url = urljoin(base_url, "collections")
             for link in landing_page["links"]:
-                if "title" not in link:
-                    href = link.get("href", "")
-                    if href == base_url:
-                        link["title"] = f"{stac_fastapi_title}"
-                    if href == collections_url:
-                        link["title"] = "Collections"
+                href = link.get("href", "")
+                if href == base_url:
+                    link["title"] = f"{stac_fastapi_title}"
+                if href == collections_url:
+                    link["title"] = "Collections"
 
         return landing_page
