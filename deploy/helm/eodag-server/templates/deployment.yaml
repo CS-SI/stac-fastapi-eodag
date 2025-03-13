@@ -111,7 +111,7 @@ spec:
           {{- else if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
-              path: /
+              path: /_mgmt/ping
               port: {{ .Values.containerPorts.http }}
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
@@ -124,7 +124,7 @@ spec:
           {{- else if .Values.readinessProbe.enabled }}
           readinessProbe:
             httpGet:
-              path: /
+              path: /_mgmt/ping
               port: {{ .Values.containerPorts.http }}
             initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
@@ -143,6 +143,14 @@ spec:
             {{- if gt (.Values.logLevel | int) 0 }}
             - name: EODAG_LOGGING
               value: {{ .Values.logLevel | quote }}
+            {{- end }}
+            {{- if .Values.landingTitle }}
+            - name: STAC_FASTAPI_LANDING_TITLE
+              value: {{ .Values.landingTitle | quote }}
+            {{- end }}
+            {{- if .Values.rootPath }}
+            - name: ROOT_PATH
+              value: {{ .Values.rootPath | quote }}
             {{- end }}
             - name: EODAG_CORS_ALLOWED_ORIGINS
               value: "*"

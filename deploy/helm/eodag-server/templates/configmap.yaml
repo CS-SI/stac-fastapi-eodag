@@ -11,12 +11,6 @@ metadata:
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
   {{- end }}
-  {{- if .Values.landingTitle }}
-    STAC_FASTAPI_LANDING_TITLE: "{{ .Values.landingTitle }}"
-  {{- end }}
-  {{- if .Values.rootPath }}
-    ROOT_PATH: "{{ .Values.rootPath }}"
-  {{- end }}
 data:
   {{- if .Values.productTypes }}
   product_types.yml: |-
