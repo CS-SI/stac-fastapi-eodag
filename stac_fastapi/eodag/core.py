@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -79,6 +80,8 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger()
+
+loop = asyncio.get_event_loop()
 
 
 @attr.s
@@ -155,7 +158,7 @@ class EodagCoreClient(CustomCoreClient):
 
         return collection
 
-    async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
+    def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         # check if the collection exists
         if search_request.collections:
             all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
@@ -183,7 +186,7 @@ class EodagCoreClient(CustomCoreClient):
         if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
 
-        request_json = await request.json() if request.method == "POST" else None
+        request_json = loop.run_until_complete(request.json()) if request.method == "POST" else None
 
         features: list[Item] = []
 
@@ -334,7 +337,7 @@ class EodagCoreClient(CustomCoreClient):
                 clean[k] = v
 
         search_request = self.post_request_model.model_validate(clean)
-        item_collection = await self._search_base(search_request, request)
+        item_collection = self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
             extensions=extension_names, extra_links=item_collection["links"]
@@ -342,9 +345,7 @@ class EodagCoreClient(CustomCoreClient):
         item_collection["links"] = links
         return item_collection
 
-    async def post_search(
-        self, search_request: BaseSearchPostRequest, request: Request, **kwargs: Any
-    ) -> ItemCollection:
+    def post_search(self, search_request: BaseSearchPostRequest, request: Request, **kwargs: Any) -> ItemCollection:
         """
         Handle POST search requests.
 
@@ -353,9 +354,9 @@ class EodagCoreClient(CustomCoreClient):
         :param kwargs: Additional keyword arguments.
         :returns: Found items.
         """
-        return await self._search_base(search_request, request)
+        return self._search_base(search_request, request)
 
-    async def get_search(
+    def get_search(
         self,
         request: Request,
         collections: Optional[list[str]] = None,
@@ -423,7 +424,7 @@ class EodagCoreClient(CustomCoreClient):
         except ValidationError as err:
             raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
-        return await self.post_search(search_request, request)
+        return self.post_search(search_request, request)
 
     async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:
         """
@@ -440,7 +441,7 @@ class EodagCoreClient(CustomCoreClient):
         await self.get_collection(collection_id, request=request)
 
         search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
-        item_collection = await self._search_base(search_request, request)
+        item_collection = self._search_base(search_request, request)
         if not item_collection["features"]:
             raise NotFoundError(f"Item {item_id} in Collection {collection_id} does not exist.")
 
