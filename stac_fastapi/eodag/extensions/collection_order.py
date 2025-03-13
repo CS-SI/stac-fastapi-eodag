@@ -99,7 +99,7 @@ class BaseCollectionOrderClient:
             raise_error = True
         else:
             logger.debug("Order product")
-            _ = product.downloader._order(product=product, auth=auth)
+            product.downloader.order(product=product, auth=auth, timeout=-1)
 
         if raise_error or product.properties.get("orderId") is None:
             raise NotFoundError(
