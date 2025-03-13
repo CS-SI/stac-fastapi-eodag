@@ -266,6 +266,7 @@ def create_stac_item(
     feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
 
     feature["stac_extensions"] = list(stac_extensions)
+    extension_names = [type(ext).__name__ for ext in stac_extensions]
 
     feature["links"] = ItemLinks(
         collection_id=feature["collection"],
@@ -274,7 +275,7 @@ def create_stac_item(
         federation_backend=feature["properties"]["federation:backends"][0],
         dc_qs=product.properties.get("_dc_qs"),
         request=request,
-    ).get_links(extra_links=feature.get("links"), request_json=request_json)
+    ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)
 
     return feature
 

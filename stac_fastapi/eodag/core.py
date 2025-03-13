@@ -125,9 +125,10 @@ class EodagCoreClient(CustomCoreClient):
         )
 
         ext_stac_collection = deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {}))
+        extension_names = [type(ext).__name__ for ext in self.extensions]
 
         collection["links"] = CollectionLinks(collection_id=collection["id"], request=request).get_links(
-            extra_links=product_type.get("links", []) + ext_stac_collection.get("links", [])
+            extensions=extension_names, extra_links=product_type.get("links", []) + ext_stac_collection.get("links", [])
         )
 
         # merge "keywords" lists
@@ -204,11 +205,12 @@ class EodagCoreClient(CustomCoreClient):
                 (search_request.page - 1) * items_per_page + number_returned < search_result.number_matched
             ):
                 next_page = search_request.page + 1
-
+        
+        extension_names = [type(ext).__name__ for ext in self.extensions]
         collection["links"] = PagingLinks(
             request=request,
             next=next_page,
-        ).get_links(request_json=request_json)
+        ).get_links(request_json=request_json, extensions=extension_names)
         return collection
 
     async def all_collections(
@@ -329,8 +331,9 @@ class EodagCoreClient(CustomCoreClient):
 
         search_request = self.post_request_model.model_validate(clean)
         item_collection = await self._search_base(search_request, request)
+        extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
-            extra_links=item_collection["links"]
+            extensions=extension_names, extra_links=item_collection["links"]
         )
         item_collection["links"] = links
         return item_collection

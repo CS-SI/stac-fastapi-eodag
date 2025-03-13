@@ -78,7 +78,7 @@ class BaseLinks:
         """Return the self link."""
         return {"rel": Relations.self.value, "type": MimeTypes.json.value, "href": self.url, "title": "Current Page"}
 
-    def create_links(self) -> list[dict[str, Any]]:
+    def create_links(self, extensions: list[str]) -> list[dict[str, Any]]:
         """Return all inferred links."""
         links: list[dict[str, Any]] = []
         for name in dir(self):
@@ -86,10 +86,18 @@ class BaseLinks:
                 link = getattr(self, name)()
                 if link is not None:
                     links.append(link)
+            elif "extension_link" in name and callable(getattr(self, name)):
+                extension_snake = name.split("_link")[0]
+                extension_name = ''.join(word.capitalize() for word in extension_snake.split("_"))
+                if extension_name in extensions:
+                    link = getattr(self, name)()
+                    if link is not None:
+                        links.append(link)
         return links
 
     def get_links(
         self,
+        extensions: list[str],
         extra_links: Optional[list[dict[str, Any]]] = None,
         request_json: Optional[dict[str, Any]] = None,
     ) -> list[dict[str, Any]]:
@@ -103,7 +111,7 @@ class BaseLinks:
             self.request.state.postbody = request_json
         # join passed in links with generated links
         # and update relative paths
-        links = self.create_links()
+        links = self.create_links(extensions)
 
         if extra_links:
             # For extra links passed in,
@@ -211,6 +219,15 @@ class CollectionLinks(CollectionLinksBase):
             "type": MimeTypes.geojson.value,
             "href": self.resolve(f"collections/{self.collection_id}/items"),
             "title": "Items",
+        }
+    
+    def filter_extension_link_queryables(self) -> dict[str, str]:
+        """Create the `queryables` link."""
+        return {
+            "rel": "http://www.opengis.net/def/rel/ogc/1.0/queryables",
+            "type": MimeTypes.jsonschema.value,
+            "href": self.resolve(f"collections/{self.collection_id}/queryables"),
+            "title": "Queryables",
         }
 
 

@@ -28,6 +28,7 @@ from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 
 from stac_fastapi.eodag.config import get_settings
+from stac_fastapi.eodag.eodag_types.queryables import QueryablesGetParams
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 COMMON_QUERYABLES_PROPERTIES = {
@@ -172,9 +173,26 @@ class FiltersClient(AsyncBaseFiltersClient):
         under OGC CQL but it is allowed by the STAC API Filter Extension
         https://github.com/radiantearth/stac-api-spec/tree/master/fragments/filter#queryables
         """
-        # TODO: add support for query extension instead of native query params like in legacy eodag?
+        params = {}
+        for k, v in request.query_params.multi_items():
+            params.setdefault(k, []).append(v)
+        # validate params and transform to eodag params
+        validated_params = QueryablesGetParams.model_validate(
+            {
+                **params,
+                **{
+                    "collection": collection_id
+                },
+            }
+        )
+        validated_params = validated_params.model_dump(exclude_none=True, by_alias=True)
+        eodag_params = {
+            self.stac_metadata_model.to_eodag(param): validated_params[param]
+            for param in validated_params
+        }
+        # get queryables from eodag
         try:
-            eodag_queryables = request.app.state.dag.list_queryables(productType=collection_id)
+            eodag_queryables = request.app.state.dag.list_queryables(**eodag_params)
         except UnsupportedProductType as err:
             raise NotFoundError(err) from err
 
