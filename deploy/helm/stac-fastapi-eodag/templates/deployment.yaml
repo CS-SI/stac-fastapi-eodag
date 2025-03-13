@@ -192,7 +192,7 @@ spec:
             {{- end }}
             {{- if .Values.providers }}
             - name: config
-              mountPath: /eodag/eodag/resources/product_types.yml
+              mountPath: /eodag/eodag/resources/providers.yml
               subPath: providers.yml
             {{- end }}
             {{- if or .Values.config .Values.configExistingSecret.name }}
