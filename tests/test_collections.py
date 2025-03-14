@@ -45,8 +45,8 @@ async def test_list_collections(app_client, mock_list_product_types):
     ]
 
 
-async def test_search_collections_ok(app_client, mock_list_product_types, mock_guess_product_type):
-    """A collections search must succeed"""
+async def test_search_collections_freetext_ok(app_client, mock_list_product_types, mock_guess_product_type):
+    """A collections free-text search must succeed"""
     mock_list_product_types.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
@@ -60,14 +60,29 @@ async def test_search_collections_ok(app_client, mock_list_product_types, mock_g
     assert ["S2_MSI_L1C"] == [col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])]
 
 
-async def test_search_collections_nok(app_client, mock_list_product_types):
-    """A collections search with a not supported filter must return all collections"""
+async def test_search_collections_freetext_nok(app_client, mock_list_product_types):
+    """A collections free-text search with a not supported filter must return all collections"""
     mock_list_product_types.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
     ]
     r = await app_client.get("/collections?gibberish=gibberish")
     assert mock_list_product_types.called
+    assert r.status_code == 200
+    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [
+        col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])
+    ]
+
+
+async def test_search_collections_query(app_client, mock_list_product_types):
+    """A collections query search must succeed"""
+    mock_list_product_types.return_value = [
+        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
+        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
+    ]
+    r = await app_client.get('/collections?query={"federation:backends":{"eq":"peps"}}')
+
+    mock_list_product_types.assert_called_once_with(provider="peps", fetch_providers=False)
     assert r.status_code == 200
     assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [
         col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])

@@ -51,6 +51,15 @@ class CollectionSearchExtensionGetRequest(APIRequest):
     bbox: Annotated[Optional[BBox], Query()] = attr.ib(default=None, converter=lambda x: str2bbox(x))
     datetime: Annotated[Optional[DateTimeType], Query()] = attr.ib(default=None, converter=lambda x: str_to_interval(x))
     q: Annotated[Optional[str], Query()] = attr.ib(default=None)
+    query: Annotated[
+        Optional[str],
+        Query(
+            description="Allows collections filtering",
+            json_schema_extra={
+                "example": '{"federation:backends": {"eq": "peps"}}',
+            },
+        ),
+    ] = attr.ib(default=None)
 
 
 @attr.s

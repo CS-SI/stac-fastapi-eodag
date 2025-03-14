@@ -229,6 +229,7 @@ class EodagCoreClient(CustomCoreClient):
         datetime: Optional[DateTimeType] = None,
         limit: Optional[int] = None,
         q: Optional[str] = None,
+        query: Optional[str] = None,
     ) -> Collections:
         """
         Get all collections from EODAG.
@@ -238,6 +239,7 @@ class EodagCoreClient(CustomCoreClient):
         :param datetime: Date and time range to filter the collections.
         :param limit: Maximum number of collections to return.
         :param q: Query string to filter the collections.
+        :param query: Query string to filter collections.
         :returns: All collections.
         :raises HTTPException: If the unsupported bbox parameter is provided.
         """
@@ -249,7 +251,15 @@ class EodagCoreClient(CustomCoreClient):
                 detail="bbox parameter is not yet supported in /collections.",
             )
 
-        all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
+        # get provider filter
+        provider = None
+        if query:
+            query_attr = orjson.loads(unquote_plus(query))
+            parsed_query = parse_query(query_attr)
+            provider = parsed_query.get("federation:backends")
+            provider = provider[0] if isinstance(provider, list) else provider
+
+        all_pt = request.app.state.dag.list_product_types(provider=provider, fetch_providers=False)
 
         if any((q, datetime)):
             start, end = dt_range_to_eodag(datetime)
