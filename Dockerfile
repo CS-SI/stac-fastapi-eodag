@@ -18,6 +18,6 @@ WORKDIR /app
 
 COPY . /app
 
-RUN python -m pip install .[server]
+RUN python -m pip install .[server,observability]
 
 ENTRYPOINT ["/bin/bash", "-c", "python stac_fastapi/eodag/app.py"]
