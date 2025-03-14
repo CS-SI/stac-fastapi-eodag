@@ -118,7 +118,7 @@ def instrument_fastapi(
 ) -> None:
     """Instrument FastAPI app."""
     # Start OTLP exporter
-    resource = Resource(attributes={SERVICE_NAME: "eodag-serve-rest"})
+    resource = Resource(attributes={SERVICE_NAME: "stac-fastapi-eodag"})
     tracer_provider = create_tracer_provider(resource)
     meter_provider = create_meter_provider(resource)
     # Auto instrumentation
@@ -134,7 +134,7 @@ def instrument_fastapi(
 def instrument_eodag(eodag_api: EODataAccessGateway):
     """Instrument EODAG app"""
     logger.debug("Instrument EODAG app")
-    resource = Resource(attributes={SERVICE_NAME: "eodag-serve-rest"})
+    resource = Resource(attributes={SERVICE_NAME: "stac-fastapi-eodag"})
     tracer_provider = create_tracer_provider(resource)
     meter_provider = create_meter_provider(resource)
     EODAGInstrumentor(eodag_api).instrument(
