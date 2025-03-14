@@ -224,6 +224,9 @@ spec:
               mountPath: /eodag/resources/eodag.yml
               subPath: eodag.yml
             {{- end }}
+            {{- if .Values.extraVolumeMounts }}
+            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
         {{- if .Values.otel.collector.enabled }}
         - name: opentelemetry-collector
           image: {{ include "otel-collector.image" . }}
@@ -256,24 +259,6 @@ spec:
             items:
               - key: {{ include "stac-fastapi-eodag.configSecretKey" . }}
                 path: {{ include "stac-fastapi-eodag.configSecretKey" . }}
-        {{- end }}
-        {{- if .Values.persistence.enabled }}
-        - name: download-data
-          persistentVolumeClaim:
-            claimName: {{ .Values.persistence.existingClaim | default (printf "%s-download-data" (include "common.names.fullname" .)) }}
-        {{- else }}
-        - name: download-data
-          {{- if or .Values.persistence.medium .Values.persistence.sizeLimit }}
-          emptyDir:
-            {{- if .Values.persistence.medium }}
-            medium: {{ .Values.persistence.medium | quote }}
-            {{- end }}
-            {{- if .Values.persistence.sizeLimit }}
-            sizeLimit: {{ .Values.persistence.sizeLimit | quote }}
-            {{- end }}
-          {{- else }}
-          emptyDir: {}
-          {{- end }}
         {{- end }}
         {{- if .Values.extraVolumes }}
         {{- toYaml .Values.extraVolumes | nindent 8 }}

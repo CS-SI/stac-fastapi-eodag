@@ -239,20 +239,6 @@ args: []
 containerPorts:
   http: 8080
 
-## Enable persistence using Persistent Volume Claims
-## ref: https://kubernetes.io/docs/user-guide/persistent-volumes/
-##
-persistence:
-  ## @param persistence.medium Provide a medium for `emptyDir` volumes.
-  ##
-  medium: ""
-  ## @param persistence.sizeLimit Set this to enable a size limit for `emptyDir` volumes.
-  ##
-  sizeLimit: 8Gi
-  ## @param persistence.annotations Persistent Volume Claim annotations
-  ##
-  annotations: {}
-
 ## @param hostAliases EODAG Server pods host aliases
 ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
 ##
