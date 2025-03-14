@@ -47,19 +47,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger("eodag.rest.utils.observability")
 
 
-def instrument_server(
-    eodag_api: EODataAccessGateway,
-    fastapi_app: Optional[FastAPI] = None,
-) -> None:
-    """Instrument EODAG server."""
-    # Start OTLP exporter
-    resource = Resource(attributes={SERVICE_NAME: "eodag-serve-rest"})
-    # trace
+def create_tracer_provider(resource: Resource) -> TracerProvider:
+    """create opentelemetry tracer provider"""
     tracer_provider = TracerProvider(resource=resource)
     processor = BatchSpanProcessor(OTLPSpanExporter())
     tracer_provider.add_span_processor(processor)
     trace.set_tracer_provider(tracer_provider)
-    # metrics
+    return tracer_provider
+
+
+def create_meter_provider(resource: Resource) -> MeterProvider:
+    """create opentelemetry meter provider"""
     reader = PeriodicExportingMetricReader(OTLPMetricExporter())
     view_histograms: View = View(
         instrument_type=Histogram,
@@ -114,6 +112,15 @@ def instrument_server(
     )
     metrics.set_meter_provider(meter_provider)
 
+
+def instrument_fastapi(
+    fastapi_app: Optional[FastAPI] = None,
+) -> None:
+    """Instrument FastAPI app."""
+    # Start OTLP exporter
+    resource = Resource(attributes={SERVICE_NAME: "eodag-serve-rest"})
+    tracer_provider = create_tracer_provider(resource)
+    meter_provider = create_meter_provider(resource)
     # Auto instrumentation
     if fastapi_app:
         logger.debug("Instrument FastAPI app")
@@ -122,7 +129,14 @@ def instrument_server(
             tracer_provider=tracer_provider,
             meter_provider=meter_provider,
         )
+
+
+def instrument_eodag(eodag_api: EODataAccessGateway):
+    """Instrument EODAG app"""
     logger.debug("Instrument EODAG app")
+    resource = Resource(attributes={SERVICE_NAME: "eodag-serve-rest"})
+    tracer_provider = create_tracer_provider(resource)
+    meter_provider = create_meter_provider(resource)
     EODAGInstrumentor(eodag_api).instrument(
         tracer_provider=tracer_provider,
         meter_provider=meter_provider,

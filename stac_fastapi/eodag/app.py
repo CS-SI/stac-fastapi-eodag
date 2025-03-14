@@ -64,6 +64,7 @@ from stac_fastapi.eodag.extensions.stac import (
 )
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
+from stac_fastapi.eodag.observability import instrument_eodag, instrument_fastapi
 
 if TYPE_CHECKING:
     from typing import AsyncGenerator
@@ -114,6 +115,7 @@ for e in extensions:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """API init and tear-down"""
     init_dag(app)
+    instrument_eodag(app.state.dag)
     # init_cache(app)
     app.state.stac_metadata_model = stac_metadata_model
     yield
@@ -172,6 +174,7 @@ def run():
     try:
         import uvicorn
 
+        instrument_fastapi(app)
         uvicorn.run(
             "stac_fastapi.eodag.app:app",
             host=settings.app_host,
