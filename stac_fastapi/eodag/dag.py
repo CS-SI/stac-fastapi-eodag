@@ -107,7 +107,7 @@ def init_dag(app: FastAPI) -> None:
                 "instrument": ",".join(ext_col.get("summaries", {}).get("instruments", [])),
                 "platform": constellation,
                 "platformSerialIdentifier": platform,
-                "processingLevel": ext_col.get("summaries", {}).get("processing:level"),
+                "processingLevel": ",".join(ext_col.get("summaries", {}).get("processing:level")),
                 "license": ext_col["license"],
                 "missionStartDate": ext_col["extent"]["temporal"]["interval"][0][0],
                 "missionEndDate": ext_col["extent"]["temporal"]["interval"][-1][1],

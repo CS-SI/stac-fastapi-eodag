@@ -120,10 +120,12 @@ class EodagCoreClient(CustomCoreClient):
             },
         }
 
+        keywords = product_type.get("keywords", "")
+
         collection = Collection(
             id=product_type["ID"],
             description=product_type.get("abstract", ""),
-            keywords=product_type.get("keywords", "").split(","),
+            keywords=keywords.split(",") if isinstance(keywords, str) else keywords,
             license=product_type.get("license", "other"),
             title=product_type.get("title", product_type["ID"]),
             extent=extent,
