@@ -36,8 +36,27 @@ if TYPE_CHECKING:
 
     from fastapi import FastAPI
 
+from typing import Tuple, cast
 
 logger = logging.getLogger(__name__)
+
+
+# Prevent successful health check pings from being logged
+class LivenessFilter(logging.Filter):
+    """Filter out requests to the liveness probe endpoint"""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Filter method"""
+        if not record.args or len(record.args) != 5:
+            return True
+
+        args = cast(Tuple[str, str, str, str, int], record.args)
+        endpoint = args[2]
+        status = args[4]
+        if endpoint == "/_mgmt/ping" and status == 200:
+            return False
+
+        return True
 
 
 def fetch_external_stac_collections(
@@ -76,6 +95,9 @@ def init_dag(app: FastAPI) -> None:
     setup_logging(3 if settings.debug else 2, no_progress_bar=True)
 
     dag = EODataAccessGateway()
+
+    uvicorn_access_logger = logging.getLogger("uvicorn.access")
+    uvicorn_access_logger.addFilter(LivenessFilter())
 
     ext_stac_collections = fetch_external_stac_collections(
         dag.list_product_types(fetch_providers=settings.fetch_providers)
