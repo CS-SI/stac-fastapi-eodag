@@ -18,6 +18,7 @@
 """Search tests."""
 
 from unittest.mock import ANY
+
 import pytest
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
 from eodag.utils import format_dict_items
@@ -96,7 +97,10 @@ async def test_items_response(request_valid, defaults):
     assert first_props["order:status"] == "succeeded"
     assert first_props["storage:tier"] == "online"
     assert "asset1" in res[0]["assets"]
-    assert res[0]["assets"]["asset1"]["href"] == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
+    assert (
+        res[0]["assets"]["asset1"]["href"]
+        == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
+    )
     assert res[1]["properties"]["order:status"] == "orderable"
     assert res[1]["properties"]["storage:tier"] == "offline"
     assert "assets" in res[0]
