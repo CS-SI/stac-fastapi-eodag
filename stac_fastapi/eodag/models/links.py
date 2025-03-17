@@ -87,6 +87,10 @@ class BaseLinks:
                 link = getattr(self, name)()
                 if link is not None:
                     links.append(link)
+            elif name.startswith("links_") and callable(getattr(self, name)):
+                new_links = getattr(self, name)()
+                if new_links is not None:
+                    links.extend(new_links)
             elif "extension_link" in name and callable(getattr(self, name)):
                 extension_snake = name.split("_link")[0]
                 extension_name = "".join(word.capitalize() for word in extension_snake.split("_"))
@@ -209,6 +213,8 @@ class CollectionLinksBase(BaseLinks):
 class CollectionLinks(CollectionLinksBase):
     """Create inferred links specific to collections."""
 
+    federation_backends: list = attr.ib()
+
     def link_self(self) -> dict[str, str]:
         """Return the self link."""
         return self.collection_link(rel=Relations.self.value)
@@ -230,6 +236,21 @@ class CollectionLinks(CollectionLinksBase):
             "href": self.resolve(f"collections/{self.collection_id}/queryables"),
             "title": "Queryables",
         }
+
+    def links_retrieve_from_federation_backend(self) -> list[dict[str, Any]]:
+        """Create the `retrieve` links according to the federation backends available for the collection."""
+        links: list[dict[str, Any]] = []
+        for fb in self.federation_backends:
+            links.append(
+                {
+                    "rel": "retrieve",
+                    "type": MimeTypes.geojson.value,
+                    "href": self.resolve(f"orders/{fb}/{self.collection_id}"),
+                    "method": "POST",
+                    "title": f"Retrieve from {fb}",
+                }
+            )
+        return links
 
 
 @attr.s

@@ -133,8 +133,11 @@ class EodagCoreClient(CustomCoreClient):
         collection["id"] = product_type["ID"]
 
         extension_names = [type(ext).__name__ for ext in self.extensions]
-        collection["links"] = CollectionLinks(collection_id=collection["id"], request=request).get_links(
-            extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", [])
+
+        collection["links"] = CollectionLinks(
+            collection_id=collection["id"], federation_backends=federation_backends, request=request
+        ).get_links(
+            extensions=extension_names, extra_links=product_type.get("links", []) + ext_stac_collection.get("links", [])
         )
 
         collection["providers"] = merge_providers(
