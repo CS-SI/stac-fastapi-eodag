@@ -17,6 +17,7 @@
 # limitations under the License.
 """Queryables tests."""
 
+import json
 import os
 from typing import Annotated, Literal
 
@@ -128,3 +129,12 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         follow_redirects=True,
     )
     assert response.status_code == 400
+
+
+async def test_default_in_product_type_queryables(defaults, app_client):
+    """The queryables should not have default value set to null."""
+    response = await app_client.get(f"/collections/{defaults.product_type}/queryables", follow_redirects=True)
+    resp_json = json.loads(response.content.decode("utf-8"))
+    for _, value in resp_json["properties"].items():
+        if "default" in value:
+            assert value.get("default") is not None, f"The 'default' field in the /queryables response must not be null."

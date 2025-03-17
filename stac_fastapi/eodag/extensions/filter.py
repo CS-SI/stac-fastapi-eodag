@@ -235,6 +235,10 @@ class FiltersClient(AsyncBaseFiltersClient):
         # Only datetime is kept in queryables
         properties.pop("end_datetime", None)
 
+        for _, value in properties.items():
+            if "default" in value and value["default"] is None:
+                del value["default"]
+
         for pk, pv in COMMON_QUERYABLES_PROPERTIES.items():
             if pk in properties:
                 properties[pk] = pv
