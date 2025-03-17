@@ -24,6 +24,7 @@ async def test_collection(request_valid, defaults):
     """Requesting a collection through eodag server should return a valid response"""
     result = await request_valid(f"collections/{defaults.product_type}")
     assert result["id"] == defaults.product_type
+    assert all(isinstance(v, list) for v in result["summaries"].values())
     assert len(result["summaries"]["federation:backends"]) > 0
     assert len(result["providers"]) > 0
     for link in result["links"]:

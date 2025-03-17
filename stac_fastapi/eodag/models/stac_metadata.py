@@ -208,6 +208,27 @@ def get_federation_backend_dict(request: Request, provider: str) -> dict[str, An
     }
 
 
+def merge_providers(provider_list: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merges a list of provider dictionaries, combining roles for duplicate names while keeping original properties.
+
+    :param provider_list: list of provider dictionaries
+    :return: list of merged provider dictionaries
+    """
+    merged_providers: dict[str, dict[str, Any]] = {}
+
+    for provider in provider_list:
+        name = provider["name"]
+
+        if merged := merged_providers.get("name"):
+            m_roles = set(merged[name].get("roles", []))
+            m_roles.update(set(provider.get("roles", [])))
+            merged[name]["roles"] = list(m_roles)
+        else:
+            merged_providers[name] = provider
+
+    return list(merged_providers.values())
+
+
 def create_stac_item(
     product: EOProduct,
     model: type[CommonStacMetadata],
@@ -220,20 +241,25 @@ def create_stac_item(
         raise NotFoundError("A STAC item can not be created from an EODAG EOProduct without collection")
 
     settings: Settings = get_settings()
+
+    collection = request.app.state.dag.product_types_config.source.get(product.product_type, {}).get(
+        "alias", product.product_type
+    )
+
     feature = Item(
         type="Feature",
         assets={},
         id=product.properties["title"],
         geometry=product.geometry.__geo_interface__,
         bbox=product.geometry.bounds,
-        collection=product.product_type,
+        collection=collection,
         stac_version=STAC_API_VERSION,
     )
 
     stac_extensions: set[str] = set()
 
     asset_proxy_url = (
-        (get_base_url(request) + f"data/{product.provider}/{feature['collection']}/{feature['id']}")
+        (get_base_url(request) + f"data/{product.provider}/{collection}/{feature['id']}")
         if extension_is_enabled("DataDownload")
         else None
     )
@@ -291,7 +317,7 @@ def create_stac_item(
     extension_names = [type(ext).__name__ for ext in stac_extensions]
 
     feature["links"] = ItemLinks(
-        collection_id=feature["collection"],
+        collection_id=collection,
         item_id=feature["id"],
         order_link=product.properties.get("orderLink"),
         federation_backend=feature["properties"]["federation:backends"][0],

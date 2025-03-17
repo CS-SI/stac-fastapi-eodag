@@ -19,21 +19,24 @@
 
 import json
 import os
+import unittest.mock
 from dataclasses import dataclass, field
 from pathlib import Path
 from string import ascii_uppercase
 from tempfile import TemporaryDirectory
-from typing import Any, Optional, Union
+from typing import Any, Iterator, Optional, Union
 from urllib.parse import urljoin
 
 import geojson
 import pytest
+from eodag import EODataAccessGateway
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.download.base import Download
 from eodag.utils import StreamResponse
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from stac_fastapi.eodag.app import api, stac_metadata_model
@@ -93,14 +96,20 @@ async def stream_response():
 
 
 @pytest.fixture(scope="session")
-def app():
+def app() -> Iterator[FastAPI]:
     """
-    Asynchronous generator that initializes and yields the FastAPI application.
+    Asynchronous generator that initializes and yields the FastAPI application,
+    with `available_providers` mocked to return an empty list.
     """
-    app = api.app
-    init_dag(app)
-    app.state.stac_metadata_model = stac_metadata_model
-    yield app
+    # Mock the `available_providers` method of EODataAccessGateway
+    with unittest.mock.patch.object(EODataAccessGateway, "available_providers", return_value=["peps", "creodias"]):
+        # Initialize the FastAPI app
+        app = api.app
+        init_dag(app)
+        app.state.stac_metadata_model = stac_metadata_model
+
+        # Yield the app for use in tests
+        yield app
 
 
 @pytest.fixture(scope="function")

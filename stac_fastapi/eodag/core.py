@@ -59,6 +59,7 @@ from stac_fastapi.eodag.models.stac_metadata import (
     create_stac_item,
     get_provider_dict,
     get_sortby_to_post,
+    merge_providers,
 )
 from stac_fastapi.eodag.utils import (
     dt_range_to_eodag,
@@ -93,70 +94,51 @@ class EodagCoreClient(CustomCoreClient):
 
     def _get_collection(self, product_type: dict[str, Any], request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
-        instruments = [instrument for instrument in (product_type.get("instrument") or "").split(",") if instrument]
-        federation_backends = request.app.state.dag.available_providers(product_type["ID"])
+        collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {})))
 
-        summaries = {
-            key: value
-            for key, value in {
-                "platform": product_type.get("platformSerialIdentifier"),
-                "constellation": product_type.get("platform"),
-                "processing:level": product_type.get("processingLevel"),
-                "instruments": instruments,
-                "federation:backends": federation_backends,
-            }.items()
-            if value
+        platform_value = [p for p in (product_type.get("platformSerialIdentifier") or "").split(",") if p]
+        constellation = [c for c in (product_type.get("platform") or "").split(",") if c]
+        processing_level = [pl for pl in (product_type.get("processingLevel") or "").split(",") if pl]
+        instruments = [i for i in (product_type.get("instrument") or "").split(",") if i]
+
+        federation_backends = request.app.state.dag.available_providers(product_type["_id"])
+
+        summaries: dict[str, Any] = {
+            "platform": platform_value,
+            "constellation": constellation,
+            "processing:level": processing_level,
+            "instruments": instruments,
+            "federation:backends": federation_backends,
+        }
+        collection["summaries"] = {**collection.get("summaries", {}), **{k: v for k, v in summaries.items() if v}}
+
+        collection["extent"] = {
+            "spatial": collection.get("extent", {}).get("spatial") or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+            "temporal": collection.get("extent", {}).get("temporal")
+            or {"interval": [[product_type.get("missionStartDate"), product_type.get("missionEndDate")]]},
         }
 
-        extent = {
-            "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
-            "temporal": {
-                "interval": [
-                    [
-                        product_type.get("missionStartDate"),
-                        product_type.get("missionEndDate"),
-                    ]
-                ]
-            },
-        }
+        for key in ["license", "abstract", "title"]:
+            if value := product_type.get(key):
+                collection[key if key != "abstract" else "description"] = value
 
-        keywords = product_type.get("keywords", "")
+        pt_keywords = product_type.get("keywords", [])
+        pt_keywords = pt_keywords.split(",") if isinstance(pt_keywords, str) else pt_keywords
+        try:
+            collection["keywords"] = list(set(pt_keywords + collection.get("keywords", [])))
+        except TypeError as e:
+            logger.warning("Could not merge keywords from external collection for %s: %s", product_type["ID"], str(e))
 
-        collection = Collection(
-            id=product_type["ID"],
-            description=product_type.get("abstract", ""),
-            keywords=keywords.split(",") if isinstance(keywords, str) else keywords,
-            license=product_type.get("license", "other"),
-            title=product_type.get("title", product_type["ID"]),
-            extent=extent,
-            summaries=summaries,
-            providers=[get_provider_dict(request, fb) for fb in federation_backends],
-        )
+        collection["id"] = product_type["ID"]
 
-        ext_stac_collection = deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {}))
         extension_names = [type(ext).__name__ for ext in self.extensions]
-
         collection["links"] = CollectionLinks(collection_id=collection["id"], request=request).get_links(
-            extensions=extension_names, extra_links=product_type.get("links", []) + ext_stac_collection.get("links", [])
+            extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", [])
         )
 
-        # merge "keywords" lists
-        if "keywords" in ext_stac_collection:
-            try:
-                ext_stac_collection["keywords"] = [
-                    k for k in set(ext_stac_collection["keywords"] + collection["keywords"]) if k is not None
-                ]
-            except TypeError as e:
-                logger.warning(
-                    "Could not merge keywords from external collection for",
-                    f"{product_type['ID']}: {str(e)}",
-                )
-
-        # merge providers
-        if "providers" in ext_stac_collection:
-            ext_stac_collection["providers"] += collection["providers"]
-
-        collection.update(ext_stac_collection)
+        collection["providers"] = merge_providers(
+            collection.get("providers", []) + [get_provider_dict(request, fb) for fb in federation_backends]
+        )
 
         return collection
 

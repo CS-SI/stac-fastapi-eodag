@@ -113,28 +113,33 @@ def init_dag(app: FastAPI) -> None:
             ext_col = ext_stac_collections.get(key)
             if not ext_col:
                 continue
+
             platform: Union[str, list[str]] = ext_col.get("summaries", {}).get("platform")
             constellation: Union[str, list[str]] = ext_col.get("summaries", {}).get("constellation")
-            # Check if platform or constellation are lists
-            # and join them into a string if they are
+            instruments: Union[str, list[str]] = ext_col.get("summaries", {}).get("instruments")
+            processing_level: Union[str, list[str]] = ext_col.get("summaries", {}).get("processing:level")
             if isinstance(platform, list):
                 platform = ",".join(platform)
             if isinstance(constellation, list):
                 constellation = ",".join(constellation)
+            if isinstance(instruments, list):
+                instruments = ",".join(instruments)
+            if isinstance(processing_level, list):
+                processing_level = ",".join(processing_level)
 
-            update_fields = {
-                "title": ext_col.get("title"),
-                "abstract": ext_col["description"],
+            update_fields: dict[str, Any] = {
+                "title": p_f.get("title") or ext_col.get("title"),
+                "abstract": p_f.get("abstract") or ext_col["description"],
                 "keywords": ext_col.get("keywords"),
-                "instrument": ",".join(ext_col.get("summaries", {}).get("instruments", [])),
-                "platform": constellation,
-                "platformSerialIdentifier": platform,
-                "processingLevel": ",".join(ext_col.get("summaries", {}).get("processing:level", [])),
+                "instrument": p_f.get("instrument") or instruments,
+                "platform": p_f.get("platform") or constellation,
+                "platformSerialIdentifier": p_f.get("platformSerialIdentifier") or platform,
+                "processingLevel": p_f.get("processingLevel") or processing_level,
                 "license": ext_col["license"],
                 "missionStartDate": ext_col["extent"]["temporal"]["interval"][0][0],
-                "missionEndDate": ext_col["extent"]["temporal"]["interval"][-1][1],
+                "missionEndDate": ext_col["extent"]["temporal"]["interval"][0][1],
             }
-            clean = {k: v for k, v in update_fields.items() if v}
+            clean = {k: v for k, v in update_fields.items() if v is not None}
             p_f.update(clean)
 
     dag.product_types_config_md5 = obj_md5sum(dag.product_types_config.source)
