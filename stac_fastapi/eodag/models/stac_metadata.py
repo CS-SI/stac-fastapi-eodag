@@ -353,14 +353,17 @@ def create_stac_item(
     feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
 
     feature["stac_extensions"] = list(stac_extensions)
+    order_is_enabled: bool = (
+        extension_is_enabled("CollectionOrderExtension")
+        and product.properties.get("orderLink", False)
+        and feature["properties"]["order:status"] == "orderable"
+    )
     extension_names = [type(ext).__name__ for ext in stac_extensions]
 
     feature["links"] = ItemLinks(
         collection_id=collection,
         item_id=quoted_id,
-        order_link=(
-            product.properties.get("orderLink") if feature["properties"]["order:status"] == "orderable" else None
-        ),
+        order_is_enabled=order_is_enabled,
         federation_backend=feature["properties"]["federation:backends"][0],
         dc_qs=product.properties.get("_dc_qs"),
         request=request,

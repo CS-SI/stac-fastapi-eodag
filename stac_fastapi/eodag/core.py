@@ -143,7 +143,10 @@ class EodagCoreClient(CustomCoreClient):
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         collection["links"] = CollectionLinks(
-            collection_id=collection["id"], federation_backends=ecmwf_federation_backends, request=request
+            collection_id=collection["id"],
+            order_is_enabled=self.extension_is_enabled("CollectionOrderExtension"),
+            federation_backends=ecmwf_federation_backends,
+            request=request,
         ).get_links(extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", []))
 
         collection["providers"] = merge_providers(
@@ -538,13 +541,15 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         param_tuples = []
         for param in sortby:
             dumped_param = param.model_dump(mode="json")
-            param_tuples.append((
-                sort_by_special_fields.get(
-                    to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
-                    to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
-                ),
-                dumped_param["direction"],
-            ))
+            param_tuples.append(
+                (
+                    sort_by_special_fields.get(
+                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
+                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
+                    ),
+                    dumped_param["direction"],
+                )
+            )
         sort_by["sort_by"] = param_tuples
 
     eodag_query = {}

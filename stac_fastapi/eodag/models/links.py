@@ -213,6 +213,7 @@ class CollectionLinksBase(BaseLinks):
 class CollectionLinks(CollectionLinksBase):
     """Create inferred links specific to collections."""
 
+    order_is_enabled: bool = attr.ib()
     federation_backends: list = attr.ib()
 
     def link_self(self) -> dict[str, str]:
@@ -237,8 +238,10 @@ class CollectionLinks(CollectionLinksBase):
             "title": "Queryables",
         }
 
-    def links_retrieve_from_federation_backend(self) -> list[dict[str, Any]]:
+    def links_retrieve_from_federation_backend(self) -> Optional[list[dict[str, Any]]]:
         """Create the `retrieve` links according to the federation backends available for the collection."""
+        if not self.order_is_enabled:
+            return None
         links: list[dict[str, Any]] = []
         for fb in self.federation_backends:
             links.append(
@@ -276,7 +279,7 @@ class ItemLinks(CollectionLinksBase):
     """Create inferred links specific to items."""
 
     item_id: str = attr.ib()
-    order_link: Optional[str] = attr.ib()
+    order_is_enabled: bool = attr.ib()
     federation_backend: str = attr.ib()
     dc_qs: Optional[str] = attr.ib()
 
@@ -295,7 +298,7 @@ class ItemLinks(CollectionLinksBase):
 
     def link_retrieve(self) -> Optional[dict[str, str]]:
         """Create the `retrieve` link."""
-        if self.order_link is None:
+        if not self.order_is_enabled:
             return None
         href = self.resolve(f"/order/{self.federation_backend}/{self.collection_id}")
         return {
