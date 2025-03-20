@@ -44,6 +44,7 @@ from stac_pydantic.shared import MimeTypes
 
 from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
+from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingProductType as EodagNoMatchingProductType
 from stac_fastapi.eodag.config import get_settings
@@ -132,12 +133,17 @@ class EodagCoreClient(CustomCoreClient):
 
         collection["id"] = product_type["ID"]
 
+        # keep only federation backends which allow order mechanism
+        # to create "retrieve" collection links from them
+        ecmwf_federation_backends = [fb for fb in federation_backends if isinstance(next(
+            request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
+        ), ECMWFSearch)]
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         collection["links"] = CollectionLinks(
-            collection_id=collection["id"], federation_backends=federation_backends, request=request
+            collection_id=collection["id"], federation_backends=ecmwf_federation_backends, request=request
         ).get_links(
-            extensions=extension_names, extra_links=product_type.get("links", []) + ext_stac_collection.get("links", [])
+            extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", [])
         )
 
         collection["providers"] = merge_providers(
