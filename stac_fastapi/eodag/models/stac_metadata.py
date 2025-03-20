@@ -108,6 +108,15 @@ class CommonStacMetadata(ItemProperties):
                 values["processingLevel"] = f"L{processing_level}"
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def remove_id_property(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        Remove "id" property which is not STAC compliant if exists.
+        """
+        values.pop("id", None)
+        return values
+
     @model_validator(mode="after")
     def validate_datetime_or_start_end(self) -> Self:
         """disable validation of datetime.
@@ -334,8 +343,6 @@ def create_stac_item(
                     },
                 }
 
-    # remove "id" property of the product since the STAC item will have "id" key out of its properties
-    del product.properties["id"]
     # prepare the initialization of "order:status" STAC property according to "storageStatus" EODAG property
     if product.properties["storageStatus"] == ONLINE_STATUS:
         product.properties["status"] = "succeeded"
