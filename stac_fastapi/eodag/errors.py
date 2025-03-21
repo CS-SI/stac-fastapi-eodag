@@ -38,6 +38,7 @@ from eodag.utils.exceptions import (
     UnsupportedProvider,
     ValidationError,
 )
+from stac_fastapi.eodag.logs import request_id_context
 
 if TYPE_CHECKING:
     from fastapi import FastAPI, Request
@@ -66,6 +67,7 @@ class SearchError(TypedDict):
     provider: str
     error: str
     status_code: int
+    ticket: str
     message: NotRequired[str]
     detail: NotRequired[str]
 
@@ -135,7 +137,7 @@ async def response_search_error_handler(request: Request, exc: Exception) -> ORJ
     code = getattr(exc, "status_code", 500) or 500
     return ORJSONResponse(
         status_code=code,
-        content={"code": str(code), "errors": getattr(exc, "errors", [])},
+        content={"code": str(code), "ticket": request_id_context.get(), "errors": getattr(exc, "errors", [])},
     )
 
 
@@ -158,7 +160,7 @@ async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONRespon
 
     return ORJSONResponse(
         status_code=code,
-        content={"code": str(code), "description": detail},
+        content={"code": str(code), "ticket": request_id_context.get(), "description": detail},
     )
 
 
@@ -168,7 +170,7 @@ def starlette_exception_handler(request: Request, error: Exception) -> ORJSONRes
     code = getattr(error, "status_code", 500)
     return ORJSONResponse(
         status_code=code,
-        content={"code": str(code), "description": description},
+        content={"code": str(code), "ticket": request_id_context.get(), "description": description},
     )
 
 
@@ -179,7 +181,7 @@ def assertion_error_handler(request: Request, error: Exception) -> ORJSONRespons
     code = (getattr(error, "status_code", 400),)
     return ORJSONResponse(
         status_code=code,
-        content={"code": str(code), "description": description},
+        content={"code": str(code), "ticket": request_id_context.get(), "description": description},
     )
 
 
@@ -189,7 +191,7 @@ def value_error_handler(request: Request, error: Exception) -> ORJSONResponse:
     code = getattr(error, "status_code", 400)
     return ORJSONResponse(
         status_code=code,
-        content={"code": str(code), "description": description},
+        content={"code": str(code), "ticket": request_id_context.get(), "description": description},
     )
 
 

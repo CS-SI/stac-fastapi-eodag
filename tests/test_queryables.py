@@ -137,4 +137,4 @@ async def test_default_in_product_type_queryables(defaults, app_client):
     resp_json = json.loads(response.content.decode("utf-8"))
     for _, value in resp_json["properties"].items():
         if "default" in value:
-            assert value.get("default") is not None, f"The 'default' field in the /queryables response must not be null."
+            assert value.get("default") is not None, "The 'default' field in the /queryables response must not be null."

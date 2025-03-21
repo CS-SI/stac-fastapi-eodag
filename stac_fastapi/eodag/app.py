@@ -61,11 +61,13 @@ from stac_fastapi.eodag.extensions.stac import (
     TimestampExtension,
     ViewGeometryExtension,
 )
+from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
 
 if TYPE_CHECKING:
     from typing import AsyncGenerator
 
+init_logging()
 
 settings = get_settings()
 
@@ -123,7 +125,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
 add_exception_handlers(app)
+app.add_middleware(RequestIDMiddleware)
+
 
 search_post_model = create_post_request_model(extensions)
 search_get_model = create_get_request_model(extensions)

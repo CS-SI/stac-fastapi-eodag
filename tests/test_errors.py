@@ -96,6 +96,8 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
         if "detail" in record and "{" in record["detail"]:
             record["detail"] = record["detail"].replace("{", "").replace("}", "").replace("'", "")
             record["detail"] = set(s.strip() for s in record["detail"].split(","))
+    assert "ticket" in response_content
+    response_content.pop("ticket", None)
     assert expected_response == response_content
 
 
