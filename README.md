@@ -67,6 +67,14 @@ Don't hesitate and open an issue or submit a pull request, contributions are mos
 
 For guidance on setting up a development environment and how to make a contribution to eodag, see the [contributing guidelines](./CONTRIBUTING.md).
 
+## Acknowledgments
+
+We would like to express our gratitude to the maintainers and contributors of the following projects which have been instrumental in the development of this project:
+
+- [stac-fastapi](https://github.com/stac-utils/stac-fastapi): Thanks to the stac-fastapi team for their implementation of the STAC API spec.
+- [FastAPI](https://github.com/FastAPI/FastAPI): Thanks to the FastAPI team for providing a modern, fast (high-performance) web framework for building APIs.
+
+
 ## License
 
 stac-fastapi-eodag is licensed under Apache License v2.0.
