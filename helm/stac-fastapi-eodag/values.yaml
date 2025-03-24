@@ -666,11 +666,11 @@ serviceAccount:
 
 
 ## @section Telemetry parameters
-## 
+##
 ## Collector component: https://hub.docker.com/r/otel/opentelemetry-collector-contrib
 ## @param otel.enabled Enable otel export
 ## @param otel.endpoint The hostname and port for an otel compatible backend
-## @param otel.interval The 
+## @param otel.interval The
 ## @param otel.timeout The timeout for data transfer
 ## @param otel.collector.enabled Deploy an otel collector backend as sidecar
 otel:
