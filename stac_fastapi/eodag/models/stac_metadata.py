@@ -41,7 +41,7 @@ from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS, STAGING_STATUS
 from eodag.utils import deepcopy
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
@@ -115,6 +115,23 @@ class CommonStacMetadata(ItemProperties):
         Remove "id" property which is not STAC compliant if exists.
         """
         values.pop("id", None)
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def prepare_order_status_stac_property(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        Prepare the initialization of "order:status" STAC property according to "storageStatus" EODAG property.
+        """
+        if "storageStatus" not in values:
+            return values
+
+        if values["storageStatus"] == OFFLINE_STATUS:
+            values["status"] = "orderable"
+        elif values["storageStatus"] == STAGING_STATUS:
+            values["status"] = "shipping"
+        else:
+            values["status"] = "succeeded"
         return values
 
     @model_validator(mode="after")
@@ -300,7 +317,7 @@ def create_stac_item(
         else None
     )
     # create assets only if product is not offline
-    if product.properties["storageStatus"] != ONLINE_STATUS:
+    if product.properties["storageStatus"] != OFFLINE_STATUS:
         for k, v in product.assets.items():
             # TODO: download extension with origin link (make it optional ?)
             asset_model = model.model_validate(v)
@@ -342,14 +359,6 @@ def create_stac_item(
                         "type": "application/zip",
                     },
                 }
-
-    # prepare the initialization of "order:status" STAC property according to "storageStatus" EODAG property
-    if product.properties["storageStatus"] == ONLINE_STATUS:
-        product.properties["status"] = "succeeded"
-    elif product.properties["storageStatus"] == STAGING_STATUS:
-        product.properties["status"] = "shipping"
-    else:
-        product.properties["status"] = "orderable"
 
     provider_dict = get_provider_dict(request, product.provider)
 
