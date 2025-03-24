@@ -94,8 +94,8 @@ class BaseCollectionOrderClient:
         if product.downloader is None:
             logger.error("No downloader available for %s", product)
             raise_error = True
-        elif not hasattr(product.downloader, "_order"):
-            logger.error("No _order method available for %s of %s", product.downloader, product)
+        elif not hasattr(product.downloader, "order"):
+            logger.error("No order() method available for %s of %s", product.downloader, product)
             raise_error = True
         else:
             logger.debug("Order product")
