@@ -1,3 +1,8 @@
+{{- /*
+Copyright CS GROUP - France, https://www.cs-soprasteria.com
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -233,10 +238,10 @@ spec:
           imagePullPolicy: {{ .Values.otel.collector.image.pullPolicy }}
           ports:
             - name: otlp-receiver
-              containerPort: {{ .Values.otel.collector.image.ports.otlpReceiver }}
+              containerPort: {{ .Values.otel.collector.ports.otlpReceiver }}
               protocol: TCP
             - name: prom-exporter
-              containerPort: {{ .Values.otel.collector.image.ports.prometheusExporter }}
+              containerPort: {{ .Values.otel.collector.ports.prometheusExporter }}
               protocol: TCP
           volumeMounts:
             - name: config

@@ -13,15 +13,16 @@
 
 This project is a WIP and not ready for any production usage. Use at your own risks.
 
+## Run stac-fastapi-eodag locally
 
-## Before getting started
+### Before getting started
 Make sure you have the required dependencies installed:
 
 ```bash
    pip install .[server]
 ```
 
-## Running the server
+### Running the server
 Once the server is properly set up, you can start it with:
 
 ```bash
@@ -30,10 +31,11 @@ Once the server is properly set up, you can start it with:
 
 By default, the EODAG HTTP server runs at port 8000.
 
-## Docker
-To run the server using Docker:
+## Run in a container
 
-1. Build the Docker image:
+To run the server as a container:
+
+1. Build the container image:
 
 ```bash
    docker build -t eodag-fastapi .
@@ -52,25 +54,18 @@ You can also run the server using Docker Compose:
 docker-compose up
 ```
 
-## Code Quality and Pre-commit
-If you modify the code, it's important to run the pre-commit to ensure code quality and consistency. Pre-commit helps automatically check and fix issues like code formatting, linting errors, and other potential problems before committing changes to the repository.
+## Run in Kubernetes
 
-### Installing pre-commit
-Make sure to have `pre-commit` installed. If you haven't already, you can install it by running:
+You can install stac-fastapi-eodag in your Kubernetes cluster with the [Helm chart in this repository](./helm/stac-fastapi-eodag/README.md).
 
-```bash
-   pip install pre-commit
-```
 
-### Running pre-commit
-If you want to  run the pre-commit on all files (for example, if you've made changes to files that haven't been staged yet), you can run:
+## Contribute
 
-```bash
-   pre-commit run --all-files
-```
+Have you spotted a typo in our documentation? Have you observed a bug while running stac-fastapi-eodag? Do you have a suggestion for a new feature?
 
-This command will check all the files in the repository and apply any necessary fixes, ensuring that your code adheres to the specified guidelines.
+Don't hesitate and open an issue or submit a pull request, contributions are most welcome!
 
+For guidance on setting up a development environment and how to make a contribution to eodag, see the [contributing guidelines](./CONTRIBUTING.md).
 
 ## License
 
