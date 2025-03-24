@@ -1,6 +1,11 @@
-{{- if and .Values.config (not .Values.configExistingSecret.name) }}
+{{- /*
+Copyright CS GROUP - France, https://www.cs-soprasteria.com
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{- if or .Values.productTypes .Values.providers .Values.otel.collector.config }}
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
   name: {{ printf "%s-config" (include "common.names.fullname" .) }}
   namespace: {{ include "common.names.namespace" . | quote }}
@@ -11,7 +16,17 @@ metadata:
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
   {{- end }}
-type: Opaque
 data:
-  eodag.yml: {{ include "common.tplvalues.render" (dict "value" .Values.config "context" $) | b64enc }}
+  {{- if .Values.productTypes }}
+  product_types.yml: |-
+    {{- .Values.productTypes | nindent 4 }}
+  {{- end }}
+  {{- if .Values.providers }}
+  providers.yml: |-
+    {{- .Values.providers | nindent 4 }}
+  {{- end }}
+  {{- if .Values.otel.collector.config }}
+  otelcol_config.yml: |-
+    {{- .Values.otel.collector.config | nindent 4 }}
+  {{- end }}
 {{- end }}

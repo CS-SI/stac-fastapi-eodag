@@ -1,3 +1,8 @@
+{{- /*
+Copyright CS GROUP - France, https://www.cs-soprasteria.com
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
 {{- if .Values.ingress.enabled -}}
 apiVersion: {{ include "common.capabilities.ingress.apiVersion" . }}
 kind: Ingress
