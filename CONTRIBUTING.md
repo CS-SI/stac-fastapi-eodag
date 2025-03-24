@@ -36,11 +36,11 @@ We use `pre-commit` to run a suite of linters, formatters and pre-commit hooks t
 
 stac-fastapi-eodag uses [Helm](https://helm.sh) to package the application for [Kubernetes](http://kubernetes.io).
 
-The parameters section is automatically generated from comments left in the `values.yaml`.  
+The parameters section is automatically generated from comments left in the `values.yaml`.
 Run the following command to update the chart `README.md` after modifying the values file.
 
 ```shell
 npm install @bitnami/readme-generator-for-helm
 export PATH="node_modules/.bin":$PATH
 readme-generator --values "./helm/stac-fastapi-eodag/values.yaml" --readme "./helm/stac-fastapi-eodag/README.md" --schema "/tmp/schema.json"
-``` 
+```
