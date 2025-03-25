@@ -87,9 +87,6 @@ class BaseCollectionOrderClient:
                 "Product is not orderable. Please download it directly.",
             )
 
-        if product.properties.get("orderStatus"):
-            raise NotFoundError("Product has already been ordered and polled, it can be directly downloaded.")
-
         raise_error = False
         if product.downloader is None:
             logger.error("No downloader available for %s", product)
