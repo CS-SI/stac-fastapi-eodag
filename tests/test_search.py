@@ -370,8 +370,8 @@ async def test_assets_alt_url_blacklist(
     """Search through eodag server must not have alternate link if in blacklist"""
 
     search_result = mock_search_result
-    search_result[0].assets.update({"foo": {"href": "https://peps.cnes.fr"}})
-    search_result[1].assets.update({"foo": {"href": "https://somewhere.fr"}})
+    search_result[0].assets.update({"asset1": {"href": "https://peps.cnes.fr"}})
+    search_result[1].assets.update({"asset1": {"href": "https://somewhere.fr"}})
     # make assets of the second product available for this test
     search_result[1].properties["storageStatus"] = ONLINE_STATUS
 

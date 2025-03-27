@@ -282,6 +282,7 @@ def create_stac_item(
     model: type[CommonStacMetadata],
     extension_is_enabled: Callable[[str], bool],
     request: Request,
+    extension_names: Optional[list[str]],
     request_json: Optional[Any] = None,
 ) -> Item:
     """Create a STAC item from an EODAG product"""
@@ -374,8 +375,7 @@ def create_stac_item(
 
     feature["stac_extensions"] = list(stac_extensions)
 
-    extension_names = [type(ext).__name__ for ext in stac_extensions]
-    if extension_is_enabled("CollectOrderExtension") and (
+    if "CollectionOrderExtension" in extension_names and (
         not product.properties.get("orderLink", False) or feature["properties"].get("order:status", "") != "orderable"
     ):
         extension_names.remove("CollectionOrderExtension")

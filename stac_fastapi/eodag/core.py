@@ -190,10 +190,11 @@ class EodagCoreClient(CustomCoreClient):
         request_json = loop.run_until_complete(request.json()) if request.method == "POST" else None
 
         features: list[Item] = []
+        extension_names = [type(ext).__name__ for ext in self.extensions]
 
         for product in search_result:
             feature = create_stac_item(
-                product, self.stac_metadata_model, self.extension_is_enabled, request, request_json
+                product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names, request_json
             )
             features.append(feature)
 
@@ -214,7 +215,6 @@ class EodagCoreClient(CustomCoreClient):
             ):
                 next_page = search_request.page + 1
 
-        extension_names = [type(ext).__name__ for ext in self.extensions]
         collection["links"] = PagingLinks(
             request=request,
             next=next_page,

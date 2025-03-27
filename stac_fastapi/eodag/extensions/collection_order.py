@@ -113,8 +113,9 @@ class BaseCollectionOrderClient:
                 "Download order failed. It can be due to a lack of product found, so you "
                 "may change the body of the request."
             )
+        extension_names = [type(ext).__name__ for ext in self.extensions]
 
-        return create_stac_item(product, self.stac_metadata_model, self.extension_is_enabled, request)
+        return create_stac_item(product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names)
 
 
 @attr.s
