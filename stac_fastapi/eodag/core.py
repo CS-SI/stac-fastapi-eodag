@@ -135,17 +135,21 @@ class EodagCoreClient(CustomCoreClient):
 
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
-        ecmwf_federation_backends = [
-            fb
-            for fb in federation_backends
-            if isinstance(next(request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)), ECMWFSearch)
-        ]
+        def has_ecmwf_search_plugin(federation_backends, request):
+            for fb in federation_backends:
+                search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
+                if any(isinstance(plugin, ECMWFSearch) for plugin in search_plugins):
+                    return True
+            return False
+
         extension_names = [type(ext).__name__ for ext in self.extensions]
+        if self.extension_is_enabled("CollectionOrderExtension") and not has_ecmwf_search_plugin(
+            federation_backends, request
+        ):
+            extension_names.remove("CollectionOrderExtension")
 
         collection["links"] = CollectionLinks(
             collection_id=collection["id"],
-            order_is_enabled=self.extension_is_enabled("CollectionOrderExtension"),
-            federation_backends=ecmwf_federation_backends,
             request=request,
         ).get_links(extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", []))
 

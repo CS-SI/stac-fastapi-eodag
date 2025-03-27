@@ -363,24 +363,26 @@ def create_stac_item(
     provider_dict = get_provider_dict(request, product.provider)
 
     feature_model = model.model_validate(
-        {**product.properties, **{"federation:backends": [product.provider], "providers": [provider_dict]}}
+        {
+            **product.properties,
+            **{"federation:backends": [product.provider], "providers": [provider_dict]},
+        }
     )
     stac_extensions.update(feature_model.get_conformance_classes())
+
     feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
 
     feature["stac_extensions"] = list(stac_extensions)
-    order_is_enabled: bool = (
-        extension_is_enabled("CollectionOrderExtension")
-        and product.properties.get("orderLink", False)
-        and feature["properties"]["order:status"] == "orderable"
-    )
+
     extension_names = [type(ext).__name__ for ext in stac_extensions]
+    if extension_is_enabled("CollectOrderExtension") and (
+        not product.properties.get("orderLink", False) or feature["properties"].get("order:status", "") != "orderable"
+    ):
+        extension_names.remove("CollectionOrderExtension")
 
     feature["links"] = ItemLinks(
         collection_id=collection,
         item_id=quoted_id,
-        order_is_enabled=order_is_enabled,
-        federation_backend=feature["properties"]["federation:backends"][0],
         dc_qs=product.properties.get("_dc_qs"),
         request=request,
     ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)

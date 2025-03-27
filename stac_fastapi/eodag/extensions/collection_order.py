@@ -20,6 +20,7 @@
 import logging
 from typing import (
     Annotated,
+    Optional,
     cast,
 )
 
@@ -28,7 +29,7 @@ from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
 from fastapi import APIRouter, Depends, FastAPI, Path, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import _wrap_response, sync_to_async
 from stac_fastapi.types.extension import ApiExtension
@@ -46,6 +47,14 @@ logger = logging.getLogger(__name__)
 class CollectionOrderBody(BaseModel):
     """Collection order request body."""
 
+    federation_backends: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Federation backends filter. Default is None which means no filter is applied. Only one value is supported"
+        ),
+        alias="federation:backends",
+    )
+
     model_config = ConfigDict(extra="allow", json_schema_extra={"examples": [{"date": "string", "variable": "string"}]})
 
 
@@ -62,7 +71,6 @@ class BaseCollectionOrderClient:
 
     def order_collection(
         self,
-        federation_backend: str,
         collection_id: str,
         request: Request,
         request_body: CollectionOrderBody,
@@ -70,6 +78,8 @@ class BaseCollectionOrderClient:
         """Order a product with its collection id and a fake id"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)
+
+        federation_backend = request_body.federation_backends[0] if request_body.federation_backends else None
 
         search_results = dag.search(productType=collection_id, provider=federation_backend, **request_body.model_dump())
         if len(search_results) > 0:
@@ -111,7 +121,6 @@ class BaseCollectionOrderClient:
 class CollectionOrderUri(APIRequest):
     """Order collection."""
 
-    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
     collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
 
 
@@ -124,7 +133,7 @@ class CollectionOrderExtension(ApiExtension):
     Usage:
     ------
 
-        ``POST /order/{federation_backend}/{collection_id}``
+        ``POST /collections/{collection_id}/order``
     """
 
     client: BaseCollectionOrderClient = attr.ib(factory=BaseCollectionOrderClient)
@@ -150,7 +159,7 @@ class CollectionOrderExtension(ApiExtension):
         self.router.prefix = app.state.router_prefix
         self.router.add_api_route(
             name="Order collection",
-            path="/order/{federation_backend}/{collection_id}",
+            path="/collections/{collection_id}/order",
             methods=["POST"],
             responses={
                 200: {
