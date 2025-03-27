@@ -127,7 +127,7 @@ class BaseDataDownloadClient:
                 f"Impossible to download {item_id} item in {collection_id} collection",
                 f" for backend {federation_backend}.",
             )
-        if product.properties["storageStatus"] != ONLINE_STATUS:
+        if product.properties.get("storageStatus", ONLINE_STATUS) != ONLINE_STATUS:
             # "title" property is a fake one create by EODAG, set it to the item ID
             # (the same one as order ID) to make error message clearer
             product.properties["title"] = product.properties["id"]

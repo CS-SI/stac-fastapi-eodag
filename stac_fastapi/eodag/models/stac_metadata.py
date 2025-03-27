@@ -41,7 +41,7 @@ from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import OFFLINE_STATUS, STAGING_STATUS
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS, STAGING_STATUS
 from eodag.utils import deepcopy
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
@@ -318,7 +318,7 @@ def create_stac_item(
         else None
     )
     # create assets only if product is not offline
-    if product.properties["storageStatus"] != OFFLINE_STATUS:
+    if product.properties.get("storageStatus", ONLINE_STATUS) != OFFLINE_STATUS:
         for k, v in product.assets.items():
             # TODO: download extension with origin link (make it optional ?)
             asset_model = model.model_validate(v)
