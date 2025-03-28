@@ -286,7 +286,7 @@ class ItemLinks(CollectionLinksBase):
 
     def collection_order_extension_link_retrieve(self) -> Optional[dict[str, str]]:
         """Create the `retrieve` link."""
-        href = self.resolve(f"/collections/{self.collection_id}/order")
+        href = self.resolve(f"collections/{self.collection_id}/order")
         return {
             "rel": "retrieve",
             "type": MimeTypes.geojson.value,
