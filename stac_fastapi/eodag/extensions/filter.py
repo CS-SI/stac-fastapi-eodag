@@ -176,11 +176,19 @@ class FiltersClient(AsyncBaseFiltersClient):
         params = {}
         for k, v in request.query_params.multi_items():
             params.setdefault(k, []).append(v)
+
+        # parameter provider is deprecated
+        providers = params.pop("provider", [None])
+        federation_backends = params.pop("federation:backends", [None])
+
         # validate params and transform to eodag params
         validated_params = QueryablesGetParams.model_validate(
             {
+                **{
+                    "provider": federation_backends[0] or providers[0],
+                    "collection": collection_id
+                },
                 **params,
-                **{"collection": collection_id},
             }
         )
         validated_params = validated_params.model_dump(exclude_none=True, by_alias=True)
