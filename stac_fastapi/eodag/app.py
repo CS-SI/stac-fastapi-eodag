@@ -129,6 +129,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+if settings.otel_exporter_otlp_endpoint:
+    instrument_fastapi(app)
 
 add_exception_handlers(app)
 app.add_middleware(RequestIDMiddleware)
@@ -174,9 +176,6 @@ def run():
     """Run app from command line using uvicorn if available."""
     try:
         import uvicorn
-
-        if settings.otel_exporter_otlp_endpoint:
-            instrument_fastapi(app)
 
         uvicorn.run(
             "stac_fastapi.eodag.app:app",

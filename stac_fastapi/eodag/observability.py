@@ -20,14 +20,13 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.eodag import EODAGInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.metrics import Histogram
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics._internal.aggregation import (
     ExplicitBucketHistogramAggregation,
@@ -49,6 +48,11 @@ logger = logging.getLogger("eodag.rest.utils.observability")
 
 def create_tracer_provider(resource: Resource) -> TracerProvider:
     """create opentelemetry tracer provider"""
+    tracer_provider = trace.get_tracer_provider()
+    if tracer_provider and not isinstance(tracer_provider, trace.ProxyTracerProvider):
+        logger.debug("Tracer provider already set, skipping creation.")
+        return tracer_provider
+
     tracer_provider = TracerProvider(resource=resource)
     processor = BatchSpanProcessor(OTLPSpanExporter())
     tracer_provider.add_span_processor(processor)
@@ -58,9 +62,14 @@ def create_tracer_provider(resource: Resource) -> TracerProvider:
 
 def create_meter_provider(resource: Resource) -> MeterProvider:
     """create opentelemetry meter provider"""
+    meter_provider = metrics.get_meter_provider()
+    if meter_provider and not isinstance(meter_provider, metrics._internal._ProxyMeterProvider):
+        logger.debug("Meter provider already set, skipping creation.")
+        return meter_provider
+
     reader = PeriodicExportingMetricReader(OTLPMetricExporter())
     view_histograms: View = View(
-        instrument_type=Histogram,
+        instrument_type=metrics.Histogram,
         aggregation=ExplicitBucketHistogramAggregation(
             boundaries=(
                 0.25,
@@ -81,7 +90,7 @@ def create_meter_provider(resource: Resource) -> MeterProvider:
         ),
     )
     view_overhead_histograms: View = View(
-        instrument_type=Histogram,
+        instrument_type=metrics.Histogram,
         instrument_name="*overhead*",
         aggregation=ExplicitBucketHistogramAggregation(
             boundaries=(
@@ -114,26 +123,23 @@ def create_meter_provider(resource: Resource) -> MeterProvider:
 
 
 def instrument_fastapi(
-    fastapi_app: Optional[FastAPI] = None,
+    fastapi_app: FastAPI,
 ) -> None:
     """Instrument FastAPI app."""
-    # Start OTLP exporter
+    logger.info("Instrument FastAPI app")
     resource = Resource(attributes={SERVICE_NAME: "stac-fastapi-eodag"})
     tracer_provider = create_tracer_provider(resource)
     meter_provider = create_meter_provider(resource)
-    # Auto instrumentation
-    if fastapi_app:
-        logger.debug("Instrument FastAPI app")
-        FastAPIInstrumentor.instrument_app(
-            app=fastapi_app,
-            tracer_provider=tracer_provider,
-            meter_provider=meter_provider,
-        )
+    FastAPIInstrumentor.instrument_app(
+        app=fastapi_app,
+        tracer_provider=tracer_provider,
+        meter_provider=meter_provider,
+    )
 
 
 def instrument_eodag(eodag_api: EODataAccessGateway):
     """Instrument EODAG app"""
-    logger.debug("Instrument EODAG app")
+    logger.info("Instrument EODAG app")
     resource = Resource(attributes={SERVICE_NAME: "stac-fastapi-eodag"})
     tracer_provider = create_tracer_provider(resource)
     meter_provider = create_meter_provider(resource)
