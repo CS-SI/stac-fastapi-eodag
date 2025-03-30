@@ -160,29 +160,29 @@ class EodagCoreClient(CustomCoreClient):
         return collection
 
     def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
+
+        eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+
         # check if the collection exists
-        if search_request.collections:
+        if product_type := eodag_args.get("productType"):
             all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
             # only check the first collection (EODAG search only support a single collection)
-            existing_pt = [pt for pt in all_pt if pt["ID"] == search_request.collections[0]]
+            existing_pt = [pt for pt in all_pt if pt["ID"] == product_type]
             if not existing_pt:
-                raise NoMatchingProductType(f"Collection {search_request.collections[0]} does not exist.")
+                raise NoMatchingProductType(f"Collection {product_type} does not exist.")
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
         # get products by ids
-        if search_request.ids:
+        if ids := eodag_args.pop("ids", []):
             search_result = SearchResult([])
-            ids = search_request.ids
             for item_id in ids:
-                search_request.ids = [item_id]
-                base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
-                search_result.extend(request.app.state.dag.search(**base_args))
+                eodag_args["id"] = item_id
+                search_result.extend(request.app.state.dag.search(**eodag_args))
             search_result.number_matched = len(search_result)
         else:
             # search without ids
-            base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
-            search_result = request.app.state.dag.search(**base_args)
+            search_result = request.app.state.dag.search(**eodag_args)
 
         if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
@@ -432,11 +432,11 @@ class EodagCoreClient(CustomCoreClient):
 
         if filter_expr:
             if filter_lang == "cql2-text":
-                ast = parse_cql2_text(filter_expr)
-                base_args["filter_expr"] = str2json("filter_expr", to_cql2(ast))  # type: ignore
-                base_args["filter-lang"] = "cql2-json"
-            elif filter_lang == "cql-json":
-                base_args["filter_expr"] = str2json(filter_expr)
+                filter_expr = to_cql2(parse_cql2_text(filter_expr))
+                filter_lang = "cql2-json"
+
+            base_args["filter"] = str2json("filter_expr", filter_expr)
+            base_args["filter_lang"] = "cql2-json"
 
         # Remove None values from dict
         clean = {}
@@ -449,7 +449,7 @@ class EodagCoreClient(CustomCoreClient):
         except ValidationError as err:
             raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
-        return self.post_search(search_request, request)
+        return self._search_base(search_request, request)
 
     async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:
         """
@@ -571,9 +571,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     if search_request.collections:
         base_args["productType"] = search_request.collections[0]
 
-    # handle only one id from here (pre-filtered in _search_base)
     if search_request.ids:
-        base_args["id"] = search_request.ids[0]
+        base_args["ids"] = search_request.ids
 
     # merge all eodag search arguments
     base_args = base_args | sort_by | eodag_filter | eodag_query
