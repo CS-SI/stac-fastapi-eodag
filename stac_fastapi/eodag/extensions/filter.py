@@ -184,10 +184,7 @@ class FiltersClient(AsyncBaseFiltersClient):
         # validate params and transform to eodag params
         validated_params = QueryablesGetParams.model_validate(
             {
-                **{
-                    "provider": federation_backends[0] or providers[0],
-                    "collection": collection_id
-                },
+                **{"provider": federation_backends[0] or providers[0], "collection": collection_id},
                 **params,
             }
         )

@@ -160,8 +160,9 @@ class EodagCoreClient(CustomCoreClient):
         return collection
 
     def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
-
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+
+        request.state.eodag_args = eodag_args
 
         # check if the collection exists
         if product_type := eodag_args.get("productType"):

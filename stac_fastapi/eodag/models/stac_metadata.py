@@ -19,9 +19,10 @@
 
 from collections.abc import Callable
 from typing import Any, ClassVar, Optional, Union, cast
-from urllib.parse import quote
+from urllib.parse import quote, unquote_plus
 
 import attr
+import orjson
 from fastapi import Request
 from pydantic import (
     AliasChoices,
@@ -380,10 +381,16 @@ def create_stac_item(
     ):
         extension_names.remove("CollectionOrderExtension")
 
+    retrieve_body = orjson.loads(unquote_plus(product.properties.get("_dc_qs", "{}")))
+
+    if eodag_args := getattr(request.state, "eodag_args", None):
+        if provider := eodag_args.get("provider", None):
+            retrieve_body["federation:backends"] = [provider]
+
     feature["links"] = ItemLinks(
         collection_id=collection,
         item_id=quoted_id,
-        dc_qs=product.properties.get("_dc_qs"),
+        retrieve_body=retrieve_body,
         request=request,
     ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)
 
