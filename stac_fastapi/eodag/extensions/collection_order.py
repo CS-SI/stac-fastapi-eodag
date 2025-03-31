@@ -81,7 +81,8 @@ class BaseCollectionOrderClient:
 
         federation_backend = request_body.federation_backends[0] if request_body.federation_backends else None
 
-        search_results = dag.search(productType=collection_id, provider=federation_backend, **request_body.model_dump())
+        request_params = request_body.model_dump(exclude={"federation_backends": True})
+        search_results = dag.search(productType=collection_id, provider=federation_backend, **request_params)
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
