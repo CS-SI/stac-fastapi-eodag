@@ -115,7 +115,8 @@ for e in extensions:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """API init and tear-down"""
     init_dag(app)
-    instrument_eodag(app.state.dag)
+    if settings.otel_exporter_otlp_endpoint:
+        instrument_eodag(app.state.dag)
     # init_cache(app)
     app.state.stac_metadata_model = stac_metadata_model
     yield
@@ -174,7 +175,9 @@ def run():
     try:
         import uvicorn
 
-        instrument_fastapi(app)
+        if settings.otel_exporter_otlp_endpoint:
+            instrument_fastapi(app)
+
         uvicorn.run(
             "stac_fastapi.eodag.app:app",
             host=settings.app_host,
