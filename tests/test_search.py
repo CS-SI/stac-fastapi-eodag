@@ -105,7 +105,7 @@ async def test_items_response(request_valid, defaults):
 async def test_assets_with_different_domain(request_valid, defaults):
     """domain for download links should be as configured in settings"""
     settings = get_settings()
-    settings.download_domain = "http://otherserver/"
+    settings.download_base_url = "http://otherserver/"
     resp_json = await request_valid(
         f"search?collections={defaults.product_type}",
     )

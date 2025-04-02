@@ -257,15 +257,13 @@ def create_stac_item(
     )
 
     stac_extensions: set[str] = set()
-    
-    download_base_url = settings.download_domain
+
+    download_base_url = settings.download_base_url
     if not download_base_url:
         download_base_url = get_base_url(request)
 
     asset_proxy_url = (
-        (
-            download_base_url + f"data/{product.provider}/{collection}/{feature['id']}" 
-        )
+        (download_base_url + f"data/{product.provider}/{collection}/{feature['id']}")
         if extension_is_enabled("DataDownload")  # self.extension_is_enabled("DataDownload")
         else None
     )
