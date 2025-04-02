@@ -18,7 +18,7 @@ services:
     container_name: otel_collector
     restart: unless-stopped
     volumes:
-      - ./stac_fastapi/eodag/config/otelcol_config.yml:/etc/otelcol-contrib/config.yaml
+      - ./config/otelcol_config.yml:/etc/otelcol-contrib/config.yaml
     networks:
       - stacapi-eodag-network
     ports:

@@ -115,7 +115,7 @@ def test_all_requirements():
     """Needed libraries must be in project requirements"""
 
     project_imports = get_project_imports(project_path)
-    setup_requires = get_self_dependencies(["observability"])
+    setup_requires = get_self_dependencies(["telemetry"])
     import_required_dict = packages_distributions()
     try:
         default_libs = stdlib_list()

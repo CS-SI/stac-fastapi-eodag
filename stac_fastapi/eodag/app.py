@@ -64,7 +64,6 @@ from stac_fastapi.eodag.extensions.stac import (
 )
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
-from stac_fastapi.eodag.observability import instrument_eodag, instrument_fastapi
 
 if TYPE_CHECKING:
     from typing import AsyncGenerator
@@ -116,6 +115,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """API init and tear-down"""
     init_dag(app)
     if settings.otel_exporter_otlp_endpoint:
+        from stac_fastapi.eodag.telemetry import instrument_eodag
+
         instrument_eodag(app.state.dag)
     # init_cache(app)
     app.state.stac_metadata_model = stac_metadata_model
@@ -130,6 +131,8 @@ app = FastAPI(
 )
 
 if settings.otel_exporter_otlp_endpoint:
+    from stac_fastapi.eodag.telemetry import instrument_fastapi
+
     instrument_fastapi(app)
 
 add_exception_handlers(app)
