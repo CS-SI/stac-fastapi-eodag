@@ -50,7 +50,12 @@ class Settings(ApiSettings):
 
     fetch_providers: bool = Field(default=False, description="Fetch additional collections from all providers.")
 
-    download_base_url: str = Field(default="", description="base url to be used for download link")
+    download_base_url: str = Field(
+        default="",
+        description="base url to be used for download link",
+        pattern=r"(http|https):\/\/[\w:.-]+\/",
+        validate_default=False,
+    )
 
 
 @lru_cache(maxsize=1)
