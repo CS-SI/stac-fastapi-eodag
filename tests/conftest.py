@@ -35,6 +35,7 @@ from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.download.base import Download
+from eodag.plugins.download.http import HTTPDownload
 from eodag.utils import StreamResponse
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -314,6 +315,14 @@ def mock_base_stream_download_dict(mocker):
 
 
 @pytest.fixture(scope="function")
+def mock_order(mocker):
+    """
+    Mocks the `HTTPDownload` method of the `HTTPDownload` download plugin.
+    """
+    return mocker.patch.object(HTTPDownload, "order")
+
+
+@pytest.fixture(scope="function")
 def mock_base_authenticate(mocker, app):
     """
     Mocks the `authenticate` method of the `Authentication` plugin.
@@ -402,6 +411,7 @@ def assert_links_valid(app_client, request_valid_raw, request_not_valid):
             "service-doc",
             "conformance",
             "search",
+            "retrieve",
             "data",
             "collection",
             "http://www.opengis.net/def/rel/ogc/1.0/queryables",
@@ -494,13 +504,22 @@ def request_not_found(app_client):
     Fixture to test if a request returns a 404 Not Found error.
     """
 
-    async def _request_not_found(url: str):
-        response = await app_client.get(url, follow_redirects=True)
+    async def _request_not_found(
+        url: str, method: str = "GET", post_data: Optional[Any] = None, error_message: Optional[str] = None
+    ) -> None:
+        response = await app_client.request(
+            method,
+            url,
+            json=post_data,
+            follow_redirects=True,
+            headers={"Content-Type": "application/json"} if method == "POST" else {},
+        )
         response_content = json.loads(response.content.decode("utf-8"))
 
         assert 404 == response.status_code
         assert "description" in response_content
-        assert "NoMatchingProductType" in response_content["description"]
+        if error_message:
+            assert error_message in response_content["description"]
 
     return _request_not_found
 
