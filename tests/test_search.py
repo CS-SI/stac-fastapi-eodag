@@ -83,6 +83,7 @@ async def test_items_response(request_valid, defaults):
         "roles": ["host"],
         "url": "https://peps.cnes.fr",
     }
+    assert "id" not in first_props
     assert first_props["federation:backends"] == ["peps"]
     assert first_props["datetime"] == "2018-02-15T23:53:22.871Z"
     assert first_props["start_datetime"] == "2018-02-15T23:53:22.871Z"
