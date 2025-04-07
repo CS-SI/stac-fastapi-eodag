@@ -53,6 +53,7 @@ dev = [
     "pytest-cov",
     "pytest-mock",
     "pytest-socket",
+    "pytest-html",
     "responses",
     "stdlib-list",
     "tox",
