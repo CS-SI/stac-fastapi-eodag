@@ -8,7 +8,7 @@ Thank you for considering contributing to stac-fastapi-eodag!
 
 ## Report issues
 
-[Issue tracker](https://gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag/-/issues)
+[Issue tracker](https://github.com/CS-SI/stac-fastapi-eodag/issues)
 
 Please check that a similar issue does not already exist and include the following information in your post:
 
@@ -24,7 +24,7 @@ If you intend to contribute to eodag source code:
 ### 1. Get the source code and install dependencies
 
 ```bash
-git clone https://gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag.git
+git clone https://github.com/CS-SI/stac-fastapi-eodag.git
 cd stac-fastapi-eodag
 python -m pip install -e .[dev]
 pre-commit install
