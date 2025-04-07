@@ -13,10 +13,10 @@ description:
   EODAG (Earth Observation Data Access Gateway) is a tool for searching,
   aggregating results and downloading remote sensed images offering a unified API
   for data access regardless of the data provider.
-home: https://gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag
+home: https://github.com/CS-SI/stac-fastapi-eodag
 icon: https://raw.githubusercontent.com/CS-SI/eodag/master/docs/_static/eodag_bycs.png
 name: stac-fastapi-eodag
 sources:
-  - https://gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag
+  - https://github.com/CS-SI/stac-fastapi-eodag
 type: application
 version: 0.1.0

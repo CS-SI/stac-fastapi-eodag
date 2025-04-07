@@ -29,7 +29,12 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.podLabels "context" $) | nindent 8 }}
         {{- end }}
       annotations:
+        {{- if or .Values.productTypes .Values.providers }}
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and .Values.otel.collector.enabled .Values.otel.collector.config }}
+        checksum/otel-config: {{ include (print $.Template.BasePath "/configmap-otel.yaml") . | sha256sum }}
+        {{- end }}
         {{- if .Values.podAnnotations }}
         {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
         {{- end }}
@@ -153,9 +158,9 @@ spec:
             - name: EODAG_PROVIDERS_CFG_FILE
               value: /eodag/resources/providers.yml
             {{- end }}
-            {{- if gt (.Values.logLevel | int) 0 }}
-            - name: EODAG_LOGGING
-              value: {{ .Values.logLevel | quote }}
+            {{- if .Values.debug }}
+            - name: DEBUG
+              value: {{ .Values.debug | quote }}
             {{- end }}
             {{- if .Values.api.title }}
             - name: STAC_FASTAPI_TITLE
@@ -174,11 +179,11 @@ spec:
             {{- if .Values.rootPath }}
             - name: ROOT_PATH
               value: {{ .Values.rootPath | quote }}
+            - name: UVICORN_ROOT_PATH
+              value: {{ .Values.rootPath | quote }}
             {{- end }}
             - name: APP_PORT
               value: {{ .Values.containerPorts.http | quote }}
-            - name: EODAG_CORS_ALLOWED_ORIGINS
-              value: "*"
             - name: RELOAD
               value: "false"
             {{- if .Values.keepOriginUrl }}
@@ -244,18 +249,25 @@ spec:
               containerPort: {{ .Values.otel.collector.ports.prometheusExporter }}
               protocol: TCP
           volumeMounts:
-            - name: config
+            {{- if .Values.otel.collector.config }}
+            - name: otel-config
               mountPath: /etc/otelcol-contrib/config.yaml
               subPath: otelcol_config.yml
+            {{- end }}
         {{- end }}
         {{- if .Values.sidecars }}
         {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
-        {{- if or .Values.productTypes .Values.providers .Values.otel.collector.enabled }}
+        {{- if or .Values.productTypes .Values.providers }}
         - name: config
           configMap:
             name: {{ printf "%s-config" (include "common.names.fullname" .) }}
+        {{- end }}
+        {{- if and .Values.otel.collector.enabled .Values.otel.collector.config }}
+        - name: otel-config
+          configMap:
+            name: {{ printf "%s-otel-config" (include "common.names.fullname" .) }}
         {{- end }}
         {{- if or .Values.config .Values.configExistingSecret.name }}
         - name: eodag-config
