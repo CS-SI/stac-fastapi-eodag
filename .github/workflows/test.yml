@@ -1,0 +1,177 @@
+name: Run Linting and Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # schedule:
+  #   - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Linting (pre-commit and mypy)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v4
+      with:
+        # Get history and tags for SCM versioning to work
+        fetch-depth: 0
+    - name: Install the latest version of uv with cache enabled
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: ""
+    - name: Run linters with tox
+      run: uvx --python 3.9 --with tox-uv tox -e linters
+
+  tests:
+    name: Test it!
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.9, "3.13"]
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v4
+      with:
+        # Get history and tags for SCM versioning to work
+        fetch-depth: 0
+    - name: Install the latest version of uv with cache enabled
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: ""
+    - name: Test with tox
+      run: uvx --python ${{ matrix.python-version }} --with tox-uv --with tox-gh-actions tox
+    - name: Upload Unit Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: unit-test-results-python${{ matrix.python-version }}-${{ matrix.os }}
+        path: |
+          test-reports/junit-report.xml
+          test-reports/coverage.xml
+
+  publish-test-results:
+    name: "Publish Unit Tests Results"
+    needs: tests
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+    - name: Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      continue-on-error: true
+      with:
+        files: artifacts/*/junit-report.xml
+
+    - name: Produce the coverage report for Ubuntu
+      uses: insightsengineering/coverage-action@v2
+      with:
+        # Path to the Cobertura XML report.
+        path: artifacts/unit-test-results-python3.13-ubuntu-latest/coverage.xml
+        # Minimum total coverage, if you want to the
+        # workflow to enforce it as a standard.
+        # This has no effect if the `fail` arg is set to `false`.
+        threshold: 70
+        # Fail the workflow if the minimum code coverage
+        # reuqirements are not satisfied.
+        fail: false
+        # Publish the rendered output as a PR comment
+        publish: true
+        # Create a coverage diff report.
+        diff: true
+        # Branch to diff against.
+        # Compare the current coverage to the coverage
+        # determined on this branch.
+        diff-branch: main
+        # This is where the coverage reports for the
+        # `diff-branch` are stored.
+        # Branch is created if it doesn't already exist'.
+        diff-storage: _xml_coverage_reports
+        # A custom title that can be added to the code
+        # coverage summary in the PR comment.
+        coverage-summary-title: "Code Coverage (Ubuntu)"
+        # Make the code coverage report togglable
+        togglable-report: true
+
+    - name: Produce the coverage report for Windows
+      uses: insightsengineering/coverage-action@v2
+      with:
+        # Path to the Cobertura XML report.
+        path: artifacts/unit-test-results-python3.13-windows-latest/coverage.xml
+        # Minimum total coverage, if you want to the
+        # workflow to enforce it as a standard.
+        # This has no effect if the `fail` arg is set to `false`.
+        threshold: 70
+        # Fail the workflow if the minimum code coverage
+        # reuqirements are not satisfied.
+        fail: false
+        # Publish the rendered output as a PR comment
+        publish: true
+        # Create a coverage diff report.
+        diff: true
+        # Branch to diff against.
+        # Compare the current coverage to the coverage
+        # determined on this branch.
+        diff-branch: main
+        # This is where the coverage reports for the
+        # `diff-branch` are stored.
+        # Branch is created if it doesn't already exist'.
+        diff-storage: _xml_coverage_reports_win
+        # A custom title that can be added to the code
+        # coverage summary in the PR comment.
+        coverage-summary-title: "Code Coverage (Windows)"
+        # Make the code coverage report togglable
+        togglable-report: true
+
+  build-docs:
+    name: Build the docs
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v4
+      with:
+        # Get history and tags for SCM versioning to work
+        fetch-depth: 0
+    - name: Install the latest version of uv with cache enabled
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: ""
+    - name: Install pandoc
+      run: |
+        curl -s https://api.github.com/repos/jgm/pandoc/releases/latest | grep -o "https.*amd64.deb" | wget -O pandoc.deb -qi -
+        sudo dpkg -i pandoc.deb && rm pandoc.deb
+    - name: Testing with tox
+      run: uvx --with tox-uv tox -e docs
+
+  check-pypi:
+    name: Long description check for PyPI
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v4
+      with:
+        # Get history and tags for SCM versioning to work
+        fetch-depth: 0
+    - name: Install the latest version of uv with cache enabled
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+        enable-cache: true
+        cache-dependency-glob: ""
+    - name: Testing with tox and sphinx (to have rst2html.py utility available)
+      run: uvx --with tox-uv --with sphinx tox -e pypi
