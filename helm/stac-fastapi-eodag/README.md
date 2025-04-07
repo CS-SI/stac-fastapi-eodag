@@ -1,11 +1,11 @@
 # EODAG Server
 
-This chart bootstraps a [stac-fastapi-eodag](https://gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
+This chart bootstraps a [stac-fastapi-eodag](https://github.com/CS-SI/stac-fastapi-eodag) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
 ## TL;DR
 
 ```console
-git clone https://gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag
+git clone https://github.com/CS-SI/stac-fastapi-eodag.git
 cd stac-fastapi-eodag
 helm install my-release ./helm/stac-fastapi-eodag
 ```
@@ -21,7 +21,7 @@ helm install my-release ./helm/stac-fastapi-eodag
 To install the chart with the release name `my-release`:
 
 ```console
-git clone https://gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag
+git clone https://github.com/CS-SI/stac-fastapi-eodag.git
 cd stac-fastapi-eodag
 helm install my-release ./helm/stac-fastapi-eodag
 ```
@@ -66,24 +66,24 @@ The command removes all the Kubernetes components associated with the chart and 
 
 ### EODAG configuration
 
-| Name                        | Description                                                                              | Value |
-| --------------------------- | ---------------------------------------------------------------------------------------- | ----- |
-| `logLevel`                  | Supported values are 0 (no log), 1 (no logging but progress bar), 2 (INFO) or 3 (DEBUG). | `2`   |
-| `productTypes`              | Optional overwrite of product types default configuration                                | `""`  |
-| `providers`                 | Optional overwrite of providers default configuration                                    | `""`  |
-| `config`                    | EODAG configuration                                                                      | `{}`  |
-| `configExistingSecret.name` | Existing secret name for EODAG config. If this is set, value config will be ignored      | `""`  |
-| `configExistingSecret.key`  | Existing secret key for EODAG config. If this is set, value config will be ignored       | `""`  |
+| Name                        | Description                                                                         | Value |
+| --------------------------- | ----------------------------------------------------------------------------------- | ----- |
+| `productTypes`              | Optional overwrite of product types default configuration                           | `""`  |
+| `providers`                 | Optional overwrite of providers default configuration                               | `""`  |
+| `config`                    | EODAG configuration                                                                 | `{}`  |
+| `configExistingSecret.name` | Existing secret name for EODAG config. If this is set, value config will be ignored | `""`  |
+| `configExistingSecret.key`  | Existing secret key for EODAG config. If this is set, value config will be ignored  | `""`  |
 
 ### stac-fastapi-eodag configuration
 
-| Name              | Description                                   | Value                                        |
-| ----------------- | --------------------------------------------- | -------------------------------------------- |
-| `api.title`       | API title                                     | `EODAG STAC FastAPI`                         |
-| `api.description` | API description                               | `STAC API powered by EODAG and STAC FastAPI` |
-| `api.landingId`   | ID of the landing page                        | `eodag-stac-fastapi`                         |
-| `rootPath`        | Application root path                         | `""`                                         |
-| `keepOriginUrl`   | Keep the original URL in the response headers | `false`                                      |
+| Name              | Description                                                                                                 | Value                                        |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `api.title`       | API title                                                                                                   | `EODAG STAC FastAPI`                         |
+| `api.description` | API description                                                                                             | `STAC API powered by EODAG and STAC FastAPI` |
+| `api.landingId`   | ID of the landing page                                                                                      | `eodag-stac-fastapi`                         |
+| `rootPath`        | Application root path                                                                                       | `""`                                         |
+| `debug`           | When set to true, set the EODAG logging level to 3 (DEBUG). Otherwise, set EODAG logging level to 2 (INFO). | `false`                                      |
+| `keepOriginUrl`   | Keep the original URL in the response headers                                                               | `false`                                      |
 
 ### stac-fastapi-eodag common parameters
 
@@ -184,7 +184,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | `serviceAccount.create`                             | Specifies whether a ServiceAccount should be created                                                                            | `true`                   |
 | `serviceAccount.name`                               | The name of the ServiceAccount to use.                                                                                          | `""`                     |
 | `serviceAccount.annotations`                        | Additional custom annotations for the ServiceAccount                                                                            | `{}`                     |
-| `serviceAccount.automountServiceAccountToken`       | Automount service account token for the server service account                                                                  | `true`                   |
+| `serviceAccount.automountServiceAccountToken`       | Automount service account token for the server service account                                                                  | `false`                  |
 
 ### Telemetry parameters
 
@@ -229,6 +229,20 @@ helm install my-release -f values.yaml ./helm/stac-fatapi-eodag
 > **Tip**: You can use the default [values.yaml](values.yaml)
 
 ## Configuration and installation details
+
+### Expose the API on a subPath
+
+You can run stac-fasatapi-eodag on a subPath like `/stac`.
+
+```yaml
+rootPath: /stac
+
+ingress:
+  enabled: true
+  path: /stac/?(.*)
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+```
 
 ### [Rolling VS Immutable tags](https://docs.bitnami.com/containers/how-to/understand-rolling-tags-containers/)
 

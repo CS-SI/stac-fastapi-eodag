@@ -53,9 +53,6 @@ extraDeploy: []
 ## ref: https://eodag.readthedocs.io/en/stable/
 ##
 
-## @param logLevel Supported values are 0 (no log), 1 (no logging but progress bar), 2 (INFO) or 3 (DEBUG).
-logLevel: 2
-
 ## @param productTypes Optional overwrite of product types default configuration
 ## ref: https://github.com/CS-SI/eodag/blob/masster/eodag/resources/product_types.yml
 productTypes: ""
@@ -184,6 +181,10 @@ api:
 ## @param rootPath Application root path
 ##
 rootPath: ""
+
+## @param debug When set to true, set the EODAG logging level to 3 (DEBUG). Otherwise, set EODAG logging level to 2 (INFO).
+##
+debug: false
 
 ## @param keepOriginUrl Keep the original URL in the response headers
 ##
@@ -662,7 +663,7 @@ serviceAccount:
   annotations: {}
   ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
   ##
-  automountServiceAccountToken: true
+  automountServiceAccountToken: false
 
 
 ## @section Telemetry parameters
