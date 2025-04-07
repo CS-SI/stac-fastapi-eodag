@@ -4,7 +4,7 @@ Thank you for considering contributing to stac-fastapi-eodag!
 
 - [Report issues](#report-issues)
 - [Submit patches](#submit-patches)
-- [Contribute to the Helm chart]()
+- [Contribute to the Helm chart](#contribute-to-the-helm-chart)
 
 ## Report issues
 
