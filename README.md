@@ -8,10 +8,11 @@
 
 [EODAG](https://github.com/CS-SI/eodag) backend for [stac-fastapi](https://github.com/stac-utils/stac-fastapi), the [FastAPI](https://fastapi.tiangolo.com/) implementation of the [STAC API spec](https://github.com/radiantearth/stac-api-spec)
 
+stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provide a powerful, unified API for accessing Earth observation data. By leveraging EODAG's ability to search, aggregate, and download remote-sensed images from various providers, stac-fastapi-eodag offers a standardized and efficient solution for data access. This integration simplifies the process of managing Earth observation data, making it accessible and actionable for researchers, developers, and data analysts.
 
 ## Disclaimer
 
-This project is a WIP and not ready for any production usage. Use at your own risks.
+⚠️ This project is a **WIP** and not ready for any production usage. Use at your own risks.
 
 ## Getting started
 
@@ -20,19 +21,19 @@ This project is a WIP and not ready for any production usage. Use at your own ri
 #### Prerequisites
 Make sure you have the required dependencies installed:
 
-```bash
-   pip install .[server]
+```shell
+pip install .[server]
 ```
 
 #### Running the server
 Once the server is properly set up, you can start it with:
 
-```bash
-   python stac_fastapi/eodag/app.py
+```shell
+python stac_fastapi/eodag/app.py
 
-   # or run directly using uvicorn
-   # the uvicorn parameters configuration will not be applied
-   uvicorn stac_fastapi.eodag.app:app
+# or run directly using uvicorn
+# the uvicorn parameters configuration will not be applied
+uvicorn stac_fastapi.eodag.app:app
 ```
 
 By default, the EODAG HTTP server runs at port 8000.
@@ -43,22 +44,22 @@ To run the server as a container:
 
 1. Build the container image:
 
-```bash
-   docker build -t eodag-fastapi .
+```shell
+docker build -t eodag-fastapi .
 ```
 
 2. Run the container:
 
-```bash
-   docker run -p 8000:8000 eodag-fastapi
+```shell
+docker run -p 8000:8000 eodag-fastapi
 ```
 
 ### Docker Compose
 
 You can also run the server using Docker Compose:
 
-```bash
-docker-compose up
+```shell
+docker compose up
 ```
 
 ### Run in Kubernetes

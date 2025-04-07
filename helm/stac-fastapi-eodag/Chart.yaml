@@ -10,9 +10,12 @@ dependencies:
       - bitnami-common
     version: 2.x.x
 description:
-  EODAG (Earth Observation Data Access Gateway) is a tool for searching,
-  aggregating results and downloading remote sensed images offering a unified API
-  for data access regardless of the data provider.
+  stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provide a powerful,
+  unified API for accessing Earth observation data. By leveraging EODAG's ability to search,
+  aggregate, and download remote-sensed images from various providers, stac-fastapi-eodag
+  offers a standardized and efficient solution for data access. This integration simplifies the
+  process of managing Earth observation data, making it accessible and actionable for
+  researchers, developers, and data analysts.
 home: https://github.com/CS-SI/stac-fastapi-eodag
 icon: https://raw.githubusercontent.com/CS-SI/eodag/master/docs/_static/eodag_bycs.png
 name: stac-fastapi-eodag

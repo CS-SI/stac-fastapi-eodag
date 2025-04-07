@@ -56,7 +56,7 @@ pre-commit: ## Run all pre-commit hooks.
 
 IMAGE_VERSION?="latest"
 IMAGE_NAME=$(shell basename $(CURDIR))
-IMAGE_PREFIX="registry.gitlab.si.c-s.fr/aubin.lambare/stac-fastapi-eodag"
+IMAGE_PREFIX="ghcr.io/cs-si/stac-fastapi-eodag"
 
 docker: docker-rm docker-build docker-run  ## re-create Docker image and container
 
