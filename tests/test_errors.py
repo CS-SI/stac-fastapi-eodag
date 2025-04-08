@@ -98,6 +98,8 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
             record["detail"] = set(s.strip() for s in record["detail"].split(","))
     assert "ticket" in response_content
     response_content.pop("ticket", None)
+    for record in response_content["errors"]:
+        record.pop("ticket")
     assert expected_response == response_content
 
 
