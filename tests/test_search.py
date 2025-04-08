@@ -77,9 +77,9 @@ async def test_items_response(request_valid, defaults):
         "properties",
     }
     assert first_props["federation:backends"] == ["peps"]
-    assert first_props["datetime"] == "2018-02-15T23:53:22.871Z"
-    assert first_props["start_datetime"] == "2018-02-15T23:53:22.871Z"
-    assert first_props["end_datetime"] == "2018-02-16T00:12:14.035Z"
+    assert first_props["datetime"] == "2018-02-15T23:53:22.871000Z"
+    assert first_props["start_datetime"] == "2018-02-15T23:53:22.871000Z"
+    assert first_props["end_datetime"] == "2018-02-16T00:12:14.035000Z"
     assert first_props["license"] == "other"
     assert first_props["platform"] == "S1A"
     assert first_props["instruments"] == ["SAR-C", "SAR"]
