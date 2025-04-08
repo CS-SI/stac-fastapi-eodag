@@ -116,6 +116,7 @@ class ResponseSearchError(Exception):
                 "provider": name,
                 "error": exc.__class__.__name__,
                 "status_code": EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500)),
+                "ticket": "",
             }
 
             if exc.args:

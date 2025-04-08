@@ -37,7 +37,7 @@ class QueryablesGetParams(BaseModel):
 
     @field_validator("start_datetime", "end_datetime")
     @classmethod
-    def validate_start_end_datetime(cls, values: Optional[str]) -> Optional[str]:
+    def validate_start_end_datetime(cls, values: Optional[list[str]]) -> Optional[str]:
         """
         datetimes must be valid RFC3339 strings
         we assume that only one start_datetime/end_datetime filter is used
@@ -50,7 +50,7 @@ class QueryablesGetParams(BaseModel):
 
     @field_validator("datetime")
     @classmethod
-    def validate_datetime(cls, values: Optional[str]) -> Optional[str]:
+    def validate_datetime(cls, values: Optional[list[str]]) -> Optional[str]:
         """
         datetimes must be either single datetime or range separated by "/",
         we assume that only one datetime filter is used
