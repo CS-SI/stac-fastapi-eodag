@@ -283,7 +283,7 @@ class ItemLinks(CollectionLinksBase):
         """Create the `collection` link."""
         return self.collection_link()
 
-    def collection_order_extension_link_retrieve(self) -> Optional[dict[str, str]]:
+    def collection_order_extension_link_retrieve(self) -> Optional[dict[str, Any]]:
         """Create the `retrieve` link."""
         href = self.resolve(f"collections/{self.collection_id}/order")
         return {
