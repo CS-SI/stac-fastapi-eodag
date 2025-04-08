@@ -89,9 +89,9 @@ The full list of available Uvicorn parameters is available from [Uvicorn setting
 | `STAC_FASTAPI_DESCRIPTION` | Description for the API. It is displayed on the landing page. | "stac-fastapi" |
 | `STAC_FASTAPI_VERSION` | It is the version number of your API instance. This is not the STAC version. It is displayed on the landing page. | 0.1 |
 | `STAC_FASTAPI_LANDING_PAGE_ID` | It is a unique identifier for the landing page. It is displayed on the landing page. | "stac-fastapi" |
-| `ENABLE_RESPONSE_MODELS` | | False |
+| `ENABLE_RESPONSE_MODELS` | Turn on response validation. | False |
 | `OPENAPI_URL` | Path for the OpenAPI definition of the API. | "/api" |
-| `DOCS_URL` | Path for the Swaggger UI of the API. | "/api.html" |
+| `DOCS_URL` | Path for the Swagger UI of the API. | "/api.html" |
 | `ROOT_PATH` | Used to compute the `base_url` when exposing the API on a subPath. For instance `/stac`. You should set `UVICORN_ROOT_PATH` (from Uvicorn parameters) as well. **This parameter does not change the path on which the API is exposed. It only modify the links in the response body.**  | "" |
 
 Reach to [stac-fastapi documentation](https://stac-utils.github.io/stac-fastapi/) for exhaustive documentation on stac-fastapi.
