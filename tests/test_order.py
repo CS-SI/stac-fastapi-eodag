@@ -34,13 +34,13 @@ async def test_order_ok(request_valid, post_data):
     """Order a product through eodag server and check if it has been ordered and polled correctly and contains assets"""
     federation_backend = "cop_ads"
     collection_id = "CAMS_EAC4"
-    url = f"order/{federation_backend}/{collection_id}"
+    url = f"collections/{collection_id}/order"
     product = EOProduct(
         federation_backend,
         dict(
             geometry="POINT (0 0)",
             title="dummy_product",
-            id="dummy",
+            id="dummy_id",
         ),
     )
     product.product_type = collection_id
@@ -59,6 +59,8 @@ async def test_order_ok(request_valid, post_data):
     auth_plugin.config.credentials = {"apikey": "anicekey"}
     product.register_downloader(download_plugin, auth_plugin)
 
+    product_id = product.properties["id"]
+
     @responses.activate(registry=responses.registries.OrderedRegistry)
     async def run():
         responses.add(
@@ -66,23 +68,23 @@ async def test_order_ok(request_valid, post_data):
             f"{endpoint}/processes/{product_dataset}/execution",
             status=200,
             content_type="application/json",
-            body=b'{"status": "accepted", "jobID": "dummy_request_id"}',
+            body=f'{{"status": "accepted", "jobID": "{product_id}"}}'.encode("utf-8"),
             auto_calculate_content_length=True,
         )
         responses.add(
             responses.GET,
-            f"{endpoint}/jobs/dummy_request_id",
+            f"{endpoint}/jobs/{product_id}",
             status=200,
             content_type="application/json",
-            body=b'{"status": "successful", "jobID": "dummy_request_id"}',
+            body=f'{{"status": "successful", "jobID": "{product_id}"}}'.encode("utf-8"),
             auto_calculate_content_length=True,
         )
         responses.add(
             responses.GET,
-            f"{endpoint}/jobs/dummy_request_id/results",
+            f"{endpoint}/jobs/{product_id}/results",
             status=200,
             content_type="application/json",
-            body=(b'{"asset": {"value": {"href": "http://somewhere/download/dummy_request_id"}}}'),
+            body=(f'{{"asset": {{"value": {{"href": "http://somewhere/download/{product_id}"}} }} }}'.encode("utf-8")),
             auto_calculate_content_length=True,
         )
 
@@ -93,13 +95,14 @@ async def test_order_ok(request_valid, post_data):
             search_result=SearchResult([product]),
             expected_search_kwargs=dict(
                 productType=collection_id,
-                provider=federation_backend,
+                provider=None,
                 **post_data,
             ),
         )
 
-        # check that the id has taken the value of the order id
-        assert response["id"] == response["properties"]["order:id"] == "dummy_request_id"
+        # check that the id of the stac item is the one of the EOProduct,
+        # which had taken the value of the order id (given in response "jobID" value)
+        assert response["id"] == response["properties"]["order:id"] == product_id
         # check the links
         for link in response["links"]:
             assert link["rel"] in ["self", "collection"]
@@ -109,7 +112,7 @@ async def test_order_ok(request_valid, post_data):
         # chech that the assets are available
         assert (
             response["assets"]["downloadLink"]["href"]
-            == "http://testserver/data/cop_ads/CAMS_EAC4/dummy_request_id/downloadLink"
+            == f"http://testserver/data/cop_ads/CAMS_EAC4/{product_id}/downloadLink"
         )
 
     await run()
@@ -121,13 +124,13 @@ async def test_order_with_poll_pending(request_valid, post_data):
     if it has been ordered correctly and its status is on staging"""
     federation_backend = "cop_ads"
     collection_id = "CAMS_EAC4"
-    url = f"order/{federation_backend}/{collection_id}"
+    url = f"collections/{collection_id}/order"
     product = EOProduct(
         federation_backend,
         dict(
             geometry="POINT (0 0)",
             title="dummy_product",
-            id="dummy",
+            id="dummy_id",
         ),
     )
     product.product_type = collection_id
@@ -146,6 +149,8 @@ async def test_order_with_poll_pending(request_valid, post_data):
     auth_plugin.config.credentials = {"apikey": "anicekey"}
     product.register_downloader(download_plugin, auth_plugin)
 
+    product_id = product.properties["id"]
+
     @responses.activate(registry=responses.registries.OrderedRegistry)
     async def run():
         responses.add(
@@ -153,23 +158,23 @@ async def test_order_with_poll_pending(request_valid, post_data):
             f"{endpoint}/processes/{product_dataset}/execution",
             status=200,
             content_type="application/json",
-            body=b'{"status": "accepted", "jobID": "dummy_request_id"}',
+            body=f'{{"status": "accepted", "jobID": "{product_id}"}}'.encode("utf-8"),
             auto_calculate_content_length=True,
         )
         responses.add(
             responses.GET,
-            f"{endpoint}/jobs/dummy_request_id",
+            f"{endpoint}/jobs/{product_id}",
             status=200,
             content_type="application/json",
-            body=b'{"status": "running", "jobID": "dummy_request_id"}',
+            body=f'{{"status": "running", "jobID": "{product_id}"}}'.encode("utf-8"),
             auto_calculate_content_length=True,
         )
         responses.add(
             responses.GET,
-            f"{endpoint}/jobs/dummy_request_id/results",
+            f"{endpoint}/jobs/{product_id}/results",
             status=200,
             content_type="application/json",
-            body=(b'{"asset": {"value": {"href": "http://somewhere/download/dummy_request_id"}}}'),
+            body=(f'{{"asset": {{"value": {{"href": "http://somewhere/download/{product_id}"}} }} }}'.encode("utf-8")),
             auto_calculate_content_length=True,
         )
 
@@ -180,13 +185,14 @@ async def test_order_with_poll_pending(request_valid, post_data):
             search_result=SearchResult([product]),
             expected_search_kwargs=dict(
                 productType=collection_id,
-                provider=federation_backend,
+                provider=None,
                 **post_data,
             ),
         )
 
-        # check that the id has taken the value of the order id
-        assert response["id"] == response["properties"]["order:id"] == "dummy_request_id"
+        # check that the id of the stac item is the one of the EOProduct,
+        # which had taken the value of the order id (given in response "jobID" value)
+        assert response["id"] == response["properties"]["order:id"] == product_id
         # check the links
         for link in response["links"]:
             assert link["rel"] in ["self", "collection"]
@@ -203,13 +209,13 @@ async def test_order_product_not_orderable_ko(request_not_found, mock_search):
     """Order a product through eodag server with a product which is not orderable must raise a NotFoundError"""
     federation_backend = "cop_ads"
     collection_id = "CAMS_EAC4"
-    url = f"order/{federation_backend}/{collection_id}"
+    url = f"collections/{collection_id}/order"
     product = EOProduct(
         federation_backend,
         dict(
             geometry="POINT (0 0)",
             title="dummy_product",
-            id="dummy",
+            id="dummy_id",
         ),
     )
     product.product_type = collection_id
@@ -245,13 +251,13 @@ async def test_order_product_wrong_downloader_ko(request_not_found, mock_search,
     """Order a product through eodag server with a product which have a wrong downloader must raise a NotFoundError"""
     federation_backend = "cop_ads"
     collection_id = "CAMS_EAC4"
-    url = f"order/{federation_backend}/{collection_id}"
+    url = f"collections/{collection_id}/order"
     product = EOProduct(
         federation_backend,
         dict(
             geometry="POINT (0 0)",
             title="dummy_product",
-            id="dummy",
+            id="dummy_id",
         ),
     )
     product.product_type = collection_id
@@ -296,13 +302,13 @@ async def test_order_not_order_id_ko(request_not_found, mock_search, mock_order)
     """Order a product through eodag server and check if it has been ordered and polled correctly and contains assets"""
     federation_backend = "cop_ads"
     collection_id = "CAMS_EAC4"
-    url = f"order/{federation_backend}/{collection_id}"
+    url = f"collections/{collection_id}/order"
     product = EOProduct(
         federation_backend,
         dict(
             geometry="POINT (0 0)",
             title="dummy_product",
-            id="dummy",
+            id="dummy_id",
         ),
     )
     product.product_type = collection_id
