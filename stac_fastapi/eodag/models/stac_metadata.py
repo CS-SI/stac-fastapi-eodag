@@ -18,6 +18,7 @@
 """property fields."""
 
 from collections.abc import Callable
+from datetime import datetime as dt
 from typing import Any, ClassVar, Optional, Union, cast
 from urllib.parse import quote, unquote_plus
 
@@ -28,6 +29,7 @@ from pydantic import (
     AliasChoices,
     AliasPath,
     Field,
+    field_serializer,
     model_validator,
 )
 from pydantic._internal._model_construction import ModelMetaclass
@@ -58,15 +60,15 @@ class CommonStacMetadata(ItemProperties):
     # TODO: replace dt by stac_pydantic.shared.UtcDatetime.
     # Requires timezone to be set in EODAG datetime properties
     # Tested with EFAS FORECAST
-    datetime: Optional[str] = Field(default=None, validation_alias="startTimeFromAscendingNode")
-    start_datetime: Optional[str] = Field(
+    datetime: Optional[dt] = Field(default=None, validation_alias="startTimeFromAscendingNode")
+    start_datetime: Optional[dt] = Field(
         default=None, validation_alias="startTimeFromAscendingNode"
     )  # TODO do not set if start = end
-    end_datetime: Optional[str] = Field(
+    end_datetime: Optional[dt] = Field(
         default=None, validation_alias="completionTimeFromAscendingNode"
     )  # TODO do not set if start = end
-    created: Optional[str] = Field(default=None, validation_alias="creationDate")
-    updated: Optional[str] = Field(default=None, validation_alias="modificationDate")
+    created: Optional[dt] = Field(default=None, validation_alias="creationDate")
+    updated: Optional[dt] = Field(default=None, validation_alias="modificationDate")
     platform: Optional[str] = Field(default=None, validation_alias="platformSerialIdentifier")
     instruments: Optional[list[str]] = Field(default=None, validation_alias="instrument")
     constellation: Optional[str] = Field(default=None, validation_alias="platform")
@@ -76,6 +78,11 @@ class CommonStacMetadata(ItemProperties):
 
     _conformance_classes: ClassVar[dict[str, str]]
     get_conformance_classes: ClassVar[Callable[[Any], list[str]]]
+
+    @field_serializer("datetime", "start_datetime", "end_datetime", "created", "updated")
+    def format_datetime(self, value: dt):
+        """format datetime properties"""
+        return value.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     @model_validator(mode="before")
     @classmethod
