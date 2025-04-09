@@ -34,7 +34,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
         ("peps", req_err),
         ("creodias", AuthenticationError("Authentication message")),
         (
-            "onda",
+            "creodias_s3",
             ValidationError(
                 "Validation message: startTimeFromAscendingNode, modificationDate",
                 {"startTimeFromAscendingNode", "modificationDate"},
@@ -71,7 +71,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
                 "status_code": 500,
             },
             {
-                "provider": "onda",
+                "provider": "creodias_s3",
                 "error": "ValidationError",
                 "message": "Validation message: start_datetime, updated",
                 "detail": {"startTimeFromAscendingNode", "modificationDate"},
