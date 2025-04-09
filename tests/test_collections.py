@@ -22,7 +22,14 @@ import json
 from stac_fastapi.eodag.config import get_settings
 
 
-async def test_collection(request_valid, defaults):
+async def test_collection(
+    request_valid,
+    defaults,
+    mock_stac_discover_queryables,
+    mock_token_authenticate,
+    mock_oidc_refresh_token_base_init,
+    mock_oidc_token_exchange_auth_authenticate,
+):
     """Requesting a collection through eodag server should return a valid response"""
     result = await request_valid(f"collections/{defaults.product_type}")
     assert result["id"] == defaults.product_type

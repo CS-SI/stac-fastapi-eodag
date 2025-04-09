@@ -61,13 +61,7 @@ async def test_collection_queryables(mock_list_queryables, app_client):
     assert result["properties"]["product:type"]["default"] == "SAR"
     assert result["properties"]["product:type"]["enum"] == ["GRD", "SAR"]
     assert "datetime" in result["properties"]
-
-
-async def test_ref_in_product_type_queryables(defaults, app_client):
-    """The queryables should not have '$ref'."""
-    response = await app_client.get(f"/collections/{defaults.product_type}/queryables", follow_redirects=True)
-    resp_json = response.content.decode("utf-8")
-    assert "$ref" not in resp_json, "there is a '$ref' in the /queryables response"
+    assert "$ref" not in result, "there is a '$ref' in the /queryables response"
 
 
 async def test_collection_queryables_with_filters(mock_list_queryables, app_client):
@@ -131,7 +125,14 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
     assert response.status_code == 400
 
 
-async def test_default_in_product_type_queryables(defaults, app_client):
+async def test_default_in_product_type_queryables(
+    defaults,
+    app_client,
+    mock_stac_discover_queryables,
+    mock_token_authenticate,
+    mock_oidc_refresh_token_base_init,
+    mock_oidc_token_exchange_auth_authenticate,
+):
     """The queryables should not have default value set to null."""
     response = await app_client.get(f"/collections/{defaults.product_type}/queryables", follow_redirects=True)
     resp_json = json.loads(response.content.decode("utf-8"))

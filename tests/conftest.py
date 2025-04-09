@@ -34,8 +34,12 @@ from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
 from eodag.plugins.authentication.base import Authentication
+from eodag.plugins.authentication.openid_connect import OIDCRefreshTokenBase
+from eodag.plugins.authentication.token import TokenAuth
+from eodag.plugins.authentication.token_exchange import OIDCTokenExchangeAuth
 from eodag.plugins.download.base import Download
 from eodag.plugins.download.http import HTTPDownload
+from eodag.plugins.search.qssearch import StacSearch
 from eodag.utils import StreamResponse
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -66,6 +70,7 @@ def disable_product_types_fetch(mock_os_environ):
     """Disable auto fetching product types from providers."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("EODAG_EXT_PRODUCT_TYPES_CFG_FILE", "")
+        yield
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -73,6 +78,7 @@ async def fake_credentials(disable_product_types_fetch):
     """load fake credentials to prevent providers needing auth for search to be pruned."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("EODAG_CFG_FILE", os.path.join(TEST_RESOURCES_PATH, "wrong_credentials_conf.yml"))
+        yield
 
 
 @pytest.fixture()
@@ -299,6 +305,14 @@ def mock_list_queryables(mocker, app):
 
 
 @pytest.fixture(scope="function")
+def mock_stac_discover_queryables(mocker):
+    """
+    Mocks the `discover_queryables` method of the `app.state.dag` object.
+    """
+    return mocker.patch.object(StacSearch, "discover_queryables")
+
+
+@pytest.fixture(scope="function")
 def mock_download(mocker, app):
     """
     Mocks the `download` method of the `app.state.dag` object.
@@ -328,6 +342,30 @@ def mock_base_authenticate(mocker, app):
     Mocks the `authenticate` method of the `Authentication` plugin.
     """
     return mocker.patch.object(Authentication, "authenticate")
+
+
+@pytest.fixture(scope="function")
+def mock_token_authenticate(mocker, app):
+    """
+    Mocks the `authenticate` method of the `TokenAuth` authentication plugin.
+    """
+    return mocker.patch.object(TokenAuth, "authenticate")
+
+
+@pytest.fixture(scope="function")
+def mock_oidc_refresh_token_base_init(mocker):
+    """
+    Mocks the `__init__` method of the `OIDCRefreshTokenBase` authentication plugin.
+    """
+    return mocker.patch.object(OIDCRefreshTokenBase, "__init__")
+
+
+@pytest.fixture(scope="function")
+def mock_oidc_token_exchange_auth_authenticate(mocker):
+    """
+    Mocks the `authenticate` method of the `OIDCTokenExchangeAuth` authentication plugin.
+    """
+    return mocker.patch.object(OIDCTokenExchangeAuth, "authenticate")
 
 
 @pytest.fixture(scope="function")
