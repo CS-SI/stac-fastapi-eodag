@@ -26,7 +26,7 @@ If you intend to contribute to eodag source code:
 ```bash
 git clone https://github.com/CS-SI/stac-fastapi-eodag.git
 cd stac-fastapi-eodag
-python -m pip install -e .[dev]
+python -m pip install -e .[dev,server]
 pre-commit install
 ```
 
