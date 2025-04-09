@@ -21,7 +21,6 @@ import logging
 import uuid
 from contextvars import ContextVar
 from datetime import datetime
-from http import HTTPStatus
 from typing import Tuple, cast
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -77,13 +76,8 @@ class CustomFormatter(logging.Formatter):
         logger_name = record.name
         log_message = super().format(record)
 
-        for status in HTTPStatus:
-            if str(status.value) in log_message:
-                log_message = log_message.replace(str(status.value), f"{status.value} {status.phrase}")
-
         log_message = f"{timestamp} {logger_name:<32} [{record.levelname:<8}] [{request_id}] {log_message}"
 
-        request_id_context.set("None")
         return log_message
 
 

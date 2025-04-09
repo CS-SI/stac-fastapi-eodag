@@ -43,6 +43,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
     ]
     expected_response = {
         "code": "400",
+        "description": "Something went wrong",
         "errors": [
             {
                 "provider": "usgs",
