@@ -1,0 +1,282 @@
+{{- /*
+Copyright CS GROUP - France, https://www.cs-soprasteria.com
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.commonLabels "context" $) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  {{- if .Values.updateStrategy }}
+  strategy: {{- toYaml .Values.updateStrategy | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "common.labels.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "common.labels.standard" . | nindent 8 }}
+        {{- if .Values.podLabels }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.podLabels "context" $) | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if or .Values.productTypes .Values.providers }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and .Values.otel.collector.enabled .Values.otel.collector.config }}
+        checksum/otel-config: {{ include (print $.Template.BasePath "/configmap-otel.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.podAnnotations }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "stac-fastapi-eodag.serviceAccountName" . }}
+      {{- include "stac-fastapi-eodag.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.hostAliases }}
+      hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.affinity }}
+      affinity: {{- include "common.tplvalues.render" (dict "value" .Values.affinity "context" $) | nindent 8 }}
+      {{- else if or .Values.podAffinityPreset .Values.podAntiAffinityPreset .Values.nodeAffinityPreset }}
+      affinity:
+        podAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAffinityPreset "instance" .Chart.Name "context" $) | nindent 10 }}
+        podAntiAffinity: {{- include "common.affinities.pods" (dict "type" .Values.podAntiAffinityPreset "instance" .Chart.Name "context" $) | nindent 10 }}
+        nodeAffinity: {{- include "common.affinities.nodes" (dict "type" .Values.nodeAffinityPreset.type "key" .Values.nodeAffinityPreset.key "values" .Values.nodeAffinityPreset.values) | nindent 10 }}
+      {{- end }}
+      {{- if .Values.nodeSelector }}
+      nodeSelector: {{- include "common.tplvalues.render" (dict "value" .Values.nodeSelector "context" $) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.tolerations }}
+      tolerations: {{- include "common.tplvalues.render" (dict "value" .Values.tolerations "context" .) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.schedulerName }}
+      schedulerName: {{ .Values.schedulerName }}
+      {{- end }}
+      {{- if .Values.shareProcessNamespace }}
+      shareProcessNamespace: {{ .Values.shareProcessNamespace }}
+      {{- end }}
+      {{- if .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- include "common.tplvalues.render" (dict "value" .Values.topologySpreadConstraints "context" .) | nindent 8 }}
+      {{- end }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName | quote }}
+      {{- end }}
+      {{- if .Values.runtimeClassName }}
+      runtimeClassName: {{ .Values.runtimeClassName }}
+      {{- end }}
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext: {{- omit .Values.podSecurityContext "enabled" | toYaml | nindent 8 }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.initContainers }}
+      initContainers: {{- include "common.tplvalues.render" (dict "value" .Values.initContainers "context" $) | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: stac-fastapi-eodag
+          image: {{ include "stac-fastapi-eodag.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.lifecycleHooks }}
+          lifecycle: {{- include "common.tplvalues.render" (dict "value" .Values.lifecycleHooks "context" $) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext: {{- omit .Values.containerSecurityContext "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.command }}
+          command: {{- include "common.tplvalues.render" (dict "value" .Values.command "context" $) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.args }}
+          args: {{- include "common.tplvalues.render" (dict "value" .Values.args "context" $) | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPorts.http }}
+              protocol: TCP
+          {{- if .Values.customStartupProbe }}
+          startupProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customStartupProbe "context" $) | nindent 12 }}
+          {{- else if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.containerPorts.http }}
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.startupProbe.successThreshold }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.customLivenessProbe }}
+          livenessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customLivenessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /_mgmt/ping
+              port: {{ .Values.containerPorts.http }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.livenessProbe.successThreshold }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.customReadinessProbe }}
+          readinessProbe: {{- include "common.tplvalues.render" (dict "value" .Values.customReadinessProbe "context" $) | nindent 12 }}
+          {{- else if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /_mgmt/ping
+              port: {{ .Values.containerPorts.http }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            successThreshold: {{ .Values.readinessProbe.successThreshold }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          env:
+            {{- if or .Values.extraEnvVars }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.extraEnvVars "context" $) | nindent 12 }}
+            {{- end }}
+            {{- if or .Values.config .Values.configExistingSecret.name }}
+            - name: EODAG_CFG_FILE
+              value: /eodag/resources/eodag.yml
+            {{- end }}
+            {{- if .Values.productTypes }}
+            - name: EODAG_PRODUCT_TYPES_CFG_FILE
+              value: /eodag/resources/product_types.yml
+            {{- end }}
+            {{- if .Values.providers }}
+            - name: EODAG_PROVIDERS_CFG_FILE
+              value: /eodag/resources/providers.yml
+            {{- end }}
+            {{- if .Values.debug }}
+            - name: DEBUG
+              value: {{ .Values.debug | quote }}
+            {{- end }}
+            {{- if .Values.api.title }}
+            - name: STAC_FASTAPI_TITLE
+              value: {{ .Values.api.title | quote }}
+            {{- end }}
+            {{- if .Values.api.description }}
+            - name: STAC_FASTAPI_DESCRIPTION
+              value: {{ .Values.api.description | quote }}
+            {{- end }}
+            {{- if .Values.api.landingId }}
+            - name: STAC_FASTAPI_LANDING_ID
+              value: {{ .Values.api.landingId | quote }}
+            {{- end }}
+            - name: STAC_FASTAPI_VERSION
+              value: {{ .Chart.Version | quote }}
+            {{- if .Values.rootPath }}
+            - name: ROOT_PATH
+              value: {{ .Values.rootPath | quote }}
+            - name: UVICORN_ROOT_PATH
+              value: {{ .Values.rootPath | quote }}
+            {{- end }}
+            - name: APP_PORT
+              value: {{ .Values.containerPorts.http | quote }}
+            - name: RELOAD
+              value: "false"
+            {{- if .Values.keepOriginUrl }}
+            - name: KEEP_ORIGIN_URL
+              value: {{ .Values.keepOriginUrl | quote }}
+            {{- end }}
+            {{- if .Values.otel.enabled }}
+            {{- if .Values.otel.endpoint }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.otel.endpoint | quote }}
+            {{- end }}
+            {{- if .Values.otel.timeout }}
+            - name: OTEL_EXPORTER_OTLP_TIMEOUT
+              value: {{ .Values.otel.timeout | quote }}
+            {{- end }}
+            {{- if .Values.otel.interval }}
+            - name: OTEL_METRIC_EXPORT_INTERVAL
+              value: {{ .Values.otel.interval | quote }}
+            {{- end }}
+            {{- end }}
+          {{- if or .Values.extraEnvVarsCM .Values.extraEnvVarsSecret }}
+          envFrom:
+            {{- if .Values.extraEnvVarsCM }}
+            - configMapRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.extraEnvVarsCM "context" $) }}
+            {{- end }}
+            {{- if .Values.extraEnvVarsSecret }}
+            - secretRef:
+                name: {{ include "common.tplvalues.render" (dict "value" .Values.extraEnvVarsSecret "context" $) }}
+            {{- end }}
+          {{- end }}
+          {{- if .Values.resources }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.productTypes }}
+            - name: config
+              mountPath: /eodag/resources/product_types.yml
+              subPath: product_types.yml
+            {{- end }}
+            {{- if .Values.providers }}
+            - name: config
+              mountPath: /eodag/resources/providers.yml
+              subPath: providers.yml
+            {{- end }}
+            {{- if or .Values.config .Values.configExistingSecret.name }}
+            - name: eodag-config
+              mountPath: /eodag/resources/eodag.yml
+              subPath: eodag.yml
+            {{- end }}
+            {{- if .Values.extraVolumeMounts }}
+            {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
+            {{- end }}
+        {{- if .Values.otel.collector.enabled }}
+        - name: opentelemetry-collector
+          image: {{ include "otel-collector.image" . }}
+          imagePullPolicy: {{ .Values.otel.collector.image.pullPolicy }}
+          ports:
+            - name: otlp-receiver
+              containerPort: {{ .Values.otel.collector.ports.otlpReceiver }}
+              protocol: TCP
+            - name: prom-exporter
+              containerPort: {{ .Values.otel.collector.ports.prometheusExporter }}
+              protocol: TCP
+          volumeMounts:
+            {{- if .Values.otel.collector.config }}
+            - name: otel-config
+              mountPath: /etc/otelcol-contrib/config.yaml
+              subPath: otelcol_config.yml
+            {{- end }}
+        {{- end }}
+        {{- if .Values.sidecars }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
+        {{- end }}
+      volumes:
+        {{- if or .Values.productTypes .Values.providers }}
+        - name: config
+          configMap:
+            name: {{ printf "%s-config" (include "common.names.fullname" .) }}
+        {{- end }}
+        {{- if and .Values.otel.collector.enabled .Values.otel.collector.config }}
+        - name: otel-config
+          configMap:
+            name: {{ printf "%s-otel-config" (include "common.names.fullname" .) }}
+        {{- end }}
+        {{- if or .Values.config .Values.configExistingSecret.name }}
+        - name: eodag-config
+          secret:
+            secretName: {{ include "stac-fastapi-eodag.configSecretName" . }}
+            items:
+              - key: {{ include "stac-fastapi-eodag.configSecretKey" . }}
+                path: {{ include "stac-fastapi-eodag.configSecretKey" . }}
+        {{- end }}
+        {{- if .Values.extraVolumes }}
+        {{- toYaml .Values.extraVolumes | nindent 8 }}
+        {{- end }}

@@ -26,17 +26,11 @@ from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
 from stac_fastapi.types.config import ApiSettings
 
-from stac_fastapi.eodag.constants import DEFAULT_MAXSIZE, DEFAULT_TTL
 from stac_fastapi.eodag.utils import str2liststr
 
 
 class Settings(ApiSettings):
     """EODAG Server config"""
-
-    # local cache config
-    cache_ttl: int = Field(default=DEFAULT_TTL)
-    cache_maxsize: int = Field(default=DEFAULT_MAXSIZE)
-
     debug: bool = False
 
     keep_origin_url: bool = Field(

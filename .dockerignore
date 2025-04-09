@@ -8,6 +8,7 @@ docker-compose.yml
 LICENSE
 README.md
 uv.lock
+helm/
 
 PIP_EXTRA_INDEX_URL
 !tests/resources/*.jpg

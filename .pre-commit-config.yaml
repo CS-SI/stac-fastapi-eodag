@@ -11,6 +11,7 @@ repos:
     -   id: check-json
     -   id: check-yaml
         args: [--allow-multiple-documents, --unsafe]
+        exclude: '^helm/stac-fastapi-eodag/templates/.*$'
     -   id: check-xml
     -   id: check-added-large-files
         args: ['--maxkb=1600']

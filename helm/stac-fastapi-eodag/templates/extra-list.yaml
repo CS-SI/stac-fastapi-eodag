@@ -1,0 +1,9 @@
+{{- /*
+Copyright CS GROUP - France, https://www.cs-soprasteria.com
+SPDX-License-Identifier: APACHE-2.0
+*/}}
+
+{{- range .Values.extraDeploy }}
+---
+{{ include "common.tplvalues.render" (dict "value" . "context" $) }}
+{{- end }}

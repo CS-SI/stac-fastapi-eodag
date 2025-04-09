@@ -132,3 +132,10 @@ docs/api/*
 
 # IDE
 .vscode
+
+# npm
+node_modules
+
+# Helm
+
+helm/**/charts/**

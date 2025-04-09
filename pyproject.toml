@@ -105,3 +105,6 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 
 [tool.ruff.lint.mccabe]
 max-complexity = 18
+
+[tool.setuptools.packages.find]
+include = ["stac_fastapi*"]
