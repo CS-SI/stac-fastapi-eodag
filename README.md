@@ -9,6 +9,8 @@
 
 stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provide a powerful, unified API for accessing Earth observation data from various providers.
 
+**stac-fastapi-eodag is now available from GitHub: https://github.com/CS-SI/stac-fastapi-eodag. Please use the GitHub version instead.**
+
 ## Disclaimer
 
 ⚠️ This project is a **WIP** and not ready for any production usage. Use at your own risks.
