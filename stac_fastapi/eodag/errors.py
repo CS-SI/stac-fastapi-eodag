@@ -22,7 +22,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, TypedDict
 
-from fastapi.responses import ORJSONResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse, ORJSONResponse
 from starlette import status
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -59,6 +60,20 @@ EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
 }
 
 logger = logging.getLogger("eodag.rest.server")
+
+
+def exception_handler_factory(status_code: int):
+    """Overide exception_handler_factory to include tickets"""
+
+    def handler(request: Request, exc: Exception):
+        """I handle exceptions"""
+        code = exc.__class__.__name__
+        return JSONResponse(
+            content={"code": str(code), "ticket": request_id_context.get(), "description": str(exc)},
+            status_code=status_code,
+        )
+
+    return handler
 
 
 class SearchError(TypedDict):
@@ -132,15 +147,6 @@ class ResponseSearchError(Exception):
         return 400
 
 
-async def response_search_error_handler(request: Request, exc: Exception) -> ORJSONResponse:
-    """Handle ResponseSearchError exceptions"""
-    code = getattr(exc, "status_code", 500) or 500
-    return ORJSONResponse(
-        status_code=code,
-        content={"code": str(code), "ticket": request_id_context.get(), "errors": getattr(exc, "errors", [])},
-    )
-
-
 async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONResponse:
     """Handler for EODAG errors"""
     code = EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500)) or 500
@@ -164,31 +170,26 @@ async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONRespon
     )
 
 
-def starlette_exception_handler(request: Request, error: Exception) -> ORJSONResponse:
-    """Starlette errors handle"""
-    description = getattr(error, "description", None) or getattr(error, "detail", None) or str(error)
-    code = getattr(error, "status_code", 500)
-    return ORJSONResponse(
-        status_code=code,
-        content={"code": str(code), "ticket": request_id_context.get(), "description": description},
-    )
-
-
-def assertion_error_handler(request: Request, error: Exception) -> ORJSONResponse:
-    """Assertion errors handle"""
-    message = str(error) or f" ({str(error)})"
-    description = str(error) or f"The request bould not be validated{message}."
-    code = (getattr(error, "status_code", 400),)
-    return ORJSONResponse(
-        status_code=code,
-        content={"code": str(code), "ticket": request_id_context.get(), "description": description},
-    )
-
-
-def value_error_handler(request: Request, error: Exception) -> ORJSONResponse:
-    """Value errors handle"""
-    description = f"The request bould not be validated ({str(error)})."
+def error_handler(request: Request, error: Exception) -> ORJSONResponse:
+    """Handle errors"""
     code = getattr(error, "status_code", 400)
+    description = (
+        getattr(error, "description", None) or getattr(error, "detail", None) or str(error) or f" ({str(error)})"
+    )
+    errors = getattr(error, "errors", [])
+    if errors != []:
+        description = "Something went wrong"
+        code = min(error.get("status_code", 500) for error in errors)
+        return ORJSONResponse(
+            status_code=code,
+            content={
+                "code": str(code),
+                "ticket": request_id_context.get(),
+                "description": description,
+                "errors": errors,
+            },
+        )
+
     return ORJSONResponse(
         status_code=code,
         content={"code": str(code), "ticket": request_id_context.get(), "description": description},
@@ -202,11 +203,11 @@ def add_exception_handlers(app: FastAPI) -> None:
     :param app: The FastAPI application.
     :returns: None
     """
-    app.add_exception_handler(StarletteHTTPException, starlette_exception_handler)
-    app.add_exception_handler(AssertionError, assertion_error_handler)
-    app.add_exception_handler(ValueError, value_error_handler)
+    app.add_exception_handler(StarletteHTTPException, error_handler)
+    app.add_exception_handler(AssertionError, error_handler)
+    app.add_exception_handler(ValueError, error_handler)
     app.add_exception_handler(RequestError, eodag_errors_handler)
     for exc in EODAG_DEFAULT_STATUS_CODES:
         app.add_exception_handler(exc, eodag_errors_handler)
 
-    app.add_exception_handler(ResponseSearchError, response_search_error_handler)
+    app.add_exception_handler(ResponseSearchError, error_handler)

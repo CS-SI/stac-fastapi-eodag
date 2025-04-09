@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+import stac_fastapi.api.errors
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import ORJSONResponse
@@ -38,7 +39,7 @@ from stac_fastapi.extensions.core import FilterExtension, QueryExtension, SortEx
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
-from stac_fastapi.eodag.errors import add_exception_handlers
+from stac_fastapi.eodag.errors import add_exception_handlers, exception_handler_factory
 from stac_fastapi.eodag.extensions.collection_order import (
     BaseCollectionOrderClient,
     CollectionOrderExtension,
@@ -150,6 +151,8 @@ item_collection_model = create_request_model(
 
 
 client = EodagCoreClient(post_request_model=search_post_model, stac_metadata_model=stac_metadata_model)
+
+stac_fastapi.api.errors.exception_handler_factory = exception_handler_factory
 
 api = StacApi(
     app=app,
