@@ -67,9 +67,8 @@ def exception_handler_factory(status_code: int):
 
     def handler(request: Request, exc: Exception):
         """I handle exceptions"""
-        code = exc.__class__.__name__
         return JSONResponse(
-            content={"code": str(code), "ticket": request_id_context.get(), "description": str(exc)},
+            content={"code": status_code, "ticket": request_id_context.get(), "description": str(exc)},
             status_code=status_code,
         )
 
