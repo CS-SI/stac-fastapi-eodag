@@ -17,11 +17,9 @@
 # limitations under the License.
 """Queryables tests."""
 
-import json
 import os
 from typing import Annotated, Literal
 
-import geojson
 from pydantic import Field
 
 json_file_path = os.path.join(os.path.dirname(__file__), "resources/datetime.json")
@@ -54,7 +52,7 @@ async def test_collection_queryables(mock_list_queryables, app_client):
         url="/collections/ABC_SAR/queryables",
         follow_redirects=True,
     )
-    result = geojson.loads(response.content.decode("utf-8"))
+    result = response.json()
     assert "properties" in result
     assert len(result["properties"]) == 2
     assert "product:type" in result["properties"]
@@ -135,7 +133,7 @@ async def test_default_in_product_type_queryables(
 ):
     """The queryables should not have default value set to null."""
     response = await app_client.get(f"/collections/{defaults.product_type}/queryables", follow_redirects=True)
-    resp_json = json.loads(response.content.decode("utf-8"))
+    resp_json = response.json()
     for _, value in resp_json["properties"].items():
         if "default" in value:
             assert value.get("default") is not None, "The 'default' field in the /queryables response must not be null."

@@ -17,7 +17,6 @@
 # limitations under the License.
 """main conftest"""
 
-import json
 import os
 import unittest.mock
 from dataclasses import dataclass, field
@@ -27,7 +26,6 @@ from tempfile import TemporaryDirectory
 from typing import Any, Iterator, Optional, Union
 from urllib.parse import urljoin
 
-import geojson
 import pytest
 from eodag import EODataAccessGateway
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
@@ -504,7 +502,7 @@ def request_valid(request_valid_raw, assert_links_valid) -> Any:
         )
 
         # Assert response format is GeoJSON
-        result = geojson.loads(response.content.decode("utf-8"))
+        result = response.json()
 
         if check_links:
             await assert_links_valid(result)
@@ -528,7 +526,7 @@ def request_not_valid(app_client):
             follow_redirects=True,
             headers={"Content-Type": "application/json"} if method == "POST" else {},
         )
-        response_content = json.loads(response.content.decode("utf-8"))
+        response_content = response.json()
 
         assert 400 == response.status_code
         assert "description" in response_content
@@ -552,7 +550,7 @@ def request_not_found(app_client):
             follow_redirects=True,
             headers={"Content-Type": "application/json"} if method == "POST" else {},
         )
-        response_content = json.loads(response.content.decode("utf-8"))
+        response_content = response.json()
 
         assert 404 == response.status_code
         assert "description" in response_content
@@ -570,7 +568,7 @@ def request_accepted(app_client):
 
     async def _request_accepted(url: str):
         response = await app_client.get(url, follow_redirects=True)
-        response_content = json.loads(response.content.decode("utf-8"))
+        response_content = response.json()
         assert 202 == response.status_code
         assert "description" in response_content
         assert "location" in response_content

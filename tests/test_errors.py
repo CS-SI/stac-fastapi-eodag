@@ -17,7 +17,6 @@
 # limitations under the License.
 """Search tests."""
 
-import json
 import logging
 
 from eodag import SearchResult
@@ -90,7 +89,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
         follow_redirects=True,
         headers={},
     )
-    response_content = json.loads(response.content.decode("utf-8"))
+    response_content = response.json()
 
     assert response.status_code == 400
     for record in response_content["errors"]:
@@ -107,7 +106,7 @@ async def test_auth_error(app_client, mock_search, defaults, caplog):
     mock_search.side_effect = AuthenticationError("you are not authorized")
     with caplog.at_level(logging.ERROR):
         response = await app_client.get(f"search?collections={defaults.product_type}", follow_redirects=True)
-        response_content = json.loads(response.content.decode("utf-8"))
+        response_content = response.json()
 
         assert "description" in response_content
         assert "AuthenticationError" in caplog.text
@@ -121,7 +120,7 @@ async def test_timeout_error(app_client, mock_search, defaults, caplog):
     mock_search.side_effect = TimeOutError("too long")
     with caplog.at_level(logging.ERROR):
         response = await app_client.get(f"search?collections={defaults.product_type}", follow_redirects=True)
-        response_content = json.loads(response.content.decode("utf-8"))
+        response_content = response.json()
 
         assert "description" in response_content
         assert "TimeOutError" in caplog.text

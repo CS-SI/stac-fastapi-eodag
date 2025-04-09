@@ -17,7 +17,6 @@
 # limitations under the License.
 """app tests."""
 
-import json
 from unittest.mock import ANY
 
 
@@ -37,12 +36,12 @@ async def test_forward(app_client):
     """Test the root route with Forwarded and X-Forwarded-* headers."""
     response = await app_client.get("/", follow_redirects=True)
     assert 200 == response.status_code
-    resp_json = json.loads(response.content.decode("utf-8"))
+    resp_json = response.json()
     assert resp_json["links"][0]["href"] == "http://testserver/"
 
     response = await app_client.get("/", follow_redirects=True, headers={"Forwarded": "host=foo;proto=https"})
     assert 200 == response.status_code
-    resp_json = json.loads(response.content.decode("utf-8"))
+    resp_json = response.json()
     assert resp_json["links"][0]["href"] == "https://foo/"
 
     response = await app_client.get(
@@ -51,7 +50,7 @@ async def test_forward(app_client):
         headers={"X-Forwarded-Host": "bar", "X-Forwarded-Proto": "httpz"},
     )
     assert 200 == response.status_code
-    resp_json = json.loads(response.content.decode("utf-8"))
+    resp_json = response.json()
     assert resp_json["links"][0]["href"] == "httpz://bar/"
 
 
