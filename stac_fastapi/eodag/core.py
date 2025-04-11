@@ -46,6 +46,7 @@ from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.utils import deepcopy
 from eodag.utils.exceptions import NoMatchingProductType
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import ResponseSearchError
 from stac_fastapi.eodag.landing_page import CustomCoreClient
@@ -263,7 +264,13 @@ class EodagCoreClient(CustomCoreClient):
                 "rel": Relations.self.value,
                 "type": MimeTypes.json,
                 "href": urljoin(base_url, "collections"),
-                "title": "Collection",
+                "title": "Collections",
+            },
+            {
+                "rel": Relations.root,
+                "type": MimeTypes.json,
+                "href": base_url,
+                "title": get_settings().stac_fastapi_title,
             },
         ]
         return Collections(collections=collections or [], links=links)

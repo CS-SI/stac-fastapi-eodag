@@ -19,6 +19,8 @@
 
 import json
 
+from stac_fastapi.eodag.config import get_settings
+
 
 async def test_collection(request_valid, defaults):
     """Requesting a collection through eodag server should return a valid response"""
@@ -41,9 +43,22 @@ async def test_list_collections(app_client, mock_list_product_types):
     r = await app_client.get("/collections")
     assert mock_list_product_types.called
     assert r.status_code == 200
-    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [
-        col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])
-    ]
+    result = r.json()
+    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in result["collections"]]
+
+    assert len(result["links"]) == 2
+    assert result["links"][0] == {
+        "rel": "self",
+        "type": "application/json",
+        "href": "http://testserver/collections",
+        "title": "Collections",
+    }
+    assert result["links"][1] == {
+        "rel": "root",
+        "type": "application/json",
+        "href": "http://testserver/",
+        "title": get_settings().stac_fastapi_title,
+    }
 
 
 async def test_search_collections_freetext_ok(app_client, mock_list_product_types, mock_guess_product_type):
