@@ -8,7 +8,7 @@
 
 [EODAG](https://github.com/CS-SI/eodag) backend for [stac-fastapi](https://github.com/stac-utils/stac-fastapi), the [FastAPI](https://fastapi.tiangolo.com/) implementation of the [STAC API spec](https://github.com/radiantearth/stac-api-spec)
 
-stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provide a powerful, unified API for accessing Earth observation data. By leveraging EODAG's ability to search, aggregate, and download remote-sensed images from various providers, stac-fastapi-eodag offers a standardized and efficient solution for data access. This integration simplifies the process of managing Earth observation data, making it accessible and actionable for researchers, developers, and data analysts.
+stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provide a powerful, unified API for accessing Earth observation data. By leveraging EODAG's ability to search, aggregate, and download remote-sensed images from various providers, stac-fastapi-eodag offers a standardized and efficient solution for data access. This integration simplifies the process of managing Earth observation data, making it accessible and actionable for researchers, developers, and data analysts. An option to export metrics using OpenTelemetry is also provided.
 
 ## Disclaimer
 
@@ -62,13 +62,42 @@ You can also run the server using Docker Compose:
 docker compose up
 ```
 
+NOTE: This will start a stac-fastapi-eodag container and an otel-collector container for the collection of metrics.
+
 ### Run in Kubernetes
 
 You can install stac-fastapi-eodag in your Kubernetes cluster with the [Helm chart in this repository](./helm/stac-fastapi-eodag/README.md).
 
+### Run with OpenTelemetry
+
+#### Docker Compose
+
+As mentioned above, the following command will start the stac-fastapi-eodag container and the otel-collector container.
+
+```shell
+docker compose up
+```
+
+#### Without Docker Compose
+
+```shell
+pip install .[server,telemetry]
+docker run -p 4318:4318 -p 8000:8000 \
+    -v ./config/otelcol_config.yml:/etc/otel-collector-config.yaml \
+    otel/opentelemetry-collector:latest \
+    --config=/etc/otel-collector-config.yaml
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318/"
+export OTEL_METRIC_EXPORT_INTERVAL="5000"  # shorter export interval for testing
+export APP_PORT=8001  # change app port because otel-collector uses 8000
+python stac_fastapi/eodag/app.py
+```
+
+The metrics are available on `http://localhost:8000/metrics`.
+
+
 ## Configuration
 
-stac-fastapi-eodag support multiple environement variables to customize the deployment of your API.
+stac-fastapi-eodag supports multiple environment variables to customize the deployment of your API.
 
 ### Uvicorn parameters
 
@@ -105,6 +134,14 @@ Reach to [stac-fastapi documentation](https://stac-utils.github.io/stac-fastapi/
 | `ORIGIN_URL_BLACKLIST` | Hide from clients items assets' origin URLs starting with URLs from the list. A string of comma separated values is expected. | "" |
 | `FETCH_PROVIDERS` | Fetch additional collections from all EODAG providers. | False |
 | `DOWNLOAD_BASE_URL` | Useful to expose asset download URL in a separate domain name. | "" |
+
+### OpenTelemetry parameters
+
+| name | description | default value |
+| --- | --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | target url to which the exporter sends the metrics | "" |
+| `OTEL_METRIC_EXPORT_INTERVAL` | time interval (in milliseconds) between the start of two export attempts | 60000 |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` |  timeout value for all outgoing data (traces, metrics, and logs) in milliseconds | 10000 |
 
 ### EODAG parameters
 
