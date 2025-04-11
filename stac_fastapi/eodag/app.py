@@ -114,7 +114,7 @@ for e in extensions:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """API init and tear-down"""
     init_dag(app)
-    if settings.otel_exporter_otlp_endpoint:
+    if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
         from stac_fastapi.eodag.telemetry import instrument_eodag
 
         instrument_eodag(app.state.dag)
@@ -130,7 +130,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-if settings.otel_exporter_otlp_endpoint:
+if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
     from stac_fastapi.eodag.telemetry import instrument_fastapi
 
     instrument_fastapi(app)
