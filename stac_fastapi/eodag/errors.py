@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, TypedDict
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, ORJSONResponse
+from pydantic import ValidationError as pydanticValidationError
 from starlette import status
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -57,6 +58,7 @@ EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
     UnsupportedProductType: status.HTTP_404_NOT_FOUND,
     UnsupportedProvider: status.HTTP_404_NOT_FOUND,
     ValidationError: status.HTTP_400_BAD_REQUEST,
+    RequestError: status.HTTP_400_BAD_REQUEST,
 }
 
 logger = logging.getLogger("eodag.rest.server")
@@ -81,7 +83,6 @@ class SearchError(TypedDict):
     provider: str
     error: str
     status_code: int
-    ticket: str
     message: NotRequired[str]
     detail: NotRequired[str]
 
@@ -195,6 +196,22 @@ def error_handler(request: Request, error: Exception) -> ORJSONResponse:
     )
 
 
+def pydantic_validation_handler(request: Request, error: Exception) -> ORJSONResponse:
+    """Special handling for pydantic errors. They are a subtype of built-in ValueError."""
+
+    if not isinstance(error, pydanticValidationError):
+        raise Exception("Invalid handler used.")
+
+    error_header = f"{error.error_count()} error(s). "
+    error_messages = [
+        f"{err['loc'][0] if len(err['loc']) == 1 else list(err['loc'])}: {err['msg']}" if err["loc"] else err["msg"]
+        for err in error.errors()
+    ]
+    formated_error = error_header + "; ".join(set(error_messages))
+
+    return error_handler(request, ValueError(formated_error))
+
+
 def add_exception_handlers(app: FastAPI) -> None:
     """
     Add exception handlers to the FastAPI application.
@@ -204,9 +221,8 @@ def add_exception_handlers(app: FastAPI) -> None:
     """
     app.add_exception_handler(StarletteHTTPException, error_handler)
     app.add_exception_handler(AssertionError, error_handler)
+    app.add_exception_handler(pydanticValidationError, pydantic_validation_handler)
     app.add_exception_handler(ValueError, error_handler)
-    app.add_exception_handler(RequestError, eodag_errors_handler)
     for exc in EODAG_DEFAULT_STATUS_CODES:
         app.add_exception_handler(exc, eodag_errors_handler)
-
     app.add_exception_handler(ResponseSearchError, error_handler)
