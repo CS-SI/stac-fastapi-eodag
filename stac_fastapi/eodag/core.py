@@ -630,7 +630,7 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
     def add_error(error_message: str) -> None:
         errors.append(
             InitErrorDetails(
-                type=PydanticCustomError("invalid_filter", error_message),  # type: ignore
+                type=PydanticCustomError("value_error", error_message),  # type: ignore
                 loc=("filter",),
             )
         )
@@ -640,11 +640,11 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
         parsing_result = EodagEvaluator().evaluate(parse_json(filter_))  # type: ignore
     except (ValueError, NotImplementedError) as e:
         add_error(str(e))
-        raise ValidationError.from_exception_data(title="EODAGSearch", line_errors=errors) from e
+        raise ValidationError.from_exception_data(title="stac-fastapi-eodag", line_errors=errors) from e
 
     if not is_dict_str_any(parsing_result):
         add_error("The parsed filter is not a proper dictionary")
-        raise ValidationError.from_exception_data(title="EODAGSearch", line_errors=errors)
+        raise ValidationError.from_exception_data(title="stac-fastapi-eodag", line_errors=errors)
 
     cql_args: dict[str, Any] = cast(dict[str, Any], parsing_result)
 
@@ -657,6 +657,6 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
             add_error(m)
 
     if errors:
-        raise ValidationError.from_exception_data(title="EODAGSearch", line_errors=errors)
+        raise ValidationError.from_exception_data(title="stac-fastapi-eodag", line_errors=errors)
 
     return cql_args
