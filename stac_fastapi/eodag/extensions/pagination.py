@@ -33,11 +33,11 @@ class POSTPagination(BaseModel):
     page: int = 1
 
 
-@dataclass
+@attr.s
 class GETPagination(APIRequest):
     """Page based pagination for GET requests."""
 
-    page: Annotated[int, Query()] = 1
+    page: Annotated[int, Query(description="Returns results of this page")] = attr.ib(default=1)
 
 
 @attr.s
