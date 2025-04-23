@@ -253,7 +253,7 @@ class EodagCoreClient(CustomCoreClient):
         else:
             product_types = all_pt
 
-        collections = [self._get_collection(pt, request) for pt in product_types[:limit]]
+        collections = [self._get_collection(pt, request) for pt in product_types]
 
         # bbox filter
         if bbox:
@@ -281,7 +281,7 @@ class EodagCoreClient(CustomCoreClient):
                 "title": get_settings().stac_fastapi_title,
             },
         ]
-        return Collections(collections=collections or [], links=links)
+        return Collections(collections=collections[:limit] or [], links=links)
 
     async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
         """
