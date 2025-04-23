@@ -44,7 +44,7 @@ from stac_pydantic.shared import MimeTypes
 
 from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
-from eodag.utils import deepcopy
+from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingProductType
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
@@ -228,12 +228,6 @@ class EodagCoreClient(CustomCoreClient):
         """
         base_url = get_base_url(request)
 
-        if bbox:
-            raise HTTPException(
-                status_code=400,
-                detail="bbox parameter is not yet supported in /collections.",
-            )
-
         # get provider filter
         provider = None
         if query:
@@ -244,6 +238,7 @@ class EodagCoreClient(CustomCoreClient):
 
         all_pt = request.app.state.dag.list_product_types(provider=provider, fetch_providers=False)
 
+        # datetime & free-text-search filters
         if any((q, datetime)):
             start, end = dt_range_to_eodag(datetime)
 
@@ -258,7 +253,20 @@ class EodagCoreClient(CustomCoreClient):
         else:
             product_types = all_pt
 
-        collections = [self._get_collection(pt, request) for pt in product_types[:limit]]
+        collections = [self._get_collection(pt, request) for pt in product_types]
+
+        # bbox filter
+        if bbox:
+            bbox_geom = get_geometry_from_various(geometry=bbox)
+            default_extent = [[-180.0, -90.0, 180.0, 90.0]]
+            collections = [
+                c
+                for c in collections
+                if get_geometry_from_various(
+                    geometry=c.get("extent", {}).get("spatial", {}).get("bbox", default_extent)[0]
+                ).intersection(bbox_geom)
+            ]
+
         links = [
             {
                 "rel": Relations.self.value,
@@ -273,7 +281,7 @@ class EodagCoreClient(CustomCoreClient):
                 "title": get_settings().stac_fastapi_title,
             },
         ]
-        return Collections(collections=collections or [], links=links)
+        return Collections(collections=collections[:limit] or [], links=links)
 
     async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
         """

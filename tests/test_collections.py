@@ -103,3 +103,25 @@ async def test_search_collections_query(app_client, mock_list_product_types):
     assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [
         col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])
     ]
+
+
+async def test_search_collections_bbox(app_client, mock_list_product_types, mocker, app):
+    """A collections bbox search must succeed"""
+    mock_list_product_types.return_value = [
+        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
+        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
+        {"_id": "S1_SAR_GRD", "ID": "S1_SAR_GRD"},
+    ]
+    mocker.patch.dict(
+        app.state.ext_stac_collections,
+        {
+            "S2_MSI_L2A": {"extent": {"spatial": {"bbox": [[20, 20, 30, 30]]}}},
+            "S1_SAR_GRD": {"extent": {"spatial": {"bbox": [[0, 0, 10, 10]]}}},
+        },
+    )
+    r = await app_client.get("/collections?bbox=-5,0,0,5")
+
+    assert r.status_code == 200
+    assert ["S2_MSI_L1C", "S1_SAR_GRD"] == [
+        col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])
+    ]
