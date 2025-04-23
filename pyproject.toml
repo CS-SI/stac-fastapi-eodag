@@ -83,10 +83,6 @@ filterwarnings = [
     "ignore:Unused async fixture loop scope:pytest.PytestWarning"
 ]
 
-[tool.setuptools]
-packages = ["stac_fastapi"]
-
-
 [tool.ruff]
 target-version = "py39" # minimum supported version
 line-length = 120
