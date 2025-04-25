@@ -86,6 +86,26 @@ class CommonStacMetadata(ItemProperties):
             )
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def parse_platform(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        Convert platform ``list`` to ``str``.
+        TODO: This should be removed after the refactoring of cop_marine because an item should only have one platform
+        """
+        if platform := values.get("platform"):
+            values["platform"] = ",".join(platform) if isinstance(platform, list) else platform
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def convert_processing_level(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Convert processingLevel to ``str`` if it is ``int`"""
+        if processing_level := values.get("processingLevel"):
+            if isinstance(processing_level, int):
+                values["processingLevel"] = f"L{processing_level}"
+        return values
+
     @model_validator(mode="after")
     def validate_datetime_or_start_end(self) -> Self:
         """disable validation of datetime.
