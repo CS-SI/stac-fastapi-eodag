@@ -1,7 +1,26 @@
+networks:
+  stacapi-eodag-network:
+    driver: bridge
+
 services:
   stac_fastapi_eodag_server:
     image: stac-fastapi-eodag:latest
     container_name: eodag_server
     build: .
     ports:
+      - "8080:8000"
+    networks:
+      - stacapi-eodag-network
+    depends_on:
+      - otel-collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.90.1
+    container_name: otel_collector
+    restart: unless-stopped
+    volumes:
+      - ./config/otelcol_config.yml:/etc/otelcol-contrib/config.yaml
+    networks:
+      - stacapi-eodag-network
+    ports:
+      - "4318:4318"
       - "8000:8000"
