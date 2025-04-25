@@ -102,6 +102,21 @@ async def test_items_response(request_valid, defaults):
     )
 
 
+async def test_items_response_unexpected_types(request_valid, defaults, mock_search_result):
+    """Item properties contain values in unexpected types for processingLevel and platform
+    These values should be tranformed so that the validation passes
+    """
+    result_properties = mock_search_result.data[0].properties
+    result_properties["processingLevel"] = 2
+    result_properties["platform"] = ["P1", "P2"]
+    resp_json = await request_valid(f"search?collections={defaults.product_type}", search_result=mock_search_result)
+    res = resp_json["features"]
+    assert len(res) == 2
+    first_props = res[0]["properties"]
+    assert first_props["processing:level"] == "L2"
+    assert first_props["constellation"] == "P1,P2"
+
+
 async def test_assets_with_different_domain(request_valid, defaults):
     """domain for download links should be as configured in settings"""
     settings = get_settings()

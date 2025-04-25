@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, TypedDict
 
 from fastapi import FastAPI, Request
@@ -177,6 +178,8 @@ def error_handler(request: Request, error: Exception) -> ORJSONResponse:
         getattr(error, "description", None) or getattr(error, "detail", None) or str(error) or f" ({str(error)})"
     )
     errors = getattr(error, "errors", [])
+    if not isinstance(errors, Iterable):
+        errors = [errors]
     if errors != []:
         description = "Something went wrong"
         code = min(error.get("status_code", 500) for error in errors)

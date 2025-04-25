@@ -62,7 +62,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
                 "provider": "peps",
                 "error": "RequestError",
                 "message": "Request error message with status code",
-                "status_code": 418,
+                "status_code": 400,
             },
             {
                 "provider": "creodias",
