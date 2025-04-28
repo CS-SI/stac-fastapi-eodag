@@ -134,6 +134,21 @@ async def test_assets_with_different_domain(request_valid, defaults):
     )
 
 
+async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_result):
+    """All urls (download urls, links) should be quoted so that there are no invalid symbols"""
+    result_properties = mock_search_result.data[0].properties
+    result_properties["id"] = "id,with,commas"
+    result_assets = mock_search_result.data[0].assets
+    result_assets["asset*star"] = {"title": "asset*star", "href": "https://somewhere.fr"}
+    resp_json = await request_valid(f"search?collections={defaults.product_type}", search_result=mock_search_result)
+    res = resp_json["features"]
+    assert len(res) == 2
+    assert "," not in res[0]["assets"]["downloadLink"]
+    assert res[0]["links"][1]["href"] == "http://testserver/collections/S1_SAR_OCN/items/id%2Cwith%2Ccommas"
+    asset = res[0]["assets"]["asset*star"]
+    assert "*" not in asset["href"]
+
+
 async def test_not_found(request_not_found):
     """A request to eodag server with a not supported product type must return a 404 HTTP error code"""
     await request_not_found("search?collections=ZZZ&bbox=0,43,1,44")
