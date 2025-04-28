@@ -31,6 +31,7 @@ from stac_fastapi.eodag.utils import str2liststr
 
 class Settings(ApiSettings):
     """EODAG Server config"""
+
     debug: bool = False
 
     keep_origin_url: bool = Field(
