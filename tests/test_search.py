@@ -146,7 +146,7 @@ async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_r
     assert "," not in res[0]["assets"]["downloadLink"]
     assert res[0]["links"][1]["href"] == "http://testserver/collections/S1_SAR_OCN/items/id%2Cwith%2Ccommas"
     asset = res[0]["assets"]["asset*star"]
-    assert "*" not in asset["href"]
+    assert asset["href"].endswith("asset%2Astar")
 
 
 async def test_not_found(request_not_found):
