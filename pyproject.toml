@@ -42,6 +42,7 @@ telemetry = [
     "opentelemetry-instrumentation-fastapi"
 ]
 dev = [
+    "stac_fastapi.eodag[server,telemetry]",
     "geojson",
     "httpx",
     "importlib-metadata",
