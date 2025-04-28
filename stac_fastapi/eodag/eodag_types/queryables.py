@@ -28,6 +28,7 @@ class QueryablesGetParams(BaseModel):
     """Store GET Queryables query params"""
 
     collection: Optional[str] = Field(default=None, serialization_alias="productType")
+    provider: Optional[str] = Field(default=None)
     start_datetime: Union[list[str], str, None] = Field(default=None)
     end_datetime: Union[list[str], str, None] = Field(default=None)
     datetime: Union[list[str], str, None] = Field(default=None)

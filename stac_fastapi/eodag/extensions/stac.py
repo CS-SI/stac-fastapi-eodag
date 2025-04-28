@@ -20,11 +20,7 @@
 from typing import Annotated, Any, Optional, Union
 
 import attr
-from eodag.api.product.metadata_mapping import (
-    OFFLINE_STATUS,
-    ONLINE_STATUS,
-    STAGING_STATUS,
-)
+from eodag.api.product.metadata_mapping import ONLINE_STATUS
 from pydantic import (
     BaseModel,
     BeforeValidator,
@@ -233,9 +229,6 @@ class ProductExtension(BaseStacExtension):
     field_name_prefix: Optional[str] = attr.ib(default="product")
 
 
-STATUS_STAC_MATCHING = {ONLINE_STATUS: "succeeded", STAGING_STATUS: "shipping", OFFLINE_STATUS: "orderable"}
-
-
 class StorageFields(BaseModel):
     """
     https://github.com/stac-extensions/storage#fields
@@ -250,7 +243,7 @@ class StorageFields(BaseModel):
     @classmethod
     def tier_to_stac(cls, v: Optional[str]) -> str:
         """Convert tier from EODAG naming to STAC"""
-        return STATUS_STAC_MATCHING[v or OFFLINE_STATUS]
+        return "online" if v == ONLINE_STATUS else "offline"
 
 
 @attr.s

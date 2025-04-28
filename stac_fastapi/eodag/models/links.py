@@ -86,6 +86,10 @@ class BaseLinks:
                 link = getattr(self, name)()
                 if link is not None:
                     links.append(link)
+            elif name.startswith("links_") and callable(getattr(self, name)):
+                new_links = getattr(self, name)()
+                if new_links is not None:
+                    links.extend(new_links)
             elif "extension_link" in name and callable(getattr(self, name)):
                 extension_snake = name.split("_link")[0]
                 extension_name = "".join(word.capitalize() for word in extension_snake.split("_"))
@@ -230,6 +234,16 @@ class CollectionLinks(CollectionLinksBase):
             "title": "Queryables",
         }
 
+    def collection_order_extension_link_retrieve(self) -> dict[str, Any]:
+        """Create the `retrieve` links for the collection."""
+        return {
+            "rel": "retrieve",
+            "type": MimeTypes.geojson.value,
+            "href": self.resolve(f"collections/{self.collection_id}/order"),
+            "method": "POST",
+            "title": "Retrieve",
+        }
+
 
 @attr.s
 class ItemCollectionLinks(CollectionLinksBase):
@@ -254,9 +268,7 @@ class ItemLinks(CollectionLinksBase):
     """Create inferred links specific to items."""
 
     item_id: str = attr.ib()
-    order_link: Optional[str] = attr.ib()
-    federation_backend: str = attr.ib()
-    dc_qs: Optional[str] = attr.ib()
+    retrieve_body: Optional[dict[str, Any]] = attr.ib()
 
     def link_self(self) -> dict[str, str]:
         """Create the self link."""
@@ -271,14 +283,14 @@ class ItemLinks(CollectionLinksBase):
         """Create the `collection` link."""
         return self.collection_link()
 
-    def link_order(self) -> Optional[dict[str, str]]:
-        """Create the `order` link."""
-        if self.order_link is None:
-            return None
-        orders_url = self.resolve(f"/collections/{self.collection_id}/{self.federation_backend}/orders")
-        href = merge_params(orders_url, {"dc_qs": [self.dc_qs]}) if self.dc_qs is not None else orders_url
+    def collection_order_extension_link_retrieve(self) -> Optional[dict[str, Any]]:
+        """Create the `retrieve` link."""
+        href = self.resolve(f"collections/{self.collection_id}/order")
         return {
-            "rel": "order",
+            "rel": "retrieve",
             "type": MimeTypes.geojson.value,
             "href": href,
+            "method": "POST",
+            "body": self.retrieve_body or {},
+            "title": "Retrieve",
         }

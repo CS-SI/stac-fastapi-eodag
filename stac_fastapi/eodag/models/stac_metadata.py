@@ -19,9 +19,10 @@
 
 from collections.abc import Callable
 from typing import Any, ClassVar, Optional, Union, cast
-from urllib.parse import quote
+from urllib.parse import quote, unquote_plus
 
 import attr
+import orjson
 from fastapi import Request
 from pydantic import (
     AliasChoices,
@@ -41,6 +42,7 @@ from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
 from eodag.api.product._product import EOProduct
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS, STAGING_STATUS
 from eodag.utils import deepcopy
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
@@ -105,6 +107,32 @@ class CommonStacMetadata(ItemProperties):
         if processing_level := values.get("processingLevel"):
             if isinstance(processing_level, int):
                 values["processingLevel"] = f"L{processing_level}"
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def remove_id_property(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        Remove "id" property which is not STAC compliant if exists.
+        """
+        values.pop("id", None)
+        return values
+
+    @model_validator(mode="before")
+    @classmethod
+    def prepare_order_status_stac_property(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        Prepare the initialization of "order:status" STAC property according to "storageStatus" EODAG property.
+        """
+        if "storageStatus" not in values:
+            return values
+
+        if values["storageStatus"] == OFFLINE_STATUS:
+            values["status"] = "orderable"
+        elif values["storageStatus"] == STAGING_STATUS:
+            values["status"] = "shipping"
+        else:
+            values["status"] = "succeeded"
         return values
 
     @model_validator(mode="after")
@@ -255,6 +283,7 @@ def create_stac_item(
     model: type[CommonStacMetadata],
     extension_is_enabled: Callable[[str], bool],
     request: Request,
+    extension_names: Optional[list[str]],
     request_json: Optional[Any] = None,
 ) -> Item:
     """Create a STAC item from an EODAG product"""
@@ -286,69 +315,81 @@ def create_stac_item(
     quoted_id = quote(feature["id"])
     asset_proxy_url = (
         (download_base_url + f"data/{product.provider}/{collection}/{quoted_id}")
-        if extension_is_enabled("DataDownload")  # self.extension_is_enabled("DataDownload")
+        if extension_is_enabled("DataDownload")
         else None
     )
+    # create assets only if product is not offline
+    if product.properties.get("storageStatus", ONLINE_STATUS) != OFFLINE_STATUS:
+        for k, v in product.assets.items():
+            # TODO: download extension with origin link (make it optional ?)
+            asset_model = model.model_validate(v)
+            stac_extensions.update(asset_model.get_conformance_classes())
+            feature["assets"][k] = asset_model.model_dump(exclude_none=True)
 
-    provider_dict = get_provider_dict(request, product.provider)
+            if asset_proxy_url:
+                origin = deepcopy(feature["assets"][k])
+                quoted_key = quote(k)
+                feature["assets"][k]["href"] = asset_proxy_url + "/" + quoted_key
 
-    for k, v in product.assets.items():
-        # TODO: download extension with origin link (make it optional ?)
-        asset_model = model.model_validate(v)
-        stac_extensions.update(asset_model.get_conformance_classes())
-        feature["assets"][k] = asset_model.model_dump(exclude_none=True)
+                origin_href = origin.get("href")
+                if (
+                    settings.keep_origin_url
+                    and origin_href
+                    and not origin_href.startswith(tuple(settings.origin_url_blacklist))
+                ):
+                    feature["assets"][k]["alternate"] = {"origin": origin}
 
-        if asset_proxy_url:
-            origin = deepcopy(feature["assets"][k])
-            quoted_key = quote(k)
-            feature["assets"][k]["href"] = asset_proxy_url + "/" + quoted_key
+        # TODO: remove downloadLink asset after EODAG assets rework
+        if download_link := product.properties.get("downloadLink"):
+            origin_href = download_link
+            if asset_proxy_url:
+                download_link = asset_proxy_url + "/downloadLink"
 
-            origin_href = origin.get("href")
-            if (
-                settings.keep_origin_url
-                and origin_href
-                and not origin_href.startswith(tuple(settings.origin_url_blacklist))
-            ):
-                feature["assets"][k]["alternate"] = {"origin": origin}
-
-    # TODO: remove downloadLink asset after EODAG assets rework
-    if download_link := product.properties.get("downloadLink"):
-        origin_href = download_link
-        if asset_proxy_url:
-            download_link = asset_proxy_url + "/downloadLink"
-
-        feature["assets"]["downloadLink"] = {
-            "title": "Download link",
-            "href": download_link,
-            # TODO: download link is not always a ZIP archive
-            "type": "application/zip",
-        }
-
-        if settings.keep_origin_url and not origin_href.startswith(tuple(settings.origin_url_blacklist)):
-            feature["assets"]["downloadLink"]["alternate"] = {
-                "origin": {
-                    "title": "Origin asset link",
-                    "href": origin_href,
-                    # TODO: download link is not always a ZIP archive
-                    "type": "application/zip",
-                },
+            feature["assets"]["downloadLink"] = {
+                "title": "Download link",
+                "href": download_link,
+                # TODO: download link is not always a ZIP archive
+                "type": "application/zip",
             }
 
+            if settings.keep_origin_url and not origin_href.startswith(tuple(settings.origin_url_blacklist)):
+                feature["assets"]["downloadLink"]["alternate"] = {
+                    "origin": {
+                        "title": "Origin asset link",
+                        "href": origin_href,
+                        # TODO: download link is not always a ZIP archive
+                        "type": "application/zip",
+                    },
+                }
+
+    provider_dict = get_provider_dict(request, product.provider)
     feature_model = model.model_validate(
-        {**product.properties, **{"federation:backends": [product.provider], "providers": [provider_dict]}}
+        {
+            **product.properties,
+            **{"federation:backends": [product.provider], "providers": [provider_dict]},
+        }
     )
     stac_extensions.update(feature_model.get_conformance_classes())
+
     feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
 
     feature["stac_extensions"] = list(stac_extensions)
-    extension_names = [type(ext).__name__ for ext in stac_extensions]
+
+    if "CollectionOrderExtension" in extension_names and (
+        not product.properties.get("orderLink", False) or feature["properties"].get("order:status", "") != "orderable"
+    ):
+        extension_names.remove("CollectionOrderExtension")
+
+    retrieve_body = orjson.loads(unquote_plus(product.properties.get("_dc_qs", "{}")))
+
+    if eodag_args := getattr(request.state, "eodag_args", None):
+        if provider := eodag_args.get("provider", None):
+            retrieve_body["federation:backends"] = [provider]
 
     feature["links"] = ItemLinks(
         collection_id=collection,
         item_id=quoted_id,
-        order_link=product.properties.get("orderLink"),
-        federation_backend=feature["properties"]["federation:backends"][0],
-        dc_qs=product.properties.get("_dc_qs"),
+        retrieve_body=retrieve_body,
         request=request,
     ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)
 

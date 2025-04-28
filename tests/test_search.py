@@ -20,6 +20,7 @@
 from unittest.mock import ANY
 
 import pytest
+from eodag.api.product.metadata_mapping import ONLINE_STATUS
 from eodag.utils import format_dict_items
 
 from stac_fastapi.eodag.config import get_settings
@@ -82,6 +83,7 @@ async def test_items_response(request_valid, defaults):
         "roles": ["host"],
         "url": "https://peps.cnes.fr",
     }
+    assert "id" not in first_props
     assert first_props["federation:backends"] == ["peps"]
     assert first_props["datetime"] == "2018-02-15T23:53:22.871Z"
     assert first_props["start_datetime"] == "2018-02-15T23:53:22.871Z"
@@ -92,8 +94,15 @@ async def test_items_response(request_valid, defaults):
     assert first_props["eo:cloud_cover"] == 0
     assert first_props["sat:absolute_orbit"] == 20624
     assert first_props["product:type"] == "OCN"
-    assert first_props["storage:tier"] == "succeeded"
-    assert res[1]["properties"]["storage:tier"] == "orderable"
+    assert first_props["order:status"] == "succeeded"
+    assert first_props["storage:tier"] == "online"
+    assert "asset1" in res[0]["assets"]
+    assert (
+        res[0]["assets"]["asset1"]["href"]
+        == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
+    )
+    assert res[1]["properties"]["order:status"] == "orderable"
+    assert res[1]["properties"]["storage:tier"] == "offline"
     assert "assets" in res[0]
     assert "asset1" in res[0]["assets"]
     assert (
@@ -117,8 +126,8 @@ async def test_items_response_unexpected_types(request_valid, defaults, mock_sea
     assert first_props["constellation"] == "P1,P2"
 
 
-async def test_assets_with_different_domain(request_valid, defaults):
-    """domain for download links should be as configured in settings"""
+async def test_assets_with_different_download_base_url(request_valid, defaults):
+    """Domain for download links should be as configured in settings"""
     settings = get_settings()
     settings.download_base_url = "http://otherserver/"
     resp_json = await request_valid(
@@ -365,6 +374,12 @@ async def test_assets_alt_url_blacklist(
 ):
     """Search through eodag server must not have alternate link if in blacklist"""
 
+    search_result = mock_search_result
+    search_result[0].assets.update({"asset1": {"href": "https://peps.cnes.fr"}})
+    search_result[1].assets.update({"asset1": {"href": "https://somewhere.fr"}})
+    # make assets of the second product available for this test
+    search_result[1].properties["storageStatus"] = ONLINE_STATUS
+
     with pytest.MonkeyPatch.context() as mp:
         if keep_origin_url is not None:
             mp.setenv("KEEP_ORIGIN_URL", str(keep_origin_url))
@@ -408,7 +423,7 @@ async def test_assets_alt_url_blacklist(
 )
 async def test_search_provider_in_downloadlink(request_valid, defaults, method, url, post_data, expected_kwargs):
     """Search through eodag server and check that provider appears in downloadLink"""
-    # format defautls values
+    # format defauts values
     url = url.format(defaults=defaults)
     post_data = format_dict_items(post_data, defaults=defaults) if post_data else None
 
@@ -427,4 +442,6 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
         ),
     )
     response_items = [f for f in response["features"]]
-    assert all(["/data/peps/" in i["assets"]["downloadLink"]["href"] for i in response_items])
+    assert all(
+        [i["assets"]["downloadLink"]["href"] for i in response_items if i["properties"]["order:status"] != "orderable"]
+    )

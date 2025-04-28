@@ -17,12 +17,17 @@
 # limitations under the License.
 """Collections tests."""
 
-import json
-
 from stac_fastapi.eodag.config import get_settings
 
 
-async def test_collection(request_valid, defaults):
+async def test_collection(
+    request_valid,
+    defaults,
+    mock_stac_discover_queryables,
+    mock_token_authenticate,
+    mock_oidc_refresh_token_base_init,
+    mock_oidc_token_exchange_auth_authenticate,
+):
     """Requesting a collection through eodag server should return a valid response"""
     result = await request_valid(f"collections/{defaults.product_type}")
     assert result["id"] == defaults.product_type
@@ -44,7 +49,7 @@ async def test_list_collections(app_client, mock_list_product_types):
     assert mock_list_product_types.called
     assert r.status_code == 200
     result = r.json()
-    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in result["collections"]]
+    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in result.get("collections", [])]
 
     assert len(result["links"]) == 2
     assert result["links"][0] == {
@@ -73,7 +78,7 @@ async def test_search_collections_freetext_ok(app_client, mock_list_product_type
     assert mock_list_product_types.called
     mock_guess_product_type.assert_called_once_with(free_text="TERM1,TERM2", missionStartDate=None, missionEndDate=None)
     assert r.status_code == 200
-    assert ["S2_MSI_L1C"] == [col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])]
+    assert ["S2_MSI_L1C"] == [col["id"] for col in r.json().get("collections", [])]
 
 
 async def test_search_collections_freetext_nok(app_client, mock_list_product_types):
@@ -85,9 +90,7 @@ async def test_search_collections_freetext_nok(app_client, mock_list_product_typ
     r = await app_client.get("/collections?gibberish=gibberish")
     assert mock_list_product_types.called
     assert r.status_code == 200
-    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [
-        col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])
-    ]
+    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in r.json().get("collections", [])]
 
 
 async def test_search_collections_query(app_client, mock_list_product_types):
@@ -100,9 +103,7 @@ async def test_search_collections_query(app_client, mock_list_product_types):
 
     mock_list_product_types.assert_called_once_with(provider="peps", fetch_providers=False)
     assert r.status_code == 200
-    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [
-        col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])
-    ]
+    assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in r.json().get("collections", [])]
 
 
 async def test_search_collections_bbox(app_client, mock_list_product_types, mocker, app):
@@ -122,6 +123,4 @@ async def test_search_collections_bbox(app_client, mock_list_product_types, mock
     r = await app_client.get("/collections?bbox=-5,0,0,5")
 
     assert r.status_code == 200
-    assert ["S2_MSI_L1C", "S1_SAR_GRD"] == [
-        col["id"] for col in json.loads(r.content.decode("utf-8")).get("collections", [])
-    ]
+    assert ["S2_MSI_L1C", "S1_SAR_GRD"] == [col["id"] for col in r.json().get("collections", [])]

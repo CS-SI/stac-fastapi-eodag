@@ -17,7 +17,6 @@
 # limitations under the License.
 """main conftest"""
 
-import json
 import os
 import unittest.mock
 from dataclasses import dataclass, field
@@ -27,14 +26,18 @@ from tempfile import TemporaryDirectory
 from typing import Any, Iterator, Optional, Union
 from urllib.parse import urljoin
 
-import geojson
 import pytest
 from eodag import EODataAccessGateway
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
 from eodag.plugins.authentication.base import Authentication
+from eodag.plugins.authentication.openid_connect import OIDCRefreshTokenBase
+from eodag.plugins.authentication.token import TokenAuth
+from eodag.plugins.authentication.token_exchange import OIDCTokenExchangeAuth
 from eodag.plugins.download.base import Download
+from eodag.plugins.download.http import HTTPDownload
+from eodag.plugins.search.qssearch import StacSearch
 from eodag.utils import StreamResponse
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -65,6 +68,7 @@ def disable_product_types_fetch(mock_os_environ):
     """Disable auto fetching product types from providers."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("EODAG_EXT_PRODUCT_TYPES_CFG_FILE", "")
+        yield
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -72,6 +76,7 @@ async def fake_credentials(disable_product_types_fetch):
     """load fake credentials to prevent providers needing auth for search to be pruned."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("EODAG_CFG_FILE", os.path.join(TEST_RESOURCES_PATH, "wrong_credentials_conf.yml"))
+        yield
 
 
 @pytest.fixture()
@@ -298,6 +303,14 @@ def mock_list_queryables(mocker, app):
 
 
 @pytest.fixture(scope="function")
+def mock_stac_discover_queryables(mocker):
+    """
+    Mocks the `discover_queryables` method of the `app.state.dag` object.
+    """
+    return mocker.patch.object(StacSearch, "discover_queryables")
+
+
+@pytest.fixture(scope="function")
 def mock_download(mocker, app):
     """
     Mocks the `download` method of the `app.state.dag` object.
@@ -314,11 +327,43 @@ def mock_base_stream_download_dict(mocker):
 
 
 @pytest.fixture(scope="function")
+def mock_order(mocker):
+    """
+    Mocks the `HTTPDownload` method of the `HTTPDownload` download plugin.
+    """
+    return mocker.patch.object(HTTPDownload, "order")
+
+
+@pytest.fixture(scope="function")
 def mock_base_authenticate(mocker, app):
     """
     Mocks the `authenticate` method of the `Authentication` plugin.
     """
     return mocker.patch.object(Authentication, "authenticate")
+
+
+@pytest.fixture(scope="function")
+def mock_token_authenticate(mocker, app):
+    """
+    Mocks the `authenticate` method of the `TokenAuth` authentication plugin.
+    """
+    return mocker.patch.object(TokenAuth, "authenticate")
+
+
+@pytest.fixture(scope="function")
+def mock_oidc_refresh_token_base_init(mocker):
+    """
+    Mocks the `__init__` method of the `OIDCRefreshTokenBase` authentication plugin.
+    """
+    return mocker.patch.object(OIDCRefreshTokenBase, "__init__")
+
+
+@pytest.fixture(scope="function")
+def mock_oidc_token_exchange_auth_authenticate(mocker):
+    """
+    Mocks the `authenticate` method of the `OIDCTokenExchangeAuth` authentication plugin.
+    """
+    return mocker.patch.object(OIDCTokenExchangeAuth, "authenticate")
 
 
 @pytest.fixture(scope="function")
@@ -402,6 +447,7 @@ def assert_links_valid(app_client, request_valid_raw, request_not_valid):
             "service-doc",
             "conformance",
             "search",
+            "retrieve",
             "data",
             "collection",
             "http://www.opengis.net/def/rel/ogc/1.0/queryables",
@@ -456,7 +502,7 @@ def request_valid(request_valid_raw, assert_links_valid) -> Any:
         )
 
         # Assert response format is GeoJSON
-        result = geojson.loads(response.content.decode("utf-8"))
+        result = response.json()
 
         if check_links:
             await assert_links_valid(result)
@@ -480,7 +526,7 @@ def request_not_valid(app_client):
             follow_redirects=True,
             headers={"Content-Type": "application/json"} if method == "POST" else {},
         )
-        response_content = json.loads(response.content.decode("utf-8"))
+        response_content = response.json()
 
         assert 400 == response.status_code
         assert "description" in response_content
@@ -494,13 +540,22 @@ def request_not_found(app_client):
     Fixture to test if a request returns a 404 Not Found error.
     """
 
-    async def _request_not_found(url: str):
-        response = await app_client.get(url, follow_redirects=True)
-        response_content = json.loads(response.content.decode("utf-8"))
+    async def _request_not_found(
+        url: str, method: str = "GET", post_data: Optional[Any] = None, error_message: Optional[str] = None
+    ) -> None:
+        response = await app_client.request(
+            method,
+            url,
+            json=post_data,
+            follow_redirects=True,
+            headers={"Content-Type": "application/json"} if method == "POST" else {},
+        )
+        response_content = response.json()
 
         assert 404 == response.status_code
         assert "description" in response_content
-        assert "NoMatchingProductType" in response_content["description"]
+        if error_message:
+            assert error_message in response_content["description"]
 
     return _request_not_found
 
@@ -513,7 +568,7 @@ def request_accepted(app_client):
 
     async def _request_accepted(url: str):
         response = await app_client.get(url, follow_redirects=True)
-        response_content = json.loads(response.content.decode("utf-8"))
+        response_content = response.json()
         assert 202 == response.status_code
         assert "description" in response_content
         assert "location" in response_content

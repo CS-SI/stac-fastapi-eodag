@@ -44,11 +44,12 @@ from stac_pydantic.shared import MimeTypes
 
 from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
+from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
-from eodag.utils.exceptions import NoMatchingProductType
+from eodag.utils.exceptions import NoMatchingProductType as EodagNoMatchingProductType
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
-from stac_fastapi.eodag.errors import ResponseSearchError
+from stac_fastapi.eodag.errors import NoMatchingProductType, ResponseSearchError
 from stac_fastapi.eodag.landing_page import CustomCoreClient
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
@@ -132,10 +133,25 @@ class EodagCoreClient(CustomCoreClient):
 
         collection["id"] = product_type["ID"]
 
+        # keep only federation backends which allow order mechanism
+        # to create "retrieve" collection links from them
+        def has_ecmwf_search_plugin(federation_backends, request):
+            for fb in federation_backends:
+                search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
+                if any(isinstance(plugin, ECMWFSearch) for plugin in search_plugins):
+                    return True
+            return False
+
         extension_names = [type(ext).__name__ for ext in self.extensions]
-        collection["links"] = CollectionLinks(collection_id=collection["id"], request=request).get_links(
-            extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", [])
-        )
+        if self.extension_is_enabled("CollectionOrderExtension") and not has_ecmwf_search_plugin(
+            federation_backends, request
+        ):
+            extension_names.remove("CollectionOrderExtension")
+
+        collection["links"] = CollectionLinks(
+            collection_id=collection["id"],
+            request=request,
+        ).get_links(extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", []))
 
         collection["providers"] = merge_providers(
             collection.get("providers", []) + [get_provider_dict(request, fb) for fb in federation_backends]
@@ -144,29 +160,30 @@ class EodagCoreClient(CustomCoreClient):
         return collection
 
     def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
+        eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+
+        request.state.eodag_args = eodag_args
+
         # check if the collection exists
-        if search_request.collections:
+        if product_type := eodag_args.get("productType"):
             all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
             # only check the first collection (EODAG search only support a single collection)
-            existing_pt = [pt for pt in all_pt if pt["ID"] == search_request.collections[0]]
+            existing_pt = [pt for pt in all_pt if pt["ID"] == product_type]
             if not existing_pt:
-                raise NoMatchingProductType(f"Collection {search_request.collections[0]} does not exist.")
+                raise NoMatchingProductType(f"Collection {product_type} does not exist.")
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
         # get products by ids
-        if search_request.ids:
+        if ids := eodag_args.pop("ids", []):
             search_result = SearchResult([])
-            ids = search_request.ids
             for item_id in ids:
-                search_request.ids = [item_id]
-                base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
-                search_result.extend(request.app.state.dag.search(**base_args))
+                eodag_args["id"] = item_id
+                search_result.extend(request.app.state.dag.search(**eodag_args))
             search_result.number_matched = len(search_result)
         else:
             # search without ids
-            base_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
-            search_result = request.app.state.dag.search(**base_args)
+            search_result = request.app.state.dag.search(**eodag_args)
 
         if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
@@ -174,10 +191,11 @@ class EodagCoreClient(CustomCoreClient):
         request_json = loop.run_until_complete(request.json()) if request.method == "POST" else None
 
         features: list[Item] = []
+        extension_names = [type(ext).__name__ for ext in self.extensions]
 
         for product in search_result:
             feature = create_stac_item(
-                product, self.stac_metadata_model, self.extension_is_enabled, request, request_json
+                product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names, request_json
             )
             features.append(feature)
 
@@ -198,7 +216,6 @@ class EodagCoreClient(CustomCoreClient):
             ):
                 next_page = search_request.page + 1
 
-        extension_names = [type(ext).__name__ for ext in self.extensions]
         collection["links"] = PagingLinks(
             request=request,
             next=next_page,
@@ -246,7 +263,7 @@ class EodagCoreClient(CustomCoreClient):
                 guessed_product_types = request.app.state.dag.guess_product_type(
                     free_text=q, missionStartDate=start, missionEndDate=end
                 )
-            except NoMatchingProductType:
+            except EodagNoMatchingProductType:
                 product_types = []
             else:
                 product_types = [pt for pt in all_pt if pt["ID"] in guessed_product_types]
@@ -416,11 +433,11 @@ class EodagCoreClient(CustomCoreClient):
 
         if filter_expr:
             if filter_lang == "cql2-text":
-                ast = parse_cql2_text(filter_expr)
-                base_args["filter_expr"] = str2json("filter_expr", to_cql2(ast))  # type: ignore
-                base_args["filter-lang"] = "cql2-json"
-            elif filter_lang == "cql-json":
-                base_args["filter_expr"] = str2json(filter_expr)
+                filter_expr = to_cql2(parse_cql2_text(filter_expr))
+                filter_lang = "cql2-json"
+
+            base_args["filter"] = str2json("filter_expr", filter_expr)
+            base_args["filter_lang"] = "cql2-json"
 
         # Remove None values from dict
         clean = {}
@@ -433,7 +450,7 @@ class EodagCoreClient(CustomCoreClient):
         except ValidationError as err:
             raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
-        return self.post_search(search_request, request)
+        return self._search_base(search_request, request)
 
     async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:
         """
@@ -555,9 +572,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     if search_request.collections:
         base_args["productType"] = search_request.collections[0]
 
-    # handle only one id from here (pre-filtered in _search_base)
     if search_request.ids:
-        base_args["id"] = search_request.ids[0]
+        base_args["ids"] = search_request.ids
 
     # merge all eodag search arguments
     base_args = base_args | sort_by | eodag_filter | eodag_query

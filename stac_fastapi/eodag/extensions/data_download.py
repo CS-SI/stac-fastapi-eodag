@@ -27,12 +27,21 @@ from typing import Annotated, Iterator, Optional, cast
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
+from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS
 from fastapi import APIRouter, FastAPI, Path, Request
 from fastapi.responses import StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
+
+from stac_fastapi.eodag.errors import (
+    DownloadError,
+    MisconfiguredError,
+    NoMatchingProductType,
+    NotAvailableError,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -95,13 +104,19 @@ class BaseDataDownloadClient:
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
 
-        search_results = dag.search(id=item_id, productType=collection_id, provider=federation_backend)
+        # check if the collection is known
+        try:
+            product_type = dag.get_product_type_from_alias(collection_id)
+        except NoMatchingProductType as e:
+            raise NotFoundError(e) from e
+
+        search_results = dag.search(id=item_id, productType=product_type, provider=federation_backend)
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
         else:
             raise NotFoundError(
-                f"Could not find {item_id} item in {collection_id} collection",
+                f"Could not find {item_id} item in {product_type} collection",
                 f" for backend {federation_backend}.",
             )
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
@@ -112,6 +127,39 @@ class BaseDataDownloadClient:
                 f"Impossible to download {item_id} item in {collection_id} collection",
                 f" for backend {federation_backend}.",
             )
+        if product.properties.get("storageStatus", ONLINE_STATUS) != ONLINE_STATUS:
+            # "title" property is a fake one create by EODAG, set it to the item ID
+            # (the same one as order ID) to make error message clearer
+            product.properties["title"] = product.properties["id"]
+            # "orderLink" property is set to auth provider conf matching url to create its auth plugin
+            product.properties["orderLink"] = product.properties["orderStatusLink"] = (
+                product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"].format(
+                    orderId=item_id
+                )
+            )
+
+            if product.downloader.config.order_on_response["metadata_mapping"].get("searchLink"):
+                product.properties["searchLink"] = product.downloader.config.order_on_response["metadata_mapping"][
+                    "searchLink"
+                ].format(orderId=item_id)
+
+            if not getattr(product.downloader, "_order_status", None):
+                raise MisconfiguredError("Product downloader must have the order status request method")
+
+            auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+
+            logger.debug("Poll product")
+            try:
+                product.downloader._order_status(product=product, auth=auth)
+            # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
+            except NotAvailableError:
+                product.properties["storageStatus"] = STAGING_STATUS
+            except Exception as e:
+                if (
+                    isinstance(e, DownloadError) or isinstance(e, ValidationError)
+                ) and "order status could not be checked" in e.args[0]:
+                    raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
+                raise NotFoundError(e) from e
 
         try:
             s = product.downloader._stream_download_dict(
