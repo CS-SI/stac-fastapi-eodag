@@ -126,8 +126,8 @@ async def test_items_response_unexpected_types(request_valid, defaults, mock_sea
     assert first_props["constellation"] == "P1,P2"
 
 
-async def test_assets_with_different_domain(request_valid, defaults):
-    """domain for download links should be as configured in settings"""
+async def test_assets_with_different_download_base_url(request_valid, defaults):
+    """Domain for download links should be as configured in settings"""
     settings = get_settings()
     settings.download_base_url = "http://otherserver/"
     resp_json = await request_valid(
