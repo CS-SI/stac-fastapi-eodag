@@ -19,6 +19,7 @@
 
 from collections.abc import Callable
 from typing import Any, ClassVar, Optional, Union, cast
+from urllib.parse import quote
 
 import attr
 from fastapi import Request
@@ -269,7 +270,7 @@ def create_stac_item(
     feature = Item(
         type="Feature",
         assets={},
-        id=product.properties["title"],
+        id=product.properties["id"],
         geometry=product.geometry.__geo_interface__,
         bbox=product.geometry.bounds,
         collection=collection,
@@ -282,8 +283,9 @@ def create_stac_item(
     if not download_base_url:
         download_base_url = get_base_url(request)
 
+    quoted_id = quote(feature["id"])
     asset_proxy_url = (
-        (download_base_url + f"data/{product.provider}/{collection}/{feature['id']}")
+        (download_base_url + f"data/{product.provider}/{collection}/{quoted_id}")
         if extension_is_enabled("DataDownload")  # self.extension_is_enabled("DataDownload")
         else None
     )
@@ -298,7 +300,8 @@ def create_stac_item(
 
         if asset_proxy_url:
             origin = deepcopy(feature["assets"][k])
-            feature["assets"][k]["href"] = asset_proxy_url + "/" + k
+            quoted_key = quote(k)
+            feature["assets"][k]["href"] = asset_proxy_url + "/" + quoted_key
 
             origin_href = origin.get("href")
             if (
@@ -342,7 +345,7 @@ def create_stac_item(
 
     feature["links"] = ItemLinks(
         collection_id=collection,
-        item_id=feature["id"],
+        item_id=quoted_id,
         order_link=product.properties.get("orderLink"),
         federation_backend=feature["properties"]["federation:backends"][0],
         dc_qs=product.properties.get("_dc_qs"),
