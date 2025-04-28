@@ -295,7 +295,7 @@ async def test_order_product_wrong_downloader_ko(request_not_found, mock_search,
             post_data={},
             error_message="Download order failed.",
         )
-    assert "No order() method available" in caplog.messages[2]
+    assert "No order() method available" in caplog.messages[1]
 
 
 async def test_order_not_order_id_ko(request_not_found, mock_search, mock_order):
