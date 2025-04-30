@@ -17,7 +17,6 @@
 # limitations under the License.
 """Pagination extension. Override to default page to 1."""
 
-from dataclasses import dataclass
 from typing import Annotated
 
 import attr
