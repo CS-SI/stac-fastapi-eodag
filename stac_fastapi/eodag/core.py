@@ -47,10 +47,10 @@ from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingProductType as EodagNoMatchingProductType
+from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import NoMatchingProductType, ResponseSearchError
-from stac_fastapi.eodag.landing_page import CustomCoreClient
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     ItemCollectionLinks,
@@ -59,9 +59,7 @@ from stac_fastapi.eodag.models.links import (
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
-    get_provider_dict,
     get_sortby_to_post,
-    merge_providers,
 )
 from stac_fastapi.eodag.utils import (
     dt_range_to_eodag,
@@ -152,10 +150,6 @@ class EodagCoreClient(CustomCoreClient):
             collection_id=collection["id"],
             request=request,
         ).get_links(extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", []))
-
-        collection["providers"] = merge_providers(
-            collection.get("providers", []) + [get_provider_dict(request, fb) for fb in federation_backends]
-        )
 
         return collection
 
