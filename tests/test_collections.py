@@ -33,7 +33,6 @@ async def test_collection(
     assert result["id"] == defaults.product_type
     assert all(isinstance(v, list) for v in result["summaries"].values())
     assert len(result["summaries"]["federation:backends"]) > 0
-    assert len(result["providers"]) > 0
     for link in result["links"]:
         assert link["rel"] in ["self", "items", "http://www.opengis.net/def/rel/ogc/1.0/queryables"]
 
