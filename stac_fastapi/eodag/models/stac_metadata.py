@@ -337,10 +337,14 @@ def create_stac_item(
 
     feature["stac_extensions"] = list(stac_extensions)
 
-    if "CollectionOrderExtension" in extension_names and (
-        not product.properties.get("orderLink", False) or feature["properties"].get("order:status", "") != "orderable"
-    ):
-        extension_names.remove("CollectionOrderExtension")
+    if extension_names:
+        if "CollectionOrderExtension" in extension_names and (
+            not product.properties.get("orderLink", False)
+            or feature["properties"].get("order:status", "") != "orderable"
+        ):
+            extension_names.remove("CollectionOrderExtension")
+    else:
+        extension_names = []
 
     retrieve_body = orjson.loads(unquote_plus(product.properties.get("_dc_qs", "{}")))
 

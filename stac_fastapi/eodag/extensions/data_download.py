@@ -132,25 +132,30 @@ class BaseDataDownloadClient:
             # (the same one as order ID) to make error message clearer
             product.properties["title"] = product.properties["id"]
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
-            product.properties["orderLink"] = product.properties["orderStatusLink"] = (
-                product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"].format(
+            status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"]
+            if isinstance(status_link_metadata, str):
+                product.properties["orderLink"] = product.properties["orderStatusLink"] = status_link_metadata.format(
                     orderId=item_id
                 )
-            )
+            else:
+                raise MisconfiguredError("Unexpected format of orderStatusLink")
 
+            search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["searchLink"]
             if product.downloader.config.order_on_response["metadata_mapping"].get("searchLink"):
-                product.properties["searchLink"] = product.downloader.config.order_on_response["metadata_mapping"][
-                    "searchLink"
-                ].format(orderId=item_id)
+                if isinstance(search_link_metadata, str):
+                    product.properties["searchLink"] = search_link_metadata.format(orderId=item_id)
+                else:
+                    raise MisconfiguredError("Unexpected format of searchLink")
 
-            if not getattr(product.downloader, "_order_status", None):
+            order_status_method = getattr(product.downloader, "_order_status", None)
+            if not order_status_method:
                 raise MisconfiguredError("Product downloader must have the order status request method")
 
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
             logger.debug("Poll product")
             try:
-                product.downloader._order_status(product=product, auth=auth)
+                order_status_method(product=product, auth=auth)
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
                 product.properties["storageStatus"] = STAGING_STATUS
