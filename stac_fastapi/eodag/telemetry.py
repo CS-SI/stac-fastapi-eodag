@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("eodag.rest.utils.observability")
 
 
-def create_tracer_provider(resource: Resource) -> TracerProvider:
+def create_tracer_provider(resource: Resource) -> Union[TracerProvider, trace.TracerProvider]:
     """create opentelemetry tracer provider"""
     tracer_provider = trace.get_tracer_provider()
     if tracer_provider and not isinstance(tracer_provider, trace.ProxyTracerProvider):
@@ -60,7 +60,7 @@ def create_tracer_provider(resource: Resource) -> TracerProvider:
     return tracer_provider
 
 
-def create_meter_provider(resource: Resource) -> MeterProvider:
+def create_meter_provider(resource: Resource) -> Union[MeterProvider, metrics.MeterProvider]:
     """create opentelemetry meter provider"""
     meter_provider = metrics.get_meter_provider()
     if meter_provider and not isinstance(meter_provider, metrics._internal._ProxyMeterProvider):
@@ -120,6 +120,7 @@ def create_meter_provider(resource: Resource) -> MeterProvider:
         ),
     )
     metrics.set_meter_provider(meter_provider)
+    return meter_provider
 
 
 def instrument_fastapi(
