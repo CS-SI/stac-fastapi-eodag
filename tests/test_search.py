@@ -17,8 +17,6 @@
 # limitations under the License.
 """Search tests."""
 
-from unittest.mock import ANY
-
 import pytest
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
 from eodag.utils import format_dict_items
