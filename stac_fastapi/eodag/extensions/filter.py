@@ -156,7 +156,7 @@ COMMON_QUERYABLES_PROPERTIES = {
 class FiltersClient(AsyncBaseFiltersClient):
     """Defines a pattern for implementing the STAC filter extension."""
 
-    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
+    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
     async def get_queryables(
         self,
@@ -173,7 +173,7 @@ class FiltersClient(AsyncBaseFiltersClient):
         under OGC CQL but it is allowed by the STAC API Filter Extension
         https://github.com/radiantearth/stac-api-spec/tree/master/fragments/filter#queryables
         """
-        params = {}
+        params: dict[str, list[Any]] = {}
         for k, v in request.query_params.multi_items():
             params.setdefault(k, []).append(v)
 
@@ -182,13 +182,13 @@ class FiltersClient(AsyncBaseFiltersClient):
         federation_backends = params.pop("federation:backends", [None])
 
         # validate params and transform to eodag params
-        validated_params = QueryablesGetParams.model_validate(
+        validated_params_model = QueryablesGetParams.model_validate(
             {
                 **{"provider": federation_backends[0] or providers[0], "collection": collection_id},
                 **params,
             }
         )
-        validated_params = validated_params.model_dump(exclude_none=True, by_alias=True)
+        validated_params = validated_params_model.model_dump(exclude_none=True, by_alias=True)
         eodag_params = {self.stac_metadata_model.to_eodag(param): validated_params[param] for param in validated_params}
         # get queryables from eodag
         try:
@@ -229,13 +229,13 @@ class FiltersClient(AsyncBaseFiltersClient):
         properties = queryables["properties"]
         required = queryables.get("required", [])
 
-        for k, v in self.stac_metadata_model.model_fields.items():
-            if v.validation_alias in properties:
-                properties[v.serialization_alias or k] = properties[v.validation_alias]
-                del properties[v.validation_alias]
-            if v.validation_alias in required:
-                required.remove(v.validation_alias)
-                required.append(v.serialization_alias or k)
+        for k, field in self.stac_metadata_model.model_fields.items():
+            if field.validation_alias in properties:
+                properties[field.serialization_alias or k] = properties[field.validation_alias]
+                del properties[field.validation_alias]
+            if field.validation_alias in required:
+                required.remove(field.validation_alias)
+                required.append(field.serialization_alias or k)
 
         # Only datetime is kept in queryables
         properties.pop("end_datetime", None)

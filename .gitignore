@@ -71,6 +71,7 @@ nosetests.xml
 coverage.xml
 *,cover
 .hypothesis/
+test-reports*
 
 # Translations
 *.mo
@@ -137,5 +138,4 @@ docs/api/*
 node_modules
 
 # Helm
-
 helm/**/charts/**

@@ -1,7 +1,7 @@
 """Midlewares for the eodag FastAPI application."""
 
 import contextlib
-from typing import Tuple
+from typing import Any, Tuple
 
 from stac_fastapi.api.middleware import _HOST_HEADER_REGEX, _PROTO_HEADER_REGEX
 from stac_fastapi.api.middleware import ProxyHeaderMiddleware as BaseProxyHeaderMiddleware
@@ -13,11 +13,11 @@ class ProxyHeaderMiddleware(BaseProxyHeaderMiddleware):
     Override the one from STAC FastAPI to properly handle port from Forwarded header.
     """
 
-    def _get_forwarded_url_parts(self, scope: Scope) -> Tuple[str]:
+    def _get_forwarded_url_parts(self, scope: Scope) -> Tuple[Any, Any, Any]:
         proto = scope.get("scheme", "http")
         header_host = self._get_header_value_by_name(scope, "host")
         if header_host is None:
-            domain, port = scope.get("server")
+            domain, port = scope.get("server", ("", ""))
         else:
             header_host_parts = header_host.split(":")
             if len(header_host_parts) == 2:
