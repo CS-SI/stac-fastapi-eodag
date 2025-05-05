@@ -27,7 +27,7 @@ from typing import Annotated, Iterator, Optional, cast
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS
+from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
 from fastapi import APIRouter, FastAPI, Path, Request
 from fastapi.responses import StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
@@ -133,19 +133,13 @@ class BaseDataDownloadClient:
             product.properties["title"] = product.properties["id"]
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
             status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"]
-            if isinstance(status_link_metadata, str):
-                product.properties["orderLink"] = product.properties["orderStatusLink"] = status_link_metadata.format(
-                    orderId=item_id
-                )
-            else:
-                raise MisconfiguredError("Unexpected format of orderStatusLink")
+            product.properties["orderLink"] = product.properties["orderStatusLink"] = get_metadata_path_value(
+                status_link_metadata
+            ).format(orderId=item_id)
 
-            search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["searchLink"]
-            if product.downloader.config.order_on_response["metadata_mapping"].get("searchLink"):
-                if isinstance(search_link_metadata, str):
-                    product.properties["searchLink"] = search_link_metadata.format(orderId=item_id)
-                else:
-                    raise MisconfiguredError("Unexpected format of searchLink")
+            search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get("searchLink")
+            if search_link_metadata:
+                product.properties["searchLink"] = get_metadata_path_value(search_link_metadata).format(orderId=item_id)
 
             order_status_method = getattr(product.downloader, "_order_status", None)
             if not order_status_method:
