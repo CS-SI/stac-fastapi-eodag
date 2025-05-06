@@ -13,6 +13,8 @@ services:
       - stacapi-eodag-network
     depends_on:
       - otel-collector
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318/"
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.90.1
     container_name: otel_collector
