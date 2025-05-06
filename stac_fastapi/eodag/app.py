@@ -23,10 +23,13 @@ import os
 from typing import TYPE_CHECKING
 
 import stac_fastapi.api.errors
+from brotli_asgi import BrotliMiddleware  # type: ignore[import-untyped]
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
+from fastapi.middleware import Middleware
 from fastapi.responses import ORJSONResponse
 from stac_fastapi.api.app import StacApi
+from stac_fastapi.api.middleware import CORSMiddleware
 from stac_fastapi.api.models import (
     EmptyRequest,
     ItemCollectionUri,
@@ -63,6 +66,7 @@ from stac_fastapi.eodag.extensions.stac import (
     ViewGeometryExtension,
 )
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
+from stac_fastapi.eodag.middlewares import ProxyHeaderMiddleware
 from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
 
 if TYPE_CHECKING:
@@ -172,6 +176,11 @@ api = StacApi(
     search_post_request_model=search_post_model,
     collections_get_request_model=collections_model,
     items_get_request_model=item_collection_model,
+    middlewares=[
+        Middleware(BrotliMiddleware),
+        Middleware(CORSMiddleware),
+        Middleware(ProxyHeaderMiddleware),
+    ],
 )
 
 
