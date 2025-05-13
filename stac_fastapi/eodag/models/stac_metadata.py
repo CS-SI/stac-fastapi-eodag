@@ -94,6 +94,8 @@ class CommonStacMetadata(ItemProperties):
             values["instrument"] = (
                 ",".join(instrument.split()).split(",") if isinstance(instrument, str) else instrument
             )
+            if None in values["instrument"]:
+                values["instrument"].remove(None)
         return values
 
     @model_validator(mode="before")
