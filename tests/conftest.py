@@ -603,3 +603,14 @@ def defaults():
     Create and return an instance of TestDefaults.
     """
     return TestDefaults()
+
+
+@pytest.fixture(scope="session")
+def open_search_eo_json():
+    """Open Search EO JSON downloaded from
+
+    https://github.com/ceos-org/stac-collection-and-granule-discovery-best-practices/blob/main/schemas/opensearch-eo.json
+
+    """
+    with open(os.path.join(TEST_RESOURCES_PATH, "open_search_eo.json")) as f:
+        return json.load(f)
