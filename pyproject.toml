@@ -59,6 +59,7 @@ dev = [
     "stdlib-list",
     "tox",
     "tox-uv",
+    "jsonschema",
 ]
 
 [tool.mypy]
