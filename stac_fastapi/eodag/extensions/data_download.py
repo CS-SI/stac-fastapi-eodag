@@ -34,6 +34,7 @@ from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
+from stac_fastapi.eodag.config import get_settings 
 
 from stac_fastapi.eodag.errors import (
     DownloadError,
@@ -119,6 +120,30 @@ class BaseDataDownloadClient:
                 f"Could not find {item_id} item in {product_type} collection",
                 f" for backend {federation_backend}.",
             )
+        
+
+        settings = get_settings()
+        whitelist = settings.auto_order_whitelist
+        if federation_backend in whitelist:
+            logger.info(f"Provider {federation_backend} is whitelisted, ordering product before download")
+                        # "title" property is a fake one create by EODAG, set it to the item ID
+           
+
+            auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+
+            logger.debug("Poll product")
+            try:
+                product.downloader.order(product=product, auth=auth)
+            # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
+            except NotAvailableError as e :
+                product.properties["storageStatus"] = STAGING_STATUS
+                
+            except Exception as e:
+                if (
+                    isinstance(e, DownloadError) or isinstance(e, ValidationError)
+                ) and "order status could not be checked" in e.args[0]:
+                    raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
+                raise NotFoundError(e) from e
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
         if product.downloader is None:

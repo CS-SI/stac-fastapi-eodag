@@ -43,6 +43,11 @@ class Settings(ApiSettings):
         description=("Hide from clients items assets' origin URLs starting with URLs from the list"),
     )
 
+    auto_order_whitelist: Annotated[Union[str, list[str]], BeforeValidator(str2liststr)] = Field(
+        default=["wekeo_main",],
+        description=("Do the order at the same time as the download"),
+    )
+
     fetch_providers: bool = Field(default=False, description="Fetch additional collections from all providers.")
 
     download_base_url: str = Field(
