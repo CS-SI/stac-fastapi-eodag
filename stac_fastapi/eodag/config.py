@@ -44,7 +44,9 @@ class Settings(ApiSettings):
     )
 
     auto_order_whitelist: Annotated[Union[str, list[str]], BeforeValidator(str2liststr)] = Field(
-        default=["wekeo_main",],
+        default=[
+            "wekeo_main",
+        ],
         description=("Do the order at the same time as the download"),
     )
 

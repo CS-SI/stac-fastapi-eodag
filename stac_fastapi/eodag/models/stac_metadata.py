@@ -52,7 +52,6 @@ from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
 from stac_fastapi.eodag.models.links import ItemLinks
-from stac_fastapi.eodag.config import get_settings 
 
 
 class CommonStacMetadata(ItemProperties):
