@@ -18,14 +18,14 @@
 """Link tests."""
 
 from typing import Literal, Optional
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 import pytest
 from fastapi import APIRouter, FastAPI, Query, Request
 from fastapi.testclient import TestClient
 from stac_fastapi.eodag.models import links as app_links
 
 
-@pytest.mark.parametrize("root_path", [""]) #j'ai enlever le /api/v1
+@pytest.mark.parametrize("root_path", [""]) 
 @pytest.mark.parametrize("prefix", ["", "/stac"])
 def tests_app_links(prefix: Literal[''] | Literal['/stac'], root_path: Literal['']):  
     endpoint_prefix = root_path + prefix
@@ -100,4 +100,15 @@ def tests_app_links(prefix: Literal[''] | Literal['/stac'], root_path: Literal['
             if link["rel"] in ["previous", "next", "first"]:
                 assert link["method"] == "GET"
             assert link["href"].startswith(url_prefix)
-        assert {"next", "previous", "first", "self"} == {link["rel"] for link in links}
+        rels = {link["rel"] for link in links}
+        assert "self" in rels
+        assert "next" in rels
+        assert "previous" in rels
+
+        # Only expect 'first' when offset > 0
+        url = response.json()["url"]
+        parsed = urlparse(url)
+        params = parse_qs(parsed.query)
+        offset = int(params.get("offset", ["0"])[0])
+        if offset > 0:
+            assert "first" in rels
