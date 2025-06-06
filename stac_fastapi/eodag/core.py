@@ -27,7 +27,7 @@ from urllib.parse import unquote_plus, urljoin
 
 import attr
 import orjson
-from fastapi import HTTPException
+from fastapi import HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from pydantic.alias_generators import to_camel, to_snake
@@ -53,6 +53,7 @@ from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import NoMatchingProductType, ResponseSearchError
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
+    CollectionSearchPagingLinks,
     ItemCollectionLinks,
     PagingLinks,
 )
@@ -221,7 +222,8 @@ class EodagCoreClient(CustomCoreClient):
         request: Request,
         bbox: Optional[list[NumType]] = None,
         datetime: Optional[DateTimeType] = None,
-        limit: Optional[int] = None,
+        limit: Optional[int] = 10,
+        offset: Optional[int] = 0,
         q: Optional[str] = None,
         query: Optional[str] = None,
     ) -> Collections:
@@ -232,12 +234,17 @@ class EodagCoreClient(CustomCoreClient):
         :param bbox: Bounding box to filter the collections.
         :param datetime: Date and time range to filter the collections.
         :param limit: Maximum number of collections to return.
+        :param offset: Starting position from which to return collections.
         :param q: Query string to filter the collections.
         :param query: Query string to filter collections.
         :returns: All collections.
         :raises HTTPException: If the unsupported bbox parameter is provided.
         """
         base_url = get_base_url(request)
+
+        next_link: Optional[dict[str, Any]] = None
+        prev_link: Optional[dict[str, Any]] = None
+        first_link: dict[str, Any] = {"body": {"limit": limit}}
 
         # get provider filter
         provider = None
@@ -265,7 +272,7 @@ class EodagCoreClient(CustomCoreClient):
             product_types = all_pt
 
         collections = [self._get_collection(pt, request) for pt in product_types]
-
+        
         # bbox filter
         if bbox:
             bbox_geom = get_geometry_from_various(geometry=bbox)
@@ -278,13 +285,17 @@ class EodagCoreClient(CustomCoreClient):
                 ).intersection(bbox_geom)
             ]
 
+        paged_collections = collections[offset : offset + limit]
+
+        total = len(collections)
+
+        if offset + limit < total:
+            next_link = {"body": {"limit": limit, "offset": offset + limit}}
+
+        if offset > 0:
+            prev_link = {"body": {"limit": limit, "offset": max(0, offset - limit)}}
+
         links = [
-            {
-                "rel": Relations.self.value,
-                "type": MimeTypes.json,
-                "href": urljoin(base_url, "collections"),
-                "title": "Collections",
-            },
             {
                 "rel": Relations.root,
                 "type": MimeTypes.json,
@@ -292,7 +303,23 @@ class EodagCoreClient(CustomCoreClient):
                 "title": get_settings().stac_fastapi_title,
             },
         ]
-        return Collections(collections=collections[:limit] or [], links=links)
+        extension_names = [type(ext).__name__ for ext in self.extensions]
+
+        paging_links = CollectionSearchPagingLinks(
+            request=request,
+            next= next_link,
+            prev= prev_link,
+            first= first_link
+        ).get_links(extensions=extension_names)
+
+        links.extend(paging_links)
+
+        return Collections(
+            collections=paged_collections or [],
+            links=links,
+            numberMatched= total,
+            numberReturned=len(paged_collections),
+        )
 
     async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
         """

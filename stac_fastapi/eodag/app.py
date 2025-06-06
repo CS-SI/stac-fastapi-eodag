@@ -37,7 +37,10 @@ from stac_fastapi.api.models import (
     create_post_request_model,
     create_request_model,
 )
-from stac_fastapi.extensions.core import FilterExtension, QueryExtension, SortExtension
+from stac_fastapi.extensions.core import FilterExtension, QueryExtension, SortExtension, FreeTextExtension, CollectionSearchExtension
+
+from stac_fastapi.extensions.core.free_text import FreeTextConformanceClasses
+from stac_fastapi.extensions.core.query import QueryConformanceClasses
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
@@ -47,11 +50,11 @@ from stac_fastapi.eodag.extensions.collection_order import (
     BaseCollectionOrderClient,
     CollectionOrderExtension,
 )
-from stac_fastapi.eodag.extensions.collection_search import CollectionSearchExtension
 from stac_fastapi.eodag.extensions.data_download import DataDownload
 from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
 from stac_fastapi.eodag.extensions.filter import FiltersClient
 from stac_fastapi.eodag.extensions.pagination import PaginationExtension
+from stac_fastapi.eodag.extensions.offset_pagination import OffsetPaginationExtension
 from stac_fastapi.eodag.extensions.stac import (
     ElectroOpticalExtension,
     FederationExtension,
@@ -92,22 +95,43 @@ stac_metadata_model = create_stac_metadata_model(
         EcmwfExtension(),
     ]
 )
-extensions_map = {
-    "collection-search": CollectionSearchExtension(),
-    "pagination": PaginationExtension(),
-    "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
-    "query": QueryExtension(),
+
+# search extensions
+search_extensions_map = {
+    "query": QueryExtension(), 
     "sort": SortExtension(),
-    "collection-order": CollectionOrderExtension(
-        client=BaseCollectionOrderClient(stac_metadata_model=stac_metadata_model)
-    ),
-    "data-download": DataDownload(),
+    "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
+    "pagination": PaginationExtension(),
 }
 
-if enabled_extensions := os.getenv("ENABLED_EXTENSIONS"):
-    extensions = [extensions_map[extension_name] for extension_name in enabled_extensions.split(",")]
-else:
-    extensions = list(extensions_map.values())
+# collection_search extensions
+cs_extensions_map = {
+    "query": QueryExtension(conformance_classes=[QueryConformanceClasses.COLLECTIONS]),
+    "offset-pagination": OffsetPaginationExtension(),
+    "collection-search": CollectionSearchExtension(),
+    "free-text": FreeTextExtension(conformance_classes=[FreeTextConformanceClasses.COLLECTIONS])
+}
+
+# item_collection extensions
+itm_col_extensions_map = {
+    "pagination": PaginationExtension()
+}
+
+all_extensions = {
+    **search_extensions_map,
+    **cs_extensions_map,
+    **itm_col_extensions_map,
+    **{"data-download": DataDownload(), 
+       "collection-order": CollectionOrderExtension(client=BaseCollectionOrderClient(stac_metadata_model=stac_metadata_model))}
+}
+
+def get_enabled_extensions(specif_extensions: dict):
+    if enabled := os.getenv("ENABLED_EXTENSIONS"):
+        return [specif_extensions[name] for name in enabled.split(",") if name in specif_extensions]
+    return list(specif_extensions.values())
+
+
+extensions = get_enabled_extensions(all_extensions)
 
 for e in extensions:
     if isinstance(e, CollectionOrderExtension):
@@ -142,22 +166,23 @@ if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
 add_exception_handlers(app)
 app.add_middleware(RequestIDMiddleware)
 
+search_extensions = get_enabled_extensions(search_extensions_map)
 
-search_post_model = create_post_request_model(extensions)
-search_get_model = create_get_request_model(extensions)
+search_post_model = create_post_request_model(search_extensions)
+search_get_model = create_get_request_model(search_extensions)
 
 
 collections_model = create_request_model(
     "CollectionsRequest",
-    base_model=EmptyRequest,
-    extensions=[e for e in extensions if isinstance(e, CollectionSearchExtension)],
-    request_type="GET",
-)
+    base_model = EmptyRequest,
+    extensions = get_enabled_extensions(cs_extensions_map),
+    request_type = "GET",
+ )
 
 item_collection_model = create_request_model(
     "ItemsRequest",
     base_model=ItemCollectionUri,
-    extensions=[e for e in extensions if isinstance(e, PaginationExtension) or isinstance(e, SortExtension)],
+    extensions= get_enabled_extensions(itm_col_extensions_map),
     request_type="GET",
 )
 
