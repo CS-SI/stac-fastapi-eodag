@@ -19,15 +19,23 @@
 
 from typing import Literal, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
+
 import pytest
-from fastapi import APIRouter, FastAPI, Query, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.testclient import TestClient
+
 from stac_fastapi.eodag.models import links as app_links
 
 
-@pytest.mark.parametrize("root_path", [""]) 
+@pytest.mark.parametrize("root_path", [""])
 @pytest.mark.parametrize("prefix", ["", "/stac"])
-def tests_app_links(prefix: Literal[''] | Literal['/stac'], root_path: Literal['']):  
+def tests_app_links(prefix: Literal["", "/stac"], root_path: Literal[""]):
+    """
+    Checks if all links are returned for the collections endpoint.
+
+    :param prefix: The API prefix (e.g., "/stac" or an empty string).
+    :param root_path: The root path for the application (e.g., an empty string).
+    """
     endpoint_prefix = root_path + prefix
     url_prefix = "http://127.0.0.1:8000" + endpoint_prefix
 
@@ -37,10 +45,10 @@ def tests_app_links(prefix: Literal[''] | Literal['/stac'], root_path: Literal['
 
     @router.get("/collections")
     async def collections(
-        request: Request, 
-        extension_names: Optional[list[str]] = Query(None),
-        limit: Optional[int] = 10, 
-        ):
+        request: Request,
+        extension_names: Optional[list[str]] = None,
+        limit: Optional[int] = 10,
+    ):
         query_next = urlencode({"limit": limit, "offset": 10})
         query_prev = urlencode({"limit": limit, "offset": 0})
         query_first = urlencode({"limit": limit, "offset": 0})
@@ -52,7 +60,7 @@ def tests_app_links(prefix: Literal[''] | Literal['/stac'], root_path: Literal['
             "type": "application/geo+json",
             "merge": True,
             "method": "GET",
-            "title": "Next page"
+            "title": "Next page",
         }
         link_prev = {
             "rel": "prev",
@@ -73,9 +81,7 @@ def tests_app_links(prefix: Literal[''] | Literal['/stac'], root_path: Literal['
             "title": "First page",
         }
 
-        paging_links = app_links.CollectionSearchPagingLinks(
-            request, next=link_next, prev=link_prev, first=link_first
-        )
+        paging_links = app_links.CollectionSearchPagingLinks(request, next=link_next, prev=link_prev, first=link_first)
 
         return {
             "url": paging_links.url,
@@ -90,7 +96,6 @@ def tests_app_links(prefix: Literal[''] | Literal['/stac'], root_path: Literal['
         base_url="http://127.0.0.1:8000/",
         root_path=root_path,
     ) as client:
-
         response = client.get(f"{prefix}/collections")
         assert response.status_code == 200
         assert response.json()["url"] == url_prefix + "/collections"

@@ -73,6 +73,7 @@ class BaseLinks:
     def resolve(self, url: Any):
         """Resolve url to the current request url."""
         return urljoin(str(self.base_url), str(url))
+
     def link_self(self) -> dict[str, str]:
         """Return the self link."""
         return {"rel": Relations.self.value, "type": MimeTypes.json.value, "href": self.url, "title": "Current Page"}
@@ -188,10 +189,13 @@ class PagingLinks(BaseLinks):
                     "body": {**self.request.state.postbody, "token": f"prev:{self.prev}"},
                     "title": "Previous page",
                 }
-        return None    
+        return None
+
 
 @attr.s
 class CollectionSearchPagingLinks(BaseLinks):
+    """Create links for paging in collection search results."""
+
     next: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
     prev: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
     first: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
@@ -216,12 +220,13 @@ class CollectionSearchPagingLinks(BaseLinks):
                     "type": MimeTypes.geojson.value,
                     "method": method,
                     "href": href,
-                    "title": "Next page"
+                    "title": "Next page",
                 }
 
         return None
 
     def link_prev(self):
+        """Create link for previous page."""
         if self.prev is not None:
             method = self.request.method
             if method == "GET":
@@ -236,12 +241,13 @@ class CollectionSearchPagingLinks(BaseLinks):
                     "type": MimeTypes.geojson.value,
                     "method": method,
                     "href": href,
-                    "title": "Previous page"
+                    "title": "Previous page",
                 }
 
         return None
-    
+
     def link_first(self):
+        """Create link for first page."""
         if self.first is not None:
             method = self.request.method
             if method == "GET":
@@ -251,9 +257,9 @@ class CollectionSearchPagingLinks(BaseLinks):
                 href = merge_params(self.url, body)
 
                 u = urlparse(self.url)
-                params =parse_qs(u.query)
+                params = parse_qs(u.query)
 
-                params_str = params.get('offset', ['0'])
+                params_str = params.get("offset", ["0"])
                 params_offset = int(params_str[0])
 
                 if params_offset == 0:
@@ -264,7 +270,7 @@ class CollectionSearchPagingLinks(BaseLinks):
                     "type": MimeTypes.geojson.value,
                     "method": method,
                     "href": href,
-                    "title": "First page"
+                    "title": "First page",
                 }
 
         return None

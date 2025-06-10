@@ -18,11 +18,13 @@
 """Offset pagination extension."""
 
 from typing import Annotated
+
 import attr
 from fastapi import Query
 from pydantic import NonNegativeInt
 from stac_fastapi.extensions.core.pagination import OffsetPaginationExtension as BaseOffsetPaginationExtension
 from stac_fastapi.types.search import APIRequest
+
 
 @attr.s
 class GETOffsetPagination(APIRequest):
