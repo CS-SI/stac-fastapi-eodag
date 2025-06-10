@@ -23,11 +23,11 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
-from urllib.parse import unquote_plus, urljoin
+from urllib.parse import unquote_plus
 
 import attr
 import orjson
-from fastapi import HTTPException, Query
+from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from pydantic.alias_generators import to_camel, to_snake
@@ -272,7 +272,7 @@ class EodagCoreClient(CustomCoreClient):
             product_types = all_pt
 
         collections = [self._get_collection(pt, request) for pt in product_types]
-        
+
         # bbox filter
         if bbox:
             bbox_geom = get_geometry_from_various(geometry=bbox)
@@ -284,6 +284,9 @@ class EodagCoreClient(CustomCoreClient):
                     geometry=c.get("extent", {}).get("spatial", {}).get("bbox", default_extent)[0]
                 ).intersection(bbox_geom)
             ]
+
+        limit = limit if limit is not None else 10
+        offset = offset if offset is not None else 0
 
         paged_collections = collections[offset : offset + limit]
 
@@ -306,10 +309,7 @@ class EodagCoreClient(CustomCoreClient):
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         paging_links = CollectionSearchPagingLinks(
-            request=request,
-            next= next_link,
-            prev= prev_link,
-            first= first_link
+            request=request, next=next_link, prev=prev_link, first=first_link
         ).get_links(extensions=extension_names)
 
         links.extend(paging_links)
@@ -317,7 +317,7 @@ class EodagCoreClient(CustomCoreClient):
         return Collections(
             collections=paged_collections or [],
             links=links,
-            numberMatched= total,
+            numberMatched=total,
             numberReturned=len(paged_collections),
         )
 
