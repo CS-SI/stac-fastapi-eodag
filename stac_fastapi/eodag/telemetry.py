@@ -33,7 +33,9 @@ from opentelemetry.sdk.metrics._internal.aggregation import (
 )
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics._internal.view import View
-from opentelemetry.sdk.resources import Resource
+
+# See https://github.com/open-telemetry/opentelemetry-python/issues/4615 for the type ignore
+from opentelemetry.sdk.resources import Resource  # type: ignore[attr-defined]
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.semconv.resource import ResourceAttributes
