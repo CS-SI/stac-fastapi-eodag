@@ -52,16 +52,16 @@ async def test_list_collections(app_client, mock_list_product_types):
 
     assert len(result["links"]) == 2
     assert result["links"][0] == {
-        "rel": "self",
-        "type": "application/json",
-        "href": "http://testserver/collections",
-        "title": "Collections",
-    }
-    assert result["links"][1] == {
         "rel": "root",
         "type": "application/json",
         "href": "http://testserver/",
         "title": get_settings().stac_fastapi_title,
+    }
+    assert result["links"][1] == {
+        "rel": "self",
+        "type": "application/json",
+        "href": "http://testserver/collections",
+        "title": "Current Page",
     }
 
 
@@ -75,7 +75,7 @@ async def test_search_collections_freetext_ok(app_client, mock_list_product_type
 
     r = await app_client.get("/collections?q=TERM1,TERM2")
     assert mock_list_product_types.called
-    mock_guess_product_type.assert_called_once_with(free_text="TERM1,TERM2", missionStartDate=None, missionEndDate=None)
+    mock_guess_product_type.assert_called_once_with(free_text= ["TERM1", "TERM2"], missionStartDate=None, missionEndDate=None)
     assert r.status_code == 200
     assert ["S2_MSI_L1C"] == [col["id"] for col in r.json().get("collections", [])]
 
