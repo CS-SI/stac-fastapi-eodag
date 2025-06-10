@@ -127,7 +127,7 @@ class BaseDataDownloadClient:
             logger.info(f"Provider {federation_backend} is whitelisted, ordering product before download")
 
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
-            logger.debug("Poll product")
+            logger.debug(f"Polling product {product}")
             try:
                 product.downloader.order(product=product, auth=auth)  # type: ignore
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
