@@ -323,6 +323,7 @@ class EodagCoreClient(CustomCoreClient):
         datetime: Optional[Union[str, datetime]] = None,
         limit: Optional[int] = None,
         page: Optional[str] = None,
+        sortby: Optional[list[str]] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -350,6 +351,10 @@ class EodagCoreClient(CustomCoreClient):
             "limit": limit,
             "page": page,
         }
+
+        if sortby:
+            sortby_converted = get_sortby_to_post(sortby)
+            base_args["sortby"] = cast(Any, sortby_converted)
 
         clean = {}
         for k, v in base_args.items():
