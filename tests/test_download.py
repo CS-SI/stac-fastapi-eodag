@@ -19,6 +19,13 @@
 
 import os
 
+from eodag import SearchResult
+from eodag.api.product import EOProduct
+from eodag.config import PluginConfig
+from eodag.plugins.download.http import HTTPDownload
+
+from stac_fastapi.eodag.config import get_settings
+
 
 async def test_download_item_from_collection_stream(
     request_valid_raw, defaults, mock_base_stream_download_dict, mock_base_authenticate, stream_response
@@ -46,3 +53,48 @@ async def test_download_item_from_collection_no_stream(
     mock_download.assert_called_once()
     # downloaded file should have been immediatly deleted from the server
     assert not os.path.exists(expected_file), f"File {expected_file} should have been deleted"
+
+
+async def test_call_order_in_donaload_for_federation_backend_in_auto_order_whitelist(
+    request_valid_raw,
+    mock_base_authenticate,
+    mock_order,
+    mock_search,
+    defaults,
+    mock_http_base_stream_download_dict,
+    stream_response,
+):
+    """Test that the order method is called when downloading a product
+    from a federation backend included in the auto_order_whitelist.
+
+    This test simulates downloading a product from a federated backend ('peps')
+    and checks that the order function is triggered when the backend is present
+    in the auto_order_whitelist configuration.
+    """
+    get_settings().auto_order_whitelist = ["peps"]
+    federation_backend = "peps"
+    collection_id = defaults.product_type
+
+    url = f"data/peps/{defaults.product_type}/dummy_id/downloadLink"
+
+    product = EOProduct(
+        federation_backend,
+        dict(
+            geometry="POINT (0 0)",
+            title="dummy_product",
+            id="dummy_id",
+        ),
+    )
+    product.product_type = collection_id
+    config = PluginConfig()
+    config.priority = 0
+    downloader = HTTPDownload("peps", config)
+
+    product.register_downloader(downloader=downloader, authenticator=None)
+
+    mock_search.return_value = SearchResult([product])
+    mock_http_base_stream_download_dict.return_value = stream_response
+
+    await request_valid_raw(url, search_result=SearchResult([product]))
+
+    assert mock_order.called

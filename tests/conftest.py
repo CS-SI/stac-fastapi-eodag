@@ -327,6 +327,14 @@ def mock_base_stream_download_dict(mocker):
 
 
 @pytest.fixture(scope="function")
+def mock_http_base_stream_download_dict(mocker):
+    """
+    Mocks the `_stream_download_dict` method of the `Download` plugin.
+    """
+    return mocker.patch.object(HTTPDownload, "_stream_download_dict")
+
+
+@pytest.fixture(scope="function")
 def mock_order(mocker):
     """
     Mocks the `HTTPDownload` method of the `HTTPDownload` download plugin.
