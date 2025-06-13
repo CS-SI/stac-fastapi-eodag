@@ -290,8 +290,11 @@ def create_stac_item(
     )
     # create assets only if product is not offline
     settings = get_settings()
-    whitelist = settings.auto_order_whitelist
-    if product.properties.get("storageStatus", ONLINE_STATUS) != OFFLINE_STATUS or product.provider in whitelist:
+    auto_order_whitelist = settings.auto_order_whitelist
+    if (
+        product.properties.get("storageStatus", ONLINE_STATUS) != OFFLINE_STATUS
+        or product.provider in auto_order_whitelist
+    ):
         for k, v in product.assets.items():
             # TODO: download extension with origin link (make it optional ?)
             asset_model = model.model_validate(v)
@@ -341,7 +344,7 @@ def create_stac_item(
 
     feature["stac_extensions"] = list(stac_extensions)
 
-    if extension_names and product.provider not in whitelist:
+    if extension_names and product.provider not in auto_order_whitelist:
         if "CollectionOrderExtension" in extension_names and (
             not product.properties.get("orderLink", False)
             or feature["properties"].get("order:status", "") != "orderable"

@@ -55,7 +55,7 @@ async def test_download_item_from_collection_no_stream(
     assert not os.path.exists(expected_file), f"File {expected_file} should have been deleted"
 
 
-async def test_call_order_in_donaload_for_federation_backend_in_auto_order_whitelist(
+async def test_download_auto_order_whitelist(
     request_valid_raw,
     mock_base_authenticate,
     mock_order,

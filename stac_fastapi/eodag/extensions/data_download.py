@@ -122,8 +122,8 @@ class BaseDataDownloadClient:
             )
 
         settings = get_settings()
-        whitelist = settings.auto_order_whitelist
-        if federation_backend in whitelist:
+        auto_order_whitelist = settings.auto_order_whitelist
+        if federation_backend in auto_order_whitelist:
             logger.info(f"Provider {federation_backend} is whitelisted, ordering product before download")
 
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
