@@ -33,9 +33,12 @@ from opentelemetry.sdk.metrics._internal.aggregation import (
 )
 from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics._internal.view import View
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+
+# See https://github.com/open-telemetry/opentelemetry-python/issues/4615 for the type ignore
+from opentelemetry.sdk.resources import Resource  # type: ignore[attr-defined]
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.semconv.resource import ResourceAttributes
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -128,7 +131,7 @@ def instrument_fastapi(
 ) -> None:
     """Instrument FastAPI app."""
     logger.info("Instrument FastAPI app")
-    resource = Resource(attributes={SERVICE_NAME: "stac-fastapi-eodag"})
+    resource = Resource(attributes={ResourceAttributes.SERVICE_NAME: "stac-fastapi-eodag"})
     tracer_provider = create_tracer_provider(resource)
     meter_provider = create_meter_provider(resource)
     FastAPIInstrumentor.instrument_app(
@@ -141,7 +144,7 @@ def instrument_fastapi(
 def instrument_eodag(eodag_api: EODataAccessGateway):
     """Instrument EODAG app"""
     logger.info("Instrument EODAG app")
-    resource = Resource(attributes={SERVICE_NAME: "stac-fastapi-eodag"})
+    resource = Resource(attributes={ResourceAttributes.SERVICE_NAME: "stac-fastapi-eodag"})
     tracer_provider = create_tracer_provider(resource)
     meter_provider = create_meter_provider(resource)
     EODAGInstrumentor(eodag_api).instrument(
