@@ -193,6 +193,77 @@ class PagingLinks(BaseLinks):
 
 
 @attr.s
+class CollectionSearchPagingLinks(BaseLinks):
+    """Create links for paging in collection search results."""
+
+    next: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
+    prev: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
+    first: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
+
+    def link_next(self) -> Optional[dict[str, Any]]:
+        """Create link for next page."""
+        if self.next is not None:
+            href = merge_params(self.url, self.next["body"])
+
+            # if next link is equal to this link, skip it
+            if href == self.url:
+                return None
+
+            return {
+                "rel": Relations.next.value,
+                "type": MimeTypes.geojson.value,
+                "method": self.request.method,
+                "href": href,
+                "title": "Next page",
+            }
+
+        return None
+
+    def link_prev(self):
+        """Create link for previous page."""
+        if self.prev is not None:
+            href = merge_params(self.url, self.prev["body"])
+
+            # if prev link is equal to this link, skip it
+            if href == self.url:
+                return None
+
+            return {
+                "rel": Relations.previous.value,
+                "type": MimeTypes.geojson.value,
+                "method": self.request.method,
+                "href": href,
+                "title": "Previous page",
+            }
+
+        return None
+
+    def link_first(self):
+        """Create link for first page."""
+        if self.first is not None:
+            u = urlparse(self.url)
+            params = parse_qs(u.query)
+
+            params_str = params.get("offset", ["0"])
+            offset = int(params_str[0])
+
+            if offset == 0:
+                return None
+
+            href = merge_params(self.url, self.first["body"])
+
+            return {
+                "rel": "first",
+                "type": MimeTypes.geojson.value,
+                "method": self.request.method,
+                "href": href,
+                "title": "First page",
+            }
+
+        return None
+
+
+@attr.s
 class CollectionLinksBase(BaseLinks):
     """Create inferred links specific to collections."""
 
