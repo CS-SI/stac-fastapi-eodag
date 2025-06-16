@@ -219,6 +219,44 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
     )
 
 
+@pytest.mark.parametrize(
+    "sortby,expected_sort_by",
+    [
+        ("-datetime", [("startTimeFromAscendingNode", "desc")]),
+        ("datetime", [("startTimeFromAscendingNode", "asc")]),
+        ("-start", [("startTimeFromAscendingNode", "desc")]),
+        ("start", [("startTimeFromAscendingNode", "asc")]),
+        ("-end", [("completionTimeFromAscendingNode", "desc")]),
+        ("end", [("completionTimeFromAscendingNode", "asc")]),
+    ],
+)
+async def test_sortby_items_parametrize(request_valid, defaults, sortby, expected_sort_by):
+    """Test sortby param with various values."""
+    await request_valid(
+        f"collections/{defaults.product_type}/items?sortby={sortby}",
+        expected_search_kwargs={
+            "productType": defaults.product_type,
+            "sort_by": expected_sort_by,
+            "page": 1,
+            "items_per_page": 10,
+            "raise_errors": False,
+            "count": True,
+        },
+        check_links=False,
+    )
+
+
+async def test_sortby_invalid_field_returns_400(app_client, defaults):
+    """Test sortby with an invalid field returns a 400 error and expected error structure."""
+    sortby = "-unknownfield"
+    response = await app_client.get(f"/collections/{defaults.product_type}/items?sortby={sortby}")
+    assert response.status_code == 400
+    resp_json = response.json()
+    assert resp_json["code"] == "400"
+    assert "ticket" in resp_json
+    assert resp_json["description"] == "Something went wrong"
+
+
 async def test_search_item_id_from_collection(request_valid, defaults):
     """Search by id through eodag server /collection endpoint should return a valid response"""
     await request_valid(
