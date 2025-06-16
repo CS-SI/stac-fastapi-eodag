@@ -157,7 +157,7 @@ collections_model = create_request_model(
 item_collection_model = create_request_model(
     "ItemsRequest",
     base_model=ItemCollectionUri,
-    extensions=[e for e in extensions if isinstance(e, PaginationExtension)],
+    extensions=[e for e in extensions if isinstance(e, PaginationExtension) or isinstance(e, SortExtension)],
     request_type="GET",
 )
 
