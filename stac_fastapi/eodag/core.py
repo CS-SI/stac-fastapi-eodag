@@ -244,7 +244,7 @@ class EodagCoreClient(CustomCoreClient):
 
         next_link: Optional[dict[str, Any]] = None
         prev_link: Optional[dict[str, Any]] = None
-        first_link: dict[str, Any] = {"body": {"limit": limit}}
+        first_link: dict[str, Any] = {"body": {"limit": limit, "offset": 0}}
 
         # get provider filter
         provider = None
