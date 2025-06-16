@@ -29,7 +29,7 @@ from stac_fastapi.eodag.models import links as app_links
 
 @pytest.mark.parametrize("root_path", [""])
 @pytest.mark.parametrize("prefix", ["", "/stac"])
-def tests_app_links(prefix: Literal["", "/stac"], root_path: Literal[""]):
+def tests_app_links(prefix: Literal["", "/stac"], root_path: Literal[""]) -> None:
     """
     Checks if all links are returned for the collections endpoint.
 
@@ -98,7 +98,8 @@ def tests_app_links(prefix: Literal["", "/stac"], root_path: Literal[""]):
     ) as client:
         response = client.get(f"{prefix}/collections")
         assert response.status_code == 200
-        assert response.json()["url"] == url_prefix + "/collections"
+        url = response.json()["url"]
+        assert url == url_prefix + "/collections"
         assert response.json()["base_url"].rstrip("/") == url_prefix
         links = response.json()["links"]
         for link in links:
@@ -111,7 +112,6 @@ def tests_app_links(prefix: Literal["", "/stac"], root_path: Literal[""]):
         assert "previous" in rels
 
         # Only expect 'first' when offset > 0
-        url = response.json()["url"]
         parsed = urlparse(url)
         params = parse_qs(parsed.query)
         offset = int(params.get("offset", ["0"])[0])

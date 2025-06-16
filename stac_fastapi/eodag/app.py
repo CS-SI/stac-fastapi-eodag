@@ -46,6 +46,7 @@ from stac_fastapi.extensions.core import (
 )
 from stac_fastapi.extensions.core.free_text import FreeTextConformanceClasses
 from stac_fastapi.extensions.core.query import QueryConformanceClasses
+from stac_fastapi.extensions.core.sort import SortConformanceClasses
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
@@ -118,7 +119,10 @@ cs_extensions_map = {
 }
 
 # item_collection extensions
-itm_col_extensions_map = {"pagination": PaginationExtension()}
+itm_col_extensions_map = {
+    "pagination": PaginationExtension(),
+    "sort": SortExtension(conformance_classes=[SortConformanceClasses.ITEMS]),
+}
 
 all_extensions = {
     **search_extensions_map,
@@ -189,17 +193,17 @@ search_get_model = create_get_request_model(search_extensions)
 
 collections_model = create_request_model(
     "CollectionsRequest",
-    base_model= EmptyRequest,
-    extensions = get_enabled_extensions(cs_extensions_map),
-    request_type = "GET",
+    base_model=EmptyRequest,
+    extensions=get_enabled_extensions(cs_extensions_map),
+    request_type="GET",
 )
 
 item_collection_model = create_request_model(
     "ItemsRequest",
-    base_model = ItemCollectionUri,
-    extensions = get_enabled_extensions(itm_col_extensions_map),
-    request_type = "GET",
-)    
+    base_model=ItemCollectionUri,
+    extensions=get_enabled_extensions(itm_col_extensions_map),
+    request_type="GET",
+)
 
 
 client = EodagCoreClient(post_request_model=search_post_model, stac_metadata_model=stac_metadata_model)

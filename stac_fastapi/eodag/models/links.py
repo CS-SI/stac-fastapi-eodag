@@ -203,75 +203,62 @@ class CollectionSearchPagingLinks(BaseLinks):
     def link_next(self) -> Optional[dict[str, Any]]:
         """Create link for next page."""
         if self.next is not None:
-            method = self.request.method
-            if method == "GET":
-                # if offset is equal to default value (0), drop it
-                if self.next["body"].get("offset", -1) == 0:
-                    _ = self.next["body"].pop("offset")
+            href = merge_params(self.url, self.next["body"])
 
-                href = merge_params(self.url, self.next["body"])
+            # if next link is equal to this link, skip it
+            if href == self.url:
+                return None
 
-                # if next link is equal to this link, skip it
-                if href == self.url:
-                    return None
-
-                return {
-                    "rel": Relations.next.value,
-                    "type": MimeTypes.geojson.value,
-                    "method": method,
-                    "href": href,
-                    "title": "Next page",
-                }
+            return {
+                "rel": Relations.next.value,
+                "type": MimeTypes.geojson.value,
+                "method": self.request.method,
+                "href": href,
+                "title": "Next page",
+            }
 
         return None
 
     def link_prev(self):
         """Create link for previous page."""
         if self.prev is not None:
-            method = self.request.method
-            if method == "GET":
-                href = merge_params(self.url, self.prev["body"])
+            href = merge_params(self.url, self.prev["body"])
 
-                # if prev link is equal to this link, skip it
-                if href == self.url:
-                    return None
+            # if prev link is equal to this link, skip it
+            if href == self.url:
+                return None
 
-                return {
-                    "rel": Relations.previous.value,
-                    "type": MimeTypes.geojson.value,
-                    "method": method,
-                    "href": href,
-                    "title": "Previous page",
-                }
+            return {
+                "rel": Relations.previous.value,
+                "type": MimeTypes.geojson.value,
+                "method": self.request.method,
+                "href": href,
+                "title": "Previous page",
+            }
 
         return None
 
     def link_first(self):
         """Create link for first page."""
         if self.first is not None:
-            method = self.request.method
-            if method == "GET":
-                body = self.first.get("body", {}).copy()
-                body["offset"] = 0
+            u = urlparse(self.url)
+            params = parse_qs(u.query)
 
-                href = merge_params(self.url, body)
+            params_str = params.get("offset", ["0"])
+            offset = int(params_str[0])
 
-                u = urlparse(self.url)
-                params = parse_qs(u.query)
+            if offset == 0:
+                return None
 
-                params_str = params.get("offset", ["0"])
-                params_offset = int(params_str[0])
+            href = merge_params(self.url, self.first["body"])
 
-                if params_offset == 0:
-                    return None
-
-                return {
-                    "rel": "first",
-                    "type": MimeTypes.geojson.value,
-                    "method": method,
-                    "href": href,
-                    "title": "First page",
-                }
+            return {
+                "rel": "first",
+                "type": MimeTypes.geojson.value,
+                "method": self.request.method,
+                "href": href,
+                "title": "First page",
+            }
 
         return None
 
