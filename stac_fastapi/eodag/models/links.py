@@ -140,7 +140,6 @@ class PagingLinks(BaseLinks):
     """Create links for paging."""
 
     next: Optional[int] = attr.ib(kw_only=True, default=None)
-    prev: Optional[str] = attr.ib(kw_only=True, default=None)
 
     def link_next(self) -> Optional[dict[str, Any]]:
         """Create link for next page."""
@@ -167,30 +166,6 @@ class PagingLinks(BaseLinks):
 
         return None
 
-    def link_prev(self) -> Optional[dict[str, Any]]:
-        """Create link for previous page."""
-        if self.prev is not None:
-            method = self.request.method
-            if method == "GET":
-                href = merge_params(self.url, {"token": [f"prev:{self.prev}"]})
-                return {
-                    "rel": Relations.previous.value,
-                    "type": MimeTypes.geojson.value,
-                    "method": method,
-                    "href": href,
-                    "title": "Previous page",
-                }
-            if method == "POST":
-                return {
-                    "rel": Relations.previous,
-                    "type": MimeTypes.geojson,
-                    "method": method,
-                    "href": f"{self.request.url}",
-                    "body": {**self.request.state.postbody, "token": f"prev:{self.prev}"},
-                    "title": "Previous page",
-                }
-        return None
-
 
 @attr.s
 class CollectionSearchPagingLinks(BaseLinks):
@@ -212,14 +187,13 @@ class CollectionSearchPagingLinks(BaseLinks):
             return {
                 "rel": Relations.next.value,
                 "type": MimeTypes.geojson.value,
-                "method": self.request.method,
                 "href": href,
                 "title": "Next page",
             }
 
         return None
 
-    def link_prev(self):
+    def link_prev(self) -> Optional[dict[str, Any]]:
         """Create link for previous page."""
         if self.prev is not None:
             href = merge_params(self.url, self.prev["body"])
@@ -231,21 +205,20 @@ class CollectionSearchPagingLinks(BaseLinks):
             return {
                 "rel": Relations.previous.value,
                 "type": MimeTypes.geojson.value,
-                "method": self.request.method,
                 "href": href,
                 "title": "Previous page",
             }
 
         return None
 
-    def link_first(self):
+    def link_first(self) -> Optional[dict[str, Any]]:
         """Create link for first page."""
         if self.first is not None:
             u = urlparse(self.url)
             params = parse_qs(u.query)
 
-            params_str = params.get("offset", ["0"])
-            offset = int(params_str[0])
+            offset_value = params.get("offset", ["0"])
+            offset = int(offset_value[0])
 
             if offset == 0:
                 return None
@@ -255,7 +228,6 @@ class CollectionSearchPagingLinks(BaseLinks):
             return {
                 "rel": "first",
                 "type": MimeTypes.geojson.value,
-                "method": self.request.method,
                 "href": href,
                 "title": "First page",
             }

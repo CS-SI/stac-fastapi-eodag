@@ -133,7 +133,8 @@ async def test_collections_pagination_default_and_custom_limits(app_client, mock
 
     This test ensures that:
     - The default limit is applied when no limit parameter is provided.
-    - Custom limits adjust the number of returned collections and pagination links.
+    - Custom limits adjust the number of returned collections.
+    - Pagination links are generated correctly based on the number of collections returned.
     """
 
     collections = []
@@ -148,7 +149,7 @@ async def test_collections_pagination_default_and_custom_limits(app_client, mock
 
     mock_list_product_types.return_value = collections
 
-    # Default limit returns 10 collections and correct pagination links
+    # Default limit returns 10 collections and correct pagination links (next, root, self)
     r = await app_client.get("/collections")
     assert r.status_code == 200
     assert r.json()["numberReturned"] == 10  # limit by default
@@ -158,7 +159,7 @@ async def test_collections_pagination_default_and_custom_limits(app_client, mock
     links = r.json()["links"]
     assert {"next", "root", "self"} == {link["rel"] for link in links}
 
-    # Custom limit parameter adjusts returned collections and changes pagination links
+    # Custom limit parameter adjusts returned collections and changes pagination links (there should not be a next link)
     limit = 12
     r = await app_client.get("/collections", params={"limit": limit})
     assert r.status_code == 200
@@ -176,7 +177,8 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
 
     This test ensures that:
     - Pagination works correctly with offset and limit combinations.
-    - Links such as `next`, `previous`, and `first` are generated appropriately.
+    - The correct number of collections is returned based on pagination parameters.
+    - Pagination links ('next', 'previous', 'first', 'self', 'root') are generated appropriately depending on context.
     """
     mock_list_product_types.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
@@ -196,7 +198,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     r = await app_client.get("/collections", params={"limit": 0})
     assert r.status_code == 400
 
-    # limit=1 and default offset, should have a `next` link
+    # limit=1 and default offset, we should have a next link
     r = await app_client.get(
         "/collections",
         params={"limit": 1},
@@ -209,7 +211,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     next_link = list(filter(lambda link: link["rel"] == "next", links))[0]
     assert next_link["href"].endswith("?limit=1&offset=1")
 
-    # limit=2 and default offset, there should not be a next and first link
+    # limit=2 and default offset, there should not be a next, previous and first link
     r = await app_client.get(
         "/collections",
         params={"limit": 2},
@@ -221,7 +223,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     assert cols[1]["id"] == "S2_MSI_L2A"
     assert {"root", "self"} == {link["rel"] for link in links}
 
-    # limit=3 and default offset, there should not be a next/previous/first link
+    # limit=3 and default offset, there should not be a next, previous and first link
     r = await app_client.get(
         "/collections",
         params={"limit": 3},
@@ -233,7 +235,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     assert cols[1]["id"] == "S2_MSI_L2A"
     assert {"root", "self"} == {link["rel"] for link in links}
 
-    # offset=3 and default limit, because there are 2 collections, we should not have `next` link
+    # offset=3 and default limit, because there are 2 collections, we should have all links except next link
     r = await app_client.get(
         "/collections",
         params={"offset": 3},
@@ -247,7 +249,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     first_link = list(filter(lambda link: link["rel"] == "first", links))[0]
     assert first_link["href"].endswith("offset=0&limit=10")
 
-    # offset=3 and limit=1, should have a `previous` and `first` link
+    # offset=3 and limit=1, we should have a previous and first link and no next link
     r = await app_client.get(
         "/collections",
         params={"limit": 1, "offset": 3},
@@ -261,7 +263,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     first_link = list(filter(lambda link: link["rel"] == "first", links))[0]
     assert first_link["href"].endswith("?limit=1&offset=0")
 
-    # limit=2 and offset=3, there should not be a next link
+    # limit=2 and offset=3, we should have all links except next link
     r = await app_client.get(
         "/collections",
         params={"limit": 2, "offset": 3},
@@ -275,7 +277,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     first_link = list(filter(lambda link: link["rel"] == "first", links))[0]
     assert first_link["href"].endswith("?limit=2&offset=0")
 
-    # offset=1 and limit=1, should have a `previous` and `first` link
+    # offset=1 and limit=1, we should have all links except next link
     r = await app_client.get(
         "/collections",
         params={"offset": 1, "limit": 1},
@@ -290,7 +292,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     first_link = list(filter(lambda link: link["rel"] == "first", links))[0]
     assert first_link["href"].endswith("?offset=0&limit=1")
 
-    # offset=0 and default limit, should not have next/previous/first link
+    # offset=0 and default limit, we should not have next, previous and first link
     r = await app_client.get(
         "/collections",
         params={"offset": 0},
@@ -300,7 +302,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     assert len(cols) == 2
     assert {"root", "self"} == {link["rel"] for link in links}
 
-    # offset=0 and limit=1, should have a `next` link
+    # offset=0 and limit=1, we should have a next link and no previous and first link
     r = await app_client.get(
         "/collections",
         params={"offset": 0, "limit": 1},
