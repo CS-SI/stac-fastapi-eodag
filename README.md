@@ -105,6 +105,7 @@ Reach to [stac-fastapi documentation](https://stac-utils.github.io/stac-fastapi/
 | `KEEP_ORIGIN_URL` | Keep origin as alternate URL when data-download extension is enabled. | False |
 | `ORIGIN_URL_BLACKLIST` | Hide from clients items assets' origin URLs starting with URLs from the list. A string of comma separated values is expected. | "" |
 | `FETCH_PROVIDERS` | Fetch additional collections from all EODAG providers. | False |
+| `AUTO_ORDER_WHITELIST` | Do the order at the same time as the download. | "" |
 | `DOWNLOAD_BASE_URL` | Useful to expose asset download URL in a separate domain name. | "" |
 
 ### OpenTelemetry parameters
