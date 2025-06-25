@@ -52,6 +52,11 @@ class Settings(ApiSettings):
 
     fetch_providers: bool = Field(default=False, description="Fetch additional collections from all providers.")
 
+    count: bool = Field(
+        default=False,
+        description=("Whether to run a query with a count request or not"),
+    )
+
     download_base_url: str = Field(
         default="",
         description="base url to be used for download link",

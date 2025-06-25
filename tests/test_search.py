@@ -48,10 +48,48 @@ async def test_request_params_valid(request_valid, defaults, input_bbox, expecte
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
-            count=True,
+            count=False,
             **expected_kwargs,
         ),
     )
+
+async def test_count_search(request_valid, defaults, mock_search, mock_search_result):
+    """
+    Test the count setting during a search.
+    """
+    qs = f"search?collections={defaults.product_type}"
+
+    assert get_settings().count is False, "Default count setting should be False"
+    response = await request_valid(
+        qs,
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            raise_errors=False,
+            count=False,  # Ensure count is set to False
+        ),
+    )
+    assert response["numberMatched"] is None
+
+    # Reset search mock, set "number_matched" attribute of the search results mock for a counting search
+    # and set count to True
+    mock_search.reset_mock()
+    search_result = mock_search_result
+    search_result.number_matched = len(search_result)
+    get_settings().count = True
+
+    response = await request_valid(
+        qs,
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            raise_errors=False,
+            count=True,  # Ensure count is set to True
+        ),
+    )
+    assert response["numberMatched"] == 2
 
 
 async def test_items_response(request_valid, defaults):
@@ -193,7 +231,7 @@ async def test_date_search(request_valid, defaults, input_start, input_end, expe
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             geom=defaults.bbox_wkt,
             raise_errors=False,
-            count=True,
+            count=False,
             **expected_kwargs,
         ),
     )
@@ -213,7 +251,7 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             geom=defaults.bbox_wkt,
             raise_errors=False,
-            count=True,
+            count=False,
             **expected_kwargs,
         ),
     )
@@ -240,7 +278,7 @@ async def test_sortby_items_parametrize(request_valid, defaults, sortby, expecte
             "page": 1,
             "items_per_page": 10,
             "raise_errors": False,
-            "count": True,
+            "count": False,
         },
         check_links=False,
     )
@@ -285,7 +323,7 @@ async def test_cloud_cover_post_search(request_valid, defaults):
             cloudCover=10,
             geom=defaults.bbox_wkt,
             raise_errors=False,
-            count=True,
+            count=False,
         ),
     )
 
@@ -305,7 +343,7 @@ async def test_intersects_post_search(request_valid, defaults):
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             geom=defaults.bbox_wkt,
             raise_errors=False,
-            count=True,
+            count=False,
         ),
     )
 
@@ -339,7 +377,7 @@ async def test_date_post_search(request_valid, defaults, input_start, input_end,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
-            count=True,
+            count=False,
             **expected_kwargs,
         ),
     )
@@ -464,7 +502,7 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
             page=1,
             items_per_page=10,
             raise_errors=False,
-            count=True,
+            count=False,
             productType=defaults.product_type,
             **expected_kwargs,
         ),
