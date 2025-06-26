@@ -53,13 +53,15 @@ async def test_request_params_valid(request_valid, defaults, input_bbox, expecte
         ),
     )
 
+
 async def test_count_search(request_valid, defaults, mock_search, mock_search_result):
     """
     Test the count setting during a search.
     """
+    count = get_settings().count
     qs = f"search?collections={defaults.product_type}"
 
-    assert get_settings().count is False, "Default count setting should be False"
+    assert count is False, "Default count setting should be False"
     response = await request_valid(
         qs,
         expected_search_kwargs=dict(
@@ -90,6 +92,9 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
         ),
     )
     assert response["numberMatched"] == 2
+
+    # Reset count setting to default
+    get_settings().count = count
 
 
 async def test_items_response(request_valid, defaults):
