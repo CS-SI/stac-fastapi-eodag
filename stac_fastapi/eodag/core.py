@@ -520,7 +520,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
             "page": search_request.page,
             "items_per_page": search_request.limit,
             "raise_errors": False,
-            "count": True,
+            "count": get_settings().count,
         }
         if search_request.ids is None
         else {}

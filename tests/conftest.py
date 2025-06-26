@@ -266,7 +266,7 @@ def mock_search_result():
     for p in search_result:
         p.downloader = Download("peps", config)
         p.downloader_auth = Authentication("peps", config)
-    search_result.number_matched = len(search_result)
+    search_result.number_matched = None
     return search_result
 
 
@@ -449,6 +449,7 @@ def assert_links_valid(app_client, request_valid_raw, request_not_valid):
         known_rel = [
             "self",
             "root",
+            "next",
             "child",
             "items",
             "service-desc",

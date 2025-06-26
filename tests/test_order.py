@@ -282,7 +282,7 @@ async def test_order_product_wrong_downloader_ko(request_not_found, mock_search,
     assert "No downloader available" in caplog.messages[0]
 
     # try to order a product which has a downloader but without order() method
-    dl_config = config.PluginConfig.from_mapping({"priority": 1})
+    dl_config = config.PluginConfig.from_mapping({"type": "HTTPDownload", "priority": 1})
     product.downloader = Download(federation_backend, dl_config)
     assert not hasattr(product.downloader, "order")
 
