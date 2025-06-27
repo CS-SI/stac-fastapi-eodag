@@ -38,16 +38,17 @@ class Settings(ApiSettings):
         default=False,
         description=("Keep origin as alternate URL when data-download extension is enabled."),
     )
+
     origin_url_blacklist: Annotated[Union[str, list[str]], BeforeValidator(str2liststr)] = Field(
         default=[],
-        description=("Hide from clients items assets' origin URLs starting with URLs from the list"),
+        description=("Hide from clients items assets' origin URLs starting with URLs from the list."),
     )
 
     auto_order_whitelist: Annotated[Union[str, list[str]], BeforeValidator(str2liststr)] = Field(
         default=[
             "wekeo_main",
         ],
-        description=("Do the order at the same time as the download"),
+        description=("List of providers for which the order should be done at the same time as the download."),
     )
 
     fetch_providers: bool = Field(default=False, description="Fetch additional collections from all providers.")

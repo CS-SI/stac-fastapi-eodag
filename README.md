@@ -106,6 +106,7 @@ Reach to [stac-fastapi documentation](https://stac-utils.github.io/stac-fastapi/
 | `ORIGIN_URL_BLACKLIST` | Hide from clients items assets' origin URLs starting with URLs from the list. A string of comma separated values is expected. | "" |
 | `COUNT` | Whether to run a query with a count request or not. | False |
 | `FETCH_PROVIDERS` | Fetch additional collections from all EODAG providers. | False |
+| `AUTO_ORDER_WHITELIST` | List of providers for which the order should be done at the same time as the download. | ["wekeo_main"] |
 | `DOWNLOAD_BASE_URL` | Useful to expose asset download URL in a separate domain name. | "" |
 
 ### OpenTelemetry parameters

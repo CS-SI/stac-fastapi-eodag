@@ -71,11 +71,14 @@ async def test_download_auto_order_whitelist(
     and checks that the order function is triggered when the backend is present
     in the auto_order_whitelist configuration.
     """
-    get_settings().auto_order_whitelist = ["peps"]
     federation_backend = "peps"
+    # update the auto_order_whitelist setting to include "peps"
+    auto_order_whitelist = get_settings().auto_order_whitelist
+    get_settings().auto_order_whitelist = [federation_backend]
+
     collection_id = defaults.product_type
 
-    url = f"data/peps/{defaults.product_type}/dummy_id/downloadLink"
+    url = f"data/{federation_backend}/{defaults.product_type}/dummy_id/downloadLink"
 
     product = EOProduct(
         federation_backend,
@@ -88,7 +91,7 @@ async def test_download_auto_order_whitelist(
     product.product_type = collection_id
     config = PluginConfig()
     config.priority = 0
-    downloader = HTTPDownload("peps", config)
+    downloader = HTTPDownload(federation_backend, config)
 
     product.register_downloader(downloader=downloader, authenticator=None)
 
@@ -98,3 +101,6 @@ async def test_download_auto_order_whitelist(
     await request_valid_raw(url, search_result=SearchResult([product]))
 
     assert mock_order.called
+
+    # restore the original auto_order_whitelist setting
+    get_settings().auto_order_whitelist = auto_order_whitelist

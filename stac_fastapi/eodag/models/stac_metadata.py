@@ -288,9 +288,14 @@ def create_stac_item(
         if extension_is_enabled("DataDownload")
         else None
     )
-    # create assets only if product is not offline
+
     settings = get_settings()
     auto_order_whitelist = settings.auto_order_whitelist
+    if product.provider in auto_order_whitelist:
+        # a product from a whitelisted federation backend is considered as online
+        product.properties["storageStatus"] = ONLINE_STATUS
+
+    # create assets only if product is not offline
     if (
         product.properties.get("storageStatus", ONLINE_STATUS) != OFFLINE_STATUS
         or product.provider in auto_order_whitelist

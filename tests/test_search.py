@@ -143,6 +143,20 @@ async def test_items_response(request_valid, defaults):
         == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
 
+    # check order status and storage tier properties of the "OFFLINE" item when peps is whitelisted
+    auto_order_whitelist = get_settings().auto_order_whitelist
+    get_settings().auto_order_whitelist = ["peps"]
+
+    resp_json = await request_valid(
+        f"search?collections={defaults.product_type}",
+    )
+    res = resp_json["features"]
+    assert res[1]["properties"]["order:status"] == "succeeded"
+    assert res[1]["properties"]["storage:tier"] == "online"
+
+    # restore the original auto_order_whitelist setting
+    get_settings().auto_order_whitelist = auto_order_whitelist
+
 
 async def test_items_response_unexpected_types(request_valid, defaults, mock_search_result):
     """Item properties contain values in unexpected types for processingLevel and platform
