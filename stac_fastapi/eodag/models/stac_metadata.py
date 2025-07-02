@@ -45,7 +45,7 @@ from typing_extensions import Self
 
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS, STAGING_STATUS
-from eodag.utils import deepcopy
+from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.extensions.stac import (
@@ -325,11 +325,13 @@ def create_stac_item(
             if asset_proxy_url:
                 download_link = asset_proxy_url + "/downloadLink"
 
+            mime_type = guess_file_type(origin_href) or "application/octet-stream"
+
             feature["assets"]["downloadLink"] = {
                 "title": "Download link",
                 "href": download_link,
                 # TODO: download link is not always a ZIP archive
-                "type": "application/zip",
+                "type": mime_type,
             }
 
             if settings.keep_origin_url and not origin_href.startswith(tuple(settings.origin_url_blacklist)):
@@ -338,7 +340,7 @@ def create_stac_item(
                         "title": "Origin asset link",
                         "href": origin_href,
                         # TODO: download link is not always a ZIP archive
-                        "type": "application/zip",
+                        "type": mime_type,
                     },
                 }
 
