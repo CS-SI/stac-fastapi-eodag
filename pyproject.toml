@@ -10,7 +10,7 @@ license = {file = "LICENSE"}
 requires-python = ">= 3.9"
 dependencies = [
     "attr",
-    "eodag[all-providers] @ git+https://github.com/CS-SI/eodag",
+    "eodag[all-providers]",
     "fastapi",
     "geojson-pydantic",
     "orjson",
@@ -39,7 +39,7 @@ telemetry = [
     "opentelemetry-api",
     "opentelemetry-sdk",
     "opentelemetry-exporter-otlp-proto-http",
-    "opentelemetry-instrumentation-eodag @ git+https://github.com/CS-SI/opentelemetry-instrumentation-eodag",
+    "opentelemetry-instrumentation-eodag",
     "opentelemetry-instrumentation-fastapi"
 ]
 dev = [
