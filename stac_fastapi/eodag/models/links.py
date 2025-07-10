@@ -146,7 +146,7 @@ class PagingLinks(BaseLinks):
         if self.next is not None:
             method = self.request.method
             if method == "GET":
-                href = merge_params(self.url, {"page": [str(self.next)]})
+                href = merge_params(self.url, {"token": [str(self.next)]})
                 return {
                     "rel": Relations.next.value,
                     "type": MimeTypes.geojson.value,
