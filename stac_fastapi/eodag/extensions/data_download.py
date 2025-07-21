@@ -22,14 +22,19 @@ import logging
 import os
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, cast
+from typing import Annotated, Any, Iterator, Optional, Union, cast
+from urllib.parse import urlparse
 
 import attr
+import boto3
+from botocore.exceptions import ClientError
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
+from eodag.plugins.authentication.sas_auth import RequestsSASAuth
+from eodag.types import S3SessionKwargs
 from fastapi import APIRouter, FastAPI, Path, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
@@ -45,6 +50,64 @@ from stac_fastapi.eodag.errors import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _presign_url_aws(url: str, auth: S3SessionKwargs) -> str:
+    """presign a url to download an asset from s3
+    :param url: url of the asset
+    :param auth: auth dict with s3 credentials
+    :returns: presigned url
+    """
+    url_parts = urlparse(url)
+    s3_client = boto3.client(
+        service_name="s3",
+        aws_access_key_id=auth["aws_access_key_id"],
+        aws_secret_access_key=auth["aws_secret_access_key"],
+        endpoint_url=url_parts.scheme + "://" + url_parts.netloc,
+    )
+
+    url_path_parts = url_parts.path[1:].split("/")  # remove leading "/" and split
+    try:
+        presigned_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": url_path_parts[0],
+                "Key": "/".join(url_path_parts[1:]),
+            },
+            ExpiresIn=3600,
+        )
+        return presigned_url
+    except ClientError:
+        logger.error(f"Couldn't get a presigned URL for url '{url}'.")
+        raise
+
+
+def _redirect_to_presigned_url(auth: Any, product: EOProduct, asset_name: str):
+    url = product.assets[asset_name]["href"]
+    if isinstance(auth, dict):  # s3 config
+        presigned_url = _presign_url_aws(url, auth)
+        return RedirectResponse(presigned_url, status_code=302)
+    elif isinstance(auth, RequestsSASAuth):  # sas auth (auth_uri)
+        signed_url = auth.auth_uri.format(url=url)
+        return RedirectResponse(signed_url, status_code=302, headers=auth.headers)
+    else:
+        raise MisconfiguredError("url cannot be presigned with auth type: %s", type(auth))
+
+
+def _update_product_properties_order(product: EOProduct, item_id: str):
+    """update the product properties related to the order process"""
+    # "title" property is a fake one create by EODAG, set it to the item ID
+    # (the same one as order ID) to make error message clearer
+    product.properties["title"] = product.properties["id"]
+    # "orderLink" property is set to auth provider conf matching url to create its auth plugin
+    status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"]
+    product.properties["orderLink"] = product.properties["orderStatusLink"] = get_metadata_path_value(
+        status_link_metadata
+    ).format(orderId=item_id)
+
+    search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get("searchLink")
+    if search_link_metadata:
+        product.properties["searchLink"] = get_metadata_path_value(search_link_metadata).format(orderId=item_id)
 
 
 class BaseDataDownloadClient:
@@ -100,7 +163,7 @@ class BaseDataDownloadClient:
         item_id: str,
         asset_name: Optional[str],
         request: Request,
-    ) -> StreamingResponse:
+    ) -> Union[StreamingResponse, RedirectResponse]:
         """Download an asset"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
@@ -148,19 +211,10 @@ class BaseDataDownloadClient:
                 f"Impossible to download {item_id} item in {collection_id} collection",
                 f" for backend {federation_backend}.",
             )
-        if product.properties.get("storageStatus", ONLINE_STATUS) != ONLINE_STATUS:
-            # "title" property is a fake one create by EODAG, set it to the item ID
-            # (the same one as order ID) to make error message clearer
-            product.properties["title"] = product.properties["id"]
-            # "orderLink" property is set to auth provider conf matching url to create its auth plugin
-            status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"]
-            product.properties["orderLink"] = product.properties["orderStatusLink"] = get_metadata_path_value(
-                status_link_metadata
-            ).format(orderId=item_id)
 
-            search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get("searchLink")
-            if search_link_metadata:
-                product.properties["searchLink"] = get_metadata_path_value(search_link_metadata).format(orderId=item_id)
+        if product.properties.get("storageStatus", ONLINE_STATUS) != ONLINE_STATUS:
+            # update the product properties related to the order process
+            _update_product_properties_order(product, item_id)
 
             order_status_method = getattr(product.downloader, "_order_status", None)
             if not order_status_method:
@@ -180,6 +234,12 @@ class BaseDataDownloadClient:
                 ) and "order status could not be checked" in e.args[0]:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
+
+        use_presigned_urls = False
+        if federation_backend in ["internal_fdp", "planetary_computer"]:
+            use_presigned_urls = True
+        if use_presigned_urls and asset_name:
+            return _redirect_to_presigned_url(auth, product, asset_name)
 
         try:
             s = product.downloader._stream_download_dict(
