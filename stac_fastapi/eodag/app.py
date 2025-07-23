@@ -190,7 +190,6 @@ search_extensions = get_enabled_extensions(search_extensions_map)
 search_post_model = create_post_request_model(search_extensions)
 search_get_model = create_get_request_model(search_extensions)
 
-
 collections_model = create_request_model(
     "CollectionsRequest",
     base_model=EmptyRequest,

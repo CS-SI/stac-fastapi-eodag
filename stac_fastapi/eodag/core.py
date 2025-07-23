@@ -244,7 +244,7 @@ class EodagCoreClient(CustomCoreClient):
 
         next_link: Optional[dict[str, Any]] = None
         prev_link: Optional[dict[str, Any]] = None
-        first_link: dict[str, Any] = {"body": {"limit": limit, "offset": 0}}
+        first_link: Optional[dict[str, Any]] = None
 
         # get provider filter
         provider = None
@@ -285,18 +285,7 @@ class EodagCoreClient(CustomCoreClient):
                 ).intersection(bbox_geom)
             ]
 
-        limit = limit if limit is not None else 10
-        offset = offset if offset is not None else 0
-
-        paged_collections = collections[offset : offset + limit]
-
         total = len(collections)
-
-        if offset + limit < total:
-            next_link = {"body": {"limit": limit, "offset": offset + limit}}
-
-        if offset > 0:
-            prev_link = {"body": {"limit": limit, "offset": max(0, offset - limit)}}
 
         links = [
             {
@@ -306,6 +295,21 @@ class EodagCoreClient(CustomCoreClient):
                 "title": get_settings().stac_fastapi_title,
             },
         ]
+
+        if self.extension_is_enabled("OffsetPaginationExtension"):
+            limit = limit if limit is not None else 10
+            offset = offset if offset is not None else 0
+
+            collections = collections[offset : offset + limit]
+
+            if offset + limit < total:
+                next_link = {"body": {"limit": limit, "offset": offset + limit}}
+
+            if offset > 0:
+                prev_link = {"body": {"limit": limit, "offset": max(0, offset - limit)}}
+
+            first_link = {"body": {"limit": limit, "offset": 0}}
+
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         paging_links = CollectionSearchPagingLinks(
@@ -315,10 +319,10 @@ class EodagCoreClient(CustomCoreClient):
         links.extend(paging_links)
 
         return Collections(
-            collections=paged_collections or [],
+            collections=collections,
             links=links,
             numberMatched=total,
-            numberReturned=len(paged_collections),
+            numberReturned=len(collections),
         )
 
     async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
