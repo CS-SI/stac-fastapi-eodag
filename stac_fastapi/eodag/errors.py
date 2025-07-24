@@ -62,7 +62,7 @@ EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
     RequestError: status.HTTP_400_BAD_REQUEST,
 }
 
-logger = logging.getLogger("eodag.rest.server")
+logger = logging.getLogger(__name__)
 
 
 def exception_handler_factory(status_code: int):
@@ -93,24 +93,14 @@ class ResponseSearchError(Exception):
 
     _alias_to_field_cache: dict[str, str] = {}
 
+    errors: list[SearchError]
+
     def __init__(self, errors: list[tuple[str, Exception]], stac_metadata_model: type[BaseModel]) -> None:
         """Initialize error response class."""
         self._errors = errors
         self._stac_medatata_model = stac_metadata_model
 
-    def _eodag_to_stac(self, value: str) -> str:
-        """Convert EODAG name to STAC."""
-        if not self._alias_to_field_cache:
-            self._alias_to_field_cache = {
-                field.alias or str(field.validation_alias): name
-                for name, field in self._stac_medatata_model.model_fields.items()
-            }
-        return self._alias_to_field_cache.get(value, value)
-
-    @property
-    def errors(self) -> list[SearchError]:
-        """Return errors."""
-        errors: list[SearchError] = []
+        self.errors = []
         for name, exc in self._errors:
             error: SearchError = {
                 "provider": name,
@@ -135,14 +125,21 @@ class ResponseSearchError(Exception):
                     stac_param = self._eodag_to_stac(error_param)
                     error["message"] = error["message"].replace(error_param, stac_param)
 
-            errors.append(error)
+            self.errors.append(error)
 
-        return errors
+    def _eodag_to_stac(self, value: str) -> str:
+        """Convert EODAG name to STAC."""
+        if not self._alias_to_field_cache:
+            self._alias_to_field_cache = {
+                field.alias or str(field.validation_alias): name
+                for name, field in self._stac_medatata_model.model_fields.items()
+            }
+        return self._alias_to_field_cache.get(value, value)
 
     @property
     def status_code(self) -> int:
         """Get global errors status code."""
-        if len(self._errors) == 1:
+        if len(self.errors) == 1:
             return self.errors[0]["status_code"]
 
         return 400
