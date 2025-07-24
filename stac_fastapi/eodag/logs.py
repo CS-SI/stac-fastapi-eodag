@@ -105,6 +105,8 @@ def init_logging():
     for handler in logging.getLogger().handlers:
         handler.setFormatter(custom_formatter)
 
+    logging.getLogger("eodag").propagate = False
+
     for logger_name in ("eodag", "uvicorn", "uvicorn.access"):
         logger = logging.getLogger(logger_name)
         for handler in logger.handlers:
