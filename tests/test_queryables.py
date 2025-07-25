@@ -32,8 +32,8 @@ async def test_basic_queryables(request_valid):
     assert "collection" in res["properties"]
     assert len(res["properties"]) == 1
     assert "additionalProperties" in res and res["additionalProperties"]
-    assert "description" in res and res["description"] == "Queryable names for the stac-fastapi."
-    assert "title" in res and res["title"] == "Queryables for stac-fastapi."
+    assert "description" in res and res["description"] == "Queryable names for stac-fastapi."
+    assert "title" in res and res["title"] == "STAC queryables for stac-fastapi."
     assert "type" in res and res["type"] == "object"
 
 
