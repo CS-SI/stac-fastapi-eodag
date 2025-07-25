@@ -215,10 +215,11 @@ class FiltersClient(AsyncBaseFiltersClient):
                     protected_namespaces=(),
                     json_schema_extra={
                         "$schema": "https://json-schema.org/draft/2019-09/schema",
-                        "$id": f"{base_url}/queryables",
+                        "$id": base_url
+                        + (f"collections/{collection_id}/queryables" if collection_id else "queryables"),
                         "type": "object",
-                        "title": f"Queryables for {stac_fastapi_title}.",
-                        "description": f"Queryable names for the {stac_fastapi_title}.",
+                        "title": f"STAC queryables for {stac_fastapi_title}.",
+                        "description": f"Queryable names for {stac_fastapi_title}.",
                         "additionalProperties": bool(not collection_id),
                     },
                     arbitrary_types_allowed=True,
