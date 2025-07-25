@@ -101,14 +101,25 @@ def init_logging():
 
     custom_formatter = CustomFormatter()
 
-    logging.basicConfig(level=log_level)
     for handler in logging.getLogger().handlers:
         handler.setFormatter(custom_formatter)
 
     logging.getLogger("eodag").propagate = False
 
-    for logger_name in ("eodag", "uvicorn", "uvicorn.access"):
+    loggers_to_configure = {
+        "eodag": log_level,
+        "stac_fastapi.eodag": log_level,
+        "uvicorn": logging.INFO,
+        "uvicorn.access": logging.INFO,
+    }
+
+    for logger_name, level in loggers_to_configure.items():
         logger = logging.getLogger(logger_name)
+        logger.setLevel(level)
+
+        if not logger.hasHandlers():
+            logger.addHandler(logging.StreamHandler())
+
         for handler in logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 handler.setFormatter(custom_formatter)
