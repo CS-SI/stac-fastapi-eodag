@@ -66,17 +66,27 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 class CustomFormatter(logging.Formatter):
     """custom logging formatter"""
 
+    def alias_logger_name(self, name: str) -> str:
+        """Replace logger name prefix with alias 'stac_eodag' if it starts with 'stac_fastapi.eodag'."""
+        prefix = "stac_fastapi.eodag"
+        alias = "stac_eodag"
+        if name.startswith(prefix):
+            name = alias + name[len(prefix) :]
+
+        name = name.replace(".extensions.", ".ext.")
+        return name
+
     def format(self, record):
         """Add a unique log ID and
         custom timestamp in the log output."""
         request_id = request_id_context.get()
         if request_id == "None":
-            request_id = uuid.uuid4().hex[:8]
+            request_id = ""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logger_name = record.name
+        logger_name = self.alias_logger_name(record.name)
         log_message = super().format(record)
 
-        log_message = f"{timestamp} {logger_name:<32} [{record.levelname:<8}] [{request_id}] {log_message}"
+        log_message = f"{timestamp} {logger_name:<32} [{record.levelname:<8}] [{request_id:<8}] {log_message}"
 
         return log_message
 
@@ -85,9 +95,17 @@ def init_logging():
     """Initialize the logging configuration"""
     settings = get_settings()
 
+    log_level = logging.DEBUG if settings.debug else logging.INFO
+
     setup_logging(3 if settings.debug else 2, no_progress_bar=True)
 
     custom_formatter = CustomFormatter()
+
+    logging.basicConfig(level=log_level)
+    for handler in logging.getLogger().handlers:
+        handler.setFormatter(custom_formatter)
+
+    logging.getLogger("eodag").propagate = False
 
     for logger_name in ("eodag", "uvicorn", "uvicorn.access"):
         logger = logging.getLogger(logger_name)

@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from eodag import EODataAccessGateway
 
 
-logger = logging.getLogger("eodag.rest.utils.observability")
+logger = logging.getLogger(__name__)
 
 
 def create_tracer_provider(resource: Resource) -> Union[TracerProvider, trace.TracerProvider]:
