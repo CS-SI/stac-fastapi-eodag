@@ -60,6 +60,7 @@ dev = [
     "stdlib-list",
     "tox",
     "tox-uv",
+    "types-shapely"
 ]
 
 [tool.mypy]
