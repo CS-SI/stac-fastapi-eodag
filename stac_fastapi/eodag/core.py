@@ -283,10 +283,10 @@ class EodagCoreClient(CustomCoreClient):
                 c
                 for c in collections
                 if check_poly_is_point(
-                    get_geometry_from_various(
+                    get_geometry_from_various( # type: ignore
                         geometry=c.get("extent", {}).get("spatial", {}).get("bbox", default_extent)[0]
                     )
-                ).intersection(bbox_geom)
+                ).intersection(bbox_geom) 
             ]
 
         total = len(collections)
