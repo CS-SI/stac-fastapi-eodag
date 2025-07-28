@@ -29,7 +29,7 @@ from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
 from fastapi import APIRouter, FastAPI, Path, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
@@ -180,6 +180,17 @@ class BaseDataDownloadClient:
                 ) and "order status could not be checked" in e.args[0]:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
+
+        if asset_name and asset_name != "downloadLink":
+            asset_values = product.assets[asset_name]
+            # return presigned url if available
+            try:
+                presigned_url = product.downloader.presign_url(asset_values, auth)
+                headers = {"content-disposition": f"attachment; filename={asset_name}"}
+                if presigned_url:
+                    return RedirectResponse(presigned_url, status_code=302, headers=headers)
+            except NotImplementedError:
+                logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
 
         try:
             s = product.downloader._stream_download_dict(
