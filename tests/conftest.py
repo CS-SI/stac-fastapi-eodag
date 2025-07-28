@@ -35,6 +35,7 @@ from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.openid_connect import OIDCRefreshTokenBase
 from eodag.plugins.authentication.token import TokenAuth
 from eodag.plugins.authentication.token_exchange import OIDCTokenExchangeAuth
+from eodag.plugins.download.aws import AwsDownload
 from eodag.plugins.download.base import Download
 from eodag.plugins.download.http import HTTPDownload
 from eodag.plugins.search.qssearch import StacSearch
@@ -338,7 +339,7 @@ def mock_http_base_stream_download_dict(mocker):
 @pytest.fixture(scope="function")
 def mock_order(mocker):
     """
-    Mocks the `HTTPDownload` method of the `HTTPDownload` download plugin.
+    Mocks the `order` method of the `HTTPDownload` download plugin.
     """
     return mocker.patch.object(HTTPDownload, "order")
 
@@ -397,6 +398,7 @@ def request_valid_raw(app_client, mock_search, mock_search_result):
         search_call_count: Optional[int] = None,
         search_result: Optional[SearchResult] = None,
         expected_status_code: int = 200,
+        follow_redirects: bool = True,
     ):
         if search_result:
             mock_search.return_value = search_result
@@ -407,7 +409,7 @@ def request_valid_raw(app_client, mock_search, mock_search_result):
             method,
             url,
             json=post_data,
-            follow_redirects=True,
+            follow_redirects=follow_redirects,
             headers={"Content-Type": "application/json"} if method == "POST" else {},
         )
 
@@ -585,6 +587,12 @@ def request_accepted(app_client):
         return response_content
 
     return _request_accepted
+
+
+@pytest.fixture(scope="function")
+def mock_presign_url(mocker):
+    """Fixture for the presign_url function"""
+    return mocker.patch.object(AwsDownload, "presign_url")
 
 
 @dataclass
