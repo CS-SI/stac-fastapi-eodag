@@ -100,7 +100,7 @@ class BaseDataDownloadClient:
         item_id: str,
         asset_name: Optional[str],
         request: Request,
-    ) -> StreamingResponse:
+    ) -> StreamingResponse | RedirectResponse:
         """Download an asset"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
