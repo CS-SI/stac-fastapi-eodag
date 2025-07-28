@@ -122,7 +122,7 @@ def dt_range_to_eodag(
     return start, end
 
 
-def check_poly_is_point(poly : Polygon) -> Union[Point, Polygon]:
+def check_poly_is_point(poly: Polygon) -> Union[Point, Polygon]:
     """
     Check if the polygon is a Point and returns it if so.
 
