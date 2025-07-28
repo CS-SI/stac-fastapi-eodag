@@ -63,6 +63,7 @@ from stac_fastapi.eodag.models.stac_metadata import (
     get_sortby_to_post,
 )
 from stac_fastapi.eodag.utils import (
+    check_poly_is_point,
     dt_range_to_eodag,
     format_datetime_range,
     is_dict_str_any,
@@ -276,12 +277,15 @@ class EodagCoreClient(CustomCoreClient):
         # bbox filter
         if bbox:
             bbox_geom = get_geometry_from_various(geometry=bbox)
+
             default_extent = [[-180.0, -90.0, 180.0, 90.0]]
             collections = [
                 c
                 for c in collections
-                if get_geometry_from_various(
-                    geometry=c.get("extent", {}).get("spatial", {}).get("bbox", default_extent)[0]
+                if check_poly_is_point(
+                    get_geometry_from_various(
+                        geometry=c.get("extent", {}).get("spatial", {}).get("bbox", default_extent)[0]
+                    )
                 ).intersection(bbox_geom)
             ]
 

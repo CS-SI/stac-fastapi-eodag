@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote_plus
 
 import orjson
+from shapely.geometry import Point
 
 if TYPE_CHECKING:
     from typing import Any, Optional, Union
@@ -119,3 +120,17 @@ def dt_range_to_eodag(
     end = end.isoformat().replace("+00:00", "Z") if end else None
 
     return start, end
+
+
+def check_poly_is_point(poly):
+    """
+    Check if the polygon is a Point and returns it if so.
+
+    :param poly: A Shapely polygon.
+    :returns: Either a `Point` or the unchanged `poly`.
+    """
+
+    if poly.area == 0 and poly.area == 0 and poly.bounds[0] == poly.bounds[2] and poly.bounds[1] == poly.bounds[3]:
+        return Point(poly.exterior.coords[0])
+    else:
+        return poly
