@@ -24,6 +24,7 @@ dependencies = [
     "brotli-asgi",
     "starlette",
     "typing_extensions",
+    "shapely"
 ]
 
 [project.urls]
