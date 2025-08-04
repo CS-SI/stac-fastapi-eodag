@@ -107,17 +107,17 @@ class BaseDataDownloadClient:
 
         # check if the collection is known
         try:
-            product_type = dag.get_product_type_from_alias(collection_id)
+            dag.get_product_type_from_alias(collection_id)
         except NoMatchingProductType as e:
             raise NotFoundError(e) from e
 
-        search_results = dag.search(id=item_id, productType=product_type, provider=federation_backend)
+        search_results = dag.search(id=item_id, productType=collection_id, provider=federation_backend)
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
         else:
             raise NotFoundError(
-                f"Could not find {item_id} item in {product_type} collection",
+                f"Could not find {item_id} item in {collection_id} collection",
                 f" for backend {federation_backend}.",
             )
 
