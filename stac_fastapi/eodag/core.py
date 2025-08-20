@@ -153,6 +153,31 @@ class EodagCoreClient(CustomCoreClient):
             request=request,
         ).get_links(extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", []))
 
+        # add providers category to the collection
+        providers = []
+        for plugin in request.app.state.dag._plugins_manager.get_search_plugins(
+            product_type=product_type.get("_id", product_type["ID"])
+        ):
+            if plugin.provider:
+                providers = [plugin.provider]
+
+        providers_dict: dict[str, dict[str, Any]] = {}
+        for provider in providers:
+            provider_config = next(
+                p
+                for p in request.app.state.dag.providers_config.values()
+                if provider in [p.name, getattr(p, "group", None)]
+            )
+            p_dict = {
+                "name": getattr(provider_config, "group", provider_config.name),
+                "description": getattr(provider_config, "description", None),
+                "roles": getattr(provider_config, "roles", None),
+                "url": getattr(provider_config, "url", None),
+                "priority": getattr(provider_config, "priority", None),
+            }
+            providers_dict.setdefault(p_dict["name"], p_dict)
+        providers_list = list(providers_dict.values())
+        collection["providers"] = providers_list
         return collection
 
     def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
