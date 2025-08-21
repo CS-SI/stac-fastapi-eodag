@@ -177,7 +177,7 @@ class EodagCoreClient(CustomCoreClient):
             }
             providers_dict.setdefault(p_dict["name"], p_dict)
         providers_list = list(providers_dict.values())
-        collection["providers"] = providers_list
+        collection.setdefault("providers", []).extend(providers_list)
         return collection
 
     def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
