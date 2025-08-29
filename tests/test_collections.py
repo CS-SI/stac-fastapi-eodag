@@ -127,6 +127,30 @@ async def test_search_collections_bbox(app_client, mock_list_product_types, mock
     assert ["S2_MSI_L1C", "S1_SAR_GRD"] == [col["id"] for col in r.json().get("collections", [])]
 
 
+async def test_search_collections_datetime(app_client, mock_list_product_types, mock_guess_product_type):
+    """A collections datetime search must succeed"""
+    mock_list_product_types.return_value = [
+        {
+            "_id": "S2_MSI_L1C",
+            "ID": "S2_MSI_L1C",
+            "title": "SENTINEL2 Level-1C",
+            "missionStartDate": "2015-06-23T00:00:00Z",
+        },
+        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
+    ]
+    mock_guess_product_type.return_value = ["S2_MSI_L1C"]
+
+    start = "2014-01-01T00:00:00Z"
+    end = "2016-01-01T00:00:00Z"
+
+    r = await app_client.get(f"/collections?datetime={start}/{end}")
+
+    assert mock_list_product_types.called
+    mock_guess_product_type.assert_called_once_with(free_text=None, missionStartDate=start, missionEndDate=end)
+    assert r.status_code == 200
+    assert ["S2_MSI_L1C"] == [col["id"] for col in r.json().get("collections", [])]
+
+
 async def test_collections_pagination_default_and_custom_limits(app_client, mock_list_product_types):
     """
     Test pagination behavior for collections with default and custom limits.
