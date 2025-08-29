@@ -37,6 +37,7 @@ from pygeofilter.parsers.cql2_json import parse as parse_json
 from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
+from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
 from stac_pydantic.links import Relations
@@ -222,7 +223,7 @@ class EodagCoreClient(CustomCoreClient):
         self,
         request: Request,
         bbox: Optional[list[NumType]] = None,
-        datetime: Optional[DateTimeType] = None,
+        datetime: Optional[str] = None,
         limit: Optional[int] = 10,
         offset: Optional[int] = 0,
         q: Optional[str] = None,
@@ -259,7 +260,7 @@ class EodagCoreClient(CustomCoreClient):
 
         # datetime & free-text-search filters
         if any((q, datetime)):
-            start, end = dt_range_to_eodag(datetime)
+            start, end = dt_range_to_eodag(str_to_interval(datetime))
 
             try:
                 guessed_product_types = request.app.state.dag.guess_product_type(
