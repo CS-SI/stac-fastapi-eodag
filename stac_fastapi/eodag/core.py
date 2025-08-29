@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote_plus
 
@@ -76,7 +75,6 @@ if TYPE_CHECKING:
 
     from fastapi import Request
     from pydantic import BaseModel
-    from stac_fastapi.types.rfc3339 import DateTimeType
 
     from eodag.api.product._product import EOProduct
 
@@ -356,7 +354,7 @@ class EodagCoreClient(CustomCoreClient):
         collection_id: str,
         request: Request,
         bbox: Optional[list[NumType]] = None,
-        datetime: Optional[Union[str, datetime]] = None,
+        datetime: Optional[str] = None,
         limit: Optional[int] = None,
         page: Optional[str] = None,
         sortby: Optional[list[str]] = None,
@@ -423,7 +421,7 @@ class EodagCoreClient(CustomCoreClient):
         collections: Optional[list[str]] = None,
         ids: Optional[list[str]] = None,
         bbox: Optional[list[NumType]] = None,
-        datetime: Optional[DateTimeType] = None,
+        datetime: Optional[str] = None,
         limit: Optional[int] = None,
         query: Optional[str] = None,
         page: Optional[str] = None,
