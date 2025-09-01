@@ -143,7 +143,6 @@ def fixture_mock_dag() -> MagicMock:
     mock_dag.product_types_config = MagicMock()
     # Set a default value for `product_types_config.source`
     mock_dag.product_types_config.source = {}
-    mock_dag.build_index = MagicMock()
     mock_dag._plugins_manager = MagicMock()  # pylint: disable=protected-access
     mock_dag._plugins_manager.get_search_plugins = MagicMock()  # pylint: disable=protected-access
     mock_dag.available_providers = MagicMock(return_value=["provider1", "provider2"])
@@ -246,9 +245,6 @@ def test_init_dag(
     # Assert: Verify that `dag.product_types_config.source` was updated
     updated_config = mock_dag.product_types_config.source["test-product"]
     assert updated_config == expected_updated_config
-
-    # Assert: Verify that `dag.build_index` was called
-    mock_dag.build_index.assert_called_once()
 
     # Assert: Verify that `dag._plugins_manager.get_search_plugins` was called for each provider
     mock_dag.available_providers.assert_called_once()

@@ -23,7 +23,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from eodag import EODataAccessGateway
-from eodag.utils import obj_md5sum
 from eodag.utils.exceptions import (
     RequestError,
     TimeOutError,
@@ -116,10 +115,6 @@ def init_dag(app: FastAPI) -> None:
             }
             clean = {k: v for k, v in update_fields.items() if v is not None}
             p_f.update(clean)
-
-    dag.product_types_config_md5 = obj_md5sum(dag.product_types_config.source)
-
-    dag.build_index()
 
     # pre-build search plugins
     for provider in dag.available_providers():
