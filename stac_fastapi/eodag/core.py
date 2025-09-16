@@ -263,7 +263,7 @@ class EodagCoreClient(CustomCoreClient):
 
             # q is always a list, per stac-api free_text extension definiton
             # Expanding with AND as default.
-            free_text = " AND ".join(q)
+            free_text = " AND ".join(q or [])
 
             try:
                 guessed_product_types = request.app.state.dag.guess_product_type(
