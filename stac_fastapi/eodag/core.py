@@ -95,6 +95,7 @@ class EodagCoreClient(CustomCoreClient):
 
     def _get_collection(self, product_type: dict[str, Any], request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
+
         collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {})))
 
         platform_value = [p for p in (product_type.get("platformSerialIdentifier") or "").split(",") if p]
@@ -224,7 +225,7 @@ class EodagCoreClient(CustomCoreClient):
         datetime: Optional[str] = None,
         limit: Optional[int] = 10,
         offset: Optional[int] = 0,
-        q: Optional[str] = None,
+        q: Optional[list[str]] = None,
         query: Optional[str] = None,
     ) -> Collections:
         """
@@ -260,9 +261,13 @@ class EodagCoreClient(CustomCoreClient):
         if any((q, datetime)):
             start, end = dt_range_to_eodag(str_to_interval(datetime))
 
+            # q is always a list, per stac-api free_text extension definiton
+            # Expanding with AND as default.
+            free_text = " AND ".join(q)
+
             try:
                 guessed_product_types = request.app.state.dag.guess_product_type(
-                    free_text=q, missionStartDate=start, missionEndDate=end
+                    free_text=free_text, missionStartDate=start, missionEndDate=end
                 )
             except EodagNoMatchingProductType:
                 product_types = []
