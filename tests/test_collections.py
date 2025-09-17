@@ -76,7 +76,7 @@ async def test_search_collections_freetext_ok(app_client, mock_list_product_type
     r = await app_client.get("/collections?q=TERM1,TERM2")
     assert mock_list_product_types.called
     mock_guess_product_type.assert_called_once_with(
-        free_text=["TERM1", "TERM2"], missionStartDate=None, missionEndDate=None
+        free_text="TERM1 AND TERM2", missionStartDate=None, missionEndDate=None
     )
     assert r.status_code == 200
     assert ["S2_MSI_L1C"] == [col["id"] for col in r.json().get("collections", [])]
@@ -146,7 +146,7 @@ async def test_search_collections_datetime(app_client, mock_list_product_types, 
     r = await app_client.get(f"/collections?datetime={start}/{end}")
 
     assert mock_list_product_types.called
-    mock_guess_product_type.assert_called_once_with(free_text=None, missionStartDate=start, missionEndDate=end)
+    mock_guess_product_type.assert_called_once_with(free_text="", missionStartDate=start, missionEndDate=end)
     assert r.status_code == 200
     assert ["S2_MSI_L1C"] == [col["id"] for col in r.json().get("collections", [])]
 
