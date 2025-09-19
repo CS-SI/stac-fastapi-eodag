@@ -363,6 +363,7 @@ class EodagCoreClient(CustomCoreClient):
         limit: Optional[int] = None,
         page: Optional[str] = None,
         sortby: Optional[list[str]] = None,
+        validate: Optional[bool] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -376,6 +377,8 @@ class EodagCoreClient(CustomCoreClient):
         :param datetime: Date and time range to filter the items.
         :param limit: Maximum number of items to return.
         :param page: Page token for pagination.
+        :param validate: Set to True to validate the request query before sending it
+                         to the provider
         :param kwargs: Additional arguments.
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
@@ -394,6 +397,10 @@ class EodagCoreClient(CustomCoreClient):
         if sortby:
             sortby_converted = get_sortby_to_post(sortby)
             base_args["sortby"] = cast(Any, sortby_converted)
+
+        if validate is not None:
+            # The model uses `validate_request`
+            base_args["validate_request"] = validate
 
         clean = {}
         for k, v in base_args.items():
@@ -552,7 +559,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
 
     :param search_request: the search request
     :param model: the model used to validate stac metadata
-    :returns: a dictionnary containing arguments for the eodag search
+    :returns: a dictionary containing arguments for the eodag search
     """
     base_args = (
         {
@@ -606,6 +613,11 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         parsed_filter = parse_cql2(f)
         eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
+    validate = {}
+    if getattr(search_request, "validate_request", None) is not None:
+        # Converts back from `validate_request` used in the model and `validate` used by EODAG API
+        validate["validate"] = search_request.validate_request
+
     # EODAG search support a single collection
     if search_request.collections:
         base_args["productType"] = search_request.collections[0]
@@ -614,7 +626,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         base_args["ids"] = search_request.ids
 
     # merge all eodag search arguments
-    base_args = base_args | sort_by | eodag_filter | eodag_query
+    base_args = base_args | sort_by | eodag_filter | eodag_query | validate
 
     return base_args
 
