@@ -17,19 +17,16 @@
 # limitations under the License.
 """properties for extensions."""
 
-from typing import Annotated, Any, List, Optional, Union
+from typing import Annotated, Any, Optional, Union
 
 import attr
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
-from fastapi import FastAPI, Query
 from pydantic import (
     BaseModel,
     BeforeValidator,
     Field,
     field_validator,
 )
-from stac_fastapi.types.extension import ApiExtension
-from stac_fastapi.types.search import APIRequest
 
 from stac_fastapi.eodag.utils import str2liststr
 
@@ -295,39 +292,3 @@ class FederationExtension(BaseStacExtension):
 
     schema_href: str = attr.ib(default="https://api.openeo.org/extensions/federation/0.1.0")
     field_name_prefix: Optional[str] = attr.ib(default="federation")
-
-
-class POSTValidate(BaseModel):
-    """Validate for POST requests."""
-
-    # Cannot use `validate` to avoid shadowing attribute in parent class `BaseModel`
-    validate_request: Optional[bool] = None
-
-
-@attr.s
-class GETValidate(APIRequest):
-    """Validate for GET requests."""
-
-    validate: Annotated[Optional[bool], Query(description="Validate the request")] = attr.ib(default=None)
-
-
-@attr.s
-class ValidateExtension(ApiExtension):
-    """Validate request extension."""
-
-    GET = GETValidate
-    POST = POSTValidate
-
-    conformance_classes: List[str] = attr.ib(factory=list)
-    schema_href: Optional[str] = attr.ib(default=None)
-
-    def register(self, app: FastAPI) -> None:
-        """Register the extension with a FastAPI application.
-
-        Args:
-            app: target FastAPI application.
-
-        Returns:
-            None
-        """
-        pass
