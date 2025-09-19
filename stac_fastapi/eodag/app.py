@@ -72,6 +72,7 @@ from stac_fastapi.eodag.extensions.stac import (
     ScientificCitationExtension,
     StorageExtension,
     TimestampExtension,
+    ValidateExtension,
     ViewGeometryExtension,
 )
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
@@ -108,6 +109,7 @@ search_extensions_map = {
     "sort": SortExtension(),
     "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
     "pagination": PaginationExtension(),
+    "validate": ValidateExtension(),
 }
 
 # collection_search extensions
@@ -122,6 +124,7 @@ cs_extensions_map = {
 itm_col_extensions_map = {
     "pagination": PaginationExtension(),
     "sort": SortExtension(conformance_classes=[SortConformanceClasses.ITEMS]),
+    "validate": ValidateExtension(),
 }
 
 all_extensions = {
