@@ -372,7 +372,7 @@ class EodagCoreClient(CustomCoreClient):
         limit: Optional[int] = None,
         page: Optional[str] = None,
         sortby: Optional[list[str]] = None,
-        validate: Optional[bool] = None,
+        validate_request: Optional[bool] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -386,8 +386,8 @@ class EodagCoreClient(CustomCoreClient):
         :param datetime: Date and time range to filter the items.
         :param limit: Maximum number of items to return.
         :param page: Page token for pagination.
-        :param validate: Set to True to validate the request query before sending it
-                         to the provider
+        :param validate_request: Set to True to validate the request query before sending it
+               to the provider
         :param kwargs: Additional arguments.
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
@@ -407,9 +407,8 @@ class EodagCoreClient(CustomCoreClient):
             sortby_converted = get_sortby_to_post(sortby)
             base_args["sortby"] = cast(Any, sortby_converted)
 
-        if validate is not None:
-            # The model uses `validate_request`
-            base_args["validate_request"] = validate
+        if validate_request is not None:
+            base_args["validate_request"] = validate_request
 
         clean = {}
         for k, v in base_args.items():
@@ -450,6 +449,7 @@ class EodagCoreClient(CustomCoreClient):
         intersects: Optional[str] = None,
         filter_expr: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
+        validate_request: Optional[bool] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -467,6 +467,8 @@ class EodagCoreClient(CustomCoreClient):
         :param intersects: GeoJSON geometry to filter the search.
         :param filter_expr: CQL filter to apply to the search.
         :param filter_lang: Language of the filter (default is "cql2-text").
+        :param validate_request: Set to True to validate the request query before sending it
+               to the provider
         :param kwargs: Additional arguments.
         :returns: Found items.
         :raises HTTPException: If the provided parameters are invalid.
@@ -492,6 +494,9 @@ class EodagCoreClient(CustomCoreClient):
 
             base_args["filter"] = str2json("filter_expr", filter_expr)
             base_args["filter_lang"] = "cql2-json"
+
+        if validate_request is not None:
+            base_args["validate_request"] = validate_request
 
         # Remove None values from dict
         clean = {}
@@ -624,7 +629,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
 
     validate = {}
     if getattr(search_request, "validate_request", None) is not None:
-        # Converts back from `validate_request` used in the model and `validate` used by EODAG API
+        # Converts back from `validate_request` used in the model to `validate` used by EODAG API
         validate["validate"] = search_request.validate_request
 
     # EODAG search support a single collection
