@@ -72,9 +72,9 @@ from stac_fastapi.eodag.extensions.stac import (
     ScientificCitationExtension,
     StorageExtension,
     TimestampExtension,
-    ValidateExtension,
     ViewGeometryExtension,
 )
+from stac_fastapi.eodag.extensions.validate import ValidateExtension
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.middlewares import ProxyHeaderMiddleware
 from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
