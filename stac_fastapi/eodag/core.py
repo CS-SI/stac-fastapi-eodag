@@ -372,7 +372,6 @@ class EodagCoreClient(CustomCoreClient):
         limit: Optional[int] = None,
         page: Optional[str] = None,
         sortby: Optional[list[str]] = None,
-        validate_request: Optional[bool] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -386,8 +385,6 @@ class EodagCoreClient(CustomCoreClient):
         :param datetime: Date and time range to filter the items.
         :param limit: Maximum number of items to return.
         :param page: Page token for pagination.
-        :param validate_request: Set to True to validate the request query before sending it
-               to the provider
         :param kwargs: Additional arguments.
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
@@ -406,9 +403,6 @@ class EodagCoreClient(CustomCoreClient):
         if sortby:
             sortby_converted = get_sortby_to_post(sortby)
             base_args["sortby"] = cast(Any, sortby_converted)
-
-        if validate_request is not None:
-            base_args["validate_request"] = validate_request
 
         clean = {}
         for k, v in base_args.items():
