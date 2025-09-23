@@ -40,9 +40,9 @@ logger = logging.getLogger(__name__)
 def get_resource(app: FastAPI) -> Resource:
     """create opentelemetry resource"""
     if not getattr(app.state, "resource", None):
-        app.state.resource = Resource.create().merge(Resource.create({"service.name": "stac-fastapi-eodag"}))
+        app.state.otel_resource = Resource.create().merge(Resource.create({"service.name": "stac-fastapi-eodag"}))
 
-    return app.state.resource
+    return app.state.otel_resource
 
 
 def get_tracer_provider(resource: Resource) -> Union[TracerProvider, trace.TracerProvider]:
