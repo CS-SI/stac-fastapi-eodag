@@ -31,6 +31,11 @@ exporters:
     endpoint: 0.0.0.0:8000
     namespace: eodag-otelcol-exporter
 
+  otlphttp:
+    endpoint: "http://jaeger:4318"
+    tls:
+      insecure: true
+
 service:
 
   pipelines:
@@ -38,7 +43,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug,otlphttp]
 
     metrics:
 #      receivers: [otlp, prometheus]

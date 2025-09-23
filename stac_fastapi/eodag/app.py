@@ -164,8 +164,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
         from stac_fastapi.eodag.telemetry import instrument_eodag
 
-        instrument_eodag(app.state.dag)
-    # init_cache(app)
+        instrument_eodag(app)
+
     app.state.stac_metadata_model = stac_metadata_model
     yield
 
