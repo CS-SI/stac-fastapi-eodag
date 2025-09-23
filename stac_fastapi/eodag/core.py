@@ -490,7 +490,7 @@ class EodagCoreClient(CustomCoreClient):
             base_args["filter_lang"] = "cql2-json"
 
         if validate_request is not None:
-            base_args["validate_request"] = validate_request
+            base_args["validate"] = validate_request
 
         # Remove None values from dict
         clean = {}
@@ -621,10 +621,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         parsed_filter = parse_cql2(f)
         eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
-    validate = {}
-    if getattr(search_request, "validate_request", None) is not None:
-        # Converts back from `validate_request` used in the model to `validate` used by EODAG API
-        validate["validate"] = search_request.validate_request
+    validate = search_request.model_dump(exclude_none=True, by_alias=True, include={"validate_request"})
 
     # EODAG search support a single collection
     if search_request.collections:
