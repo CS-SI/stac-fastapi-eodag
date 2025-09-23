@@ -23,6 +23,7 @@ import attr
 from fastapi import FastAPI, Query
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
 )
 from stac_fastapi.types.extension import ApiExtension
@@ -33,14 +34,17 @@ class POSTValidate(BaseModel):
     """Validate for POST requests."""
 
     # Cannot use `validate` to avoid shadowing attribute in parent class `BaseModel`
-    validate_request: Optional[bool] = Field(None, description="Validate the request")  # noqa: E501
+    validate_request: Optional[bool] = Field(default=None, alias="validate", description="Validate the request")  # noqa: E501
+    model_config = ConfigDict(serialize_by_alias=True, validate_by_name=False, validate_by_alias=True)
 
 
 @attr.s
 class GETValidate(APIRequest):
     """Validate for GET requests."""
 
-    validate_request: Annotated[Optional[bool], Query(description="Validate the request")] = attr.ib(default=None)
+    validate_request: Annotated[Optional[bool], Query(alias="validate", description="Validate the request")] = attr.ib(
+        default=None
+    )
 
 
 @attr.s
