@@ -288,6 +288,19 @@ resources:
   limits: {}
   requests: {}
 
+## STAC FastAPI EODAG horizontal autoscaling
+## ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+## @param horizontalPodAutoscaler.enabled Decide to enable or disable the horizontal pod autoscaler
+## @param horizontalPodAutoscaler.maxReplicas The maximum number of replicas that are allowed to run simultaneously
+## @param horizontalPodAutoscaler.cpuUtilization The maximum CPU utilization target computed in % of the CPU resources request.
+## @param horizontalPodAutoscaler.memUtilization The maximum RAM utilization target computed in % of the RAM resources request.
+##
+horizontalPodAutoscaler:
+  enabled: false
+  maxReplicas: 10
+  cpuUtilization: 50
+  memUtilization: 50
+
 ## Configure Pods Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
 ## @param podSecurityContext.enabled Enabled stac-fastapi-eodag pods' Security Context
@@ -426,6 +439,11 @@ priorityClassName: ""
 ##
 runtimeClassName: ""
 
+## @param terminationGracePeriodSeconds Termination grace period in seconds for pods
+## This allows pods to gracefully shut down before being forcefully terminated
+##
+terminationGracePeriodSeconds: 30
+
 ## @param lifecycleHooks for the stac-fastapi-eodag container(s) to automate configuration before or after startup
 ##
 lifecycleHooks: {}
@@ -476,6 +494,11 @@ sidecars: []
 ##    command: ['sh', '-c', 'echo "hello world"']
 ##
 initContainers: []
+
+## Deployment configuration
+deployment:
+  ## @param deployment.annotations Additional custom annotations for stac-fastapi-eodag deployment
+  annotations: {}
 
 ## Service configuration
 ##
@@ -663,7 +686,7 @@ serviceAccount:
   annotations: {}
   ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
   ##
-  automountServiceAccountToken: false
+  automountServiceAccountToken: true
 
 
 ## @section Telemetry parameters

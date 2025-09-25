@@ -1,0 +1,41 @@
+{{- if .Values.horizontalPodAutoscaler.enabled -}}
+  {{- if not .Values.resources.requests }}
+    {{- fail "resources.requests is required if horizontalPodAutoscaler is enabled" -}}
+  {{- end }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "common.names.fullname" . }}
+  namespace: {{ include "common.names.namespace" . | quote }}
+  labels: {{- include "common.labels.standard" . | nindent 4 }}
+    {{- if .Values.commonLabels }}
+    {{- include "common.tplvalues.render" (dict "value" .Values.commonLabels "context" $) | nindent 4 }}
+    {{- end }}
+  {{- if .Values.commonAnnotations }}
+  annotations: {{- include "common.tplvalues.render" (dict "value" .Values.commonAnnotations "context" $) | nindent 4 }}
+  {{- end }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "common.names.fullname" . }}
+  minReplicas: {{ .Values.replicaCount }}
+  maxReplicas: {{ .Values.horizontalPodAutoscaler.maxReplicas }}
+  metrics:
+  {{- if .Values.horizontalPodAutoscaler.cpuUtilization }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.horizontalPodAutoscaler.cpuUtilization }}
+  {{- end }}
+  {{- if .Values.horizontalPodAutoscaler.memUtilization }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.horizontalPodAutoscaler.memUtilization }}
+  {{- end }}
+{{- end -}}
