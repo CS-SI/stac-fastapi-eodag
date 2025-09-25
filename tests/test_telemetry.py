@@ -31,8 +31,8 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from stac_fastapi.eodag.telemetry import (
-    create_meter_provider,
-    create_tracer_provider,
+    get_meter_provider,
+    get_tracer_provider,
     instrument_eodag,
     instrument_fastapi,
 )
@@ -47,14 +47,16 @@ def resource() -> Resource:
     return Resource.create({"service.name": "test-service"})
 
 
-def test_create_tracer_provider(resource: Resource) -> None:
-    """Test that ``create_tracer_provider`` sets up a tracer provider and records spans.
+def test_get_tracer_provider(resource: Resource, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that ``get_tracer_provider`` sets up a tracer provider and records spans.
 
     :param resource: fixture providing a test Resource
     """
     # Patch exporter to in-memory
+    monkeypatch.setattr("stac_fastapi.eodag.telemetry.OTLPSpanExporter", lambda *a, **kw: InMemorySpanExporter())
+
     exporter = InMemorySpanExporter()
-    tracer_provider = create_tracer_provider(resource)
+    tracer_provider = get_tracer_provider(resource)
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
 
     tracer = trace.get_tracer("test")
@@ -66,8 +68,8 @@ def test_create_tracer_provider(resource: Resource) -> None:
     assert spans[0].name == "test-span"
 
 
-def test_create_meter_provider(resource: Resource, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that ``create_meter_provider`` sets up a meter provider and records metrics.
+def test_get_meter_provider(resource: Resource, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that ``get_meter_provider`` sets up a meter provider and records metrics.
 
     :param resource: fixture providing a test Resource
     :param monkeypatch: pytest fixture to patch dependencies
@@ -81,7 +83,7 @@ def test_create_meter_provider(resource: Resource, monkeypatch: pytest.MonkeyPat
     )
 
     # Call the function (will use patched reader)
-    meter_provider = create_meter_provider(resource)
+    meter_provider = get_meter_provider(resource)
 
     # Ensure it’s registered
     metrics.set_meter_provider(meter_provider)
@@ -116,7 +118,13 @@ def test_instrument_eodag_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     """
 
     class DummyEODAG:
-        pass
+        class State:
+            def __init__(self):
+                self.otel_resource = {}
+                self.dag = {}
+
+        def __init__(self):
+            self.state = self.State()
 
     class DummyInstrumentor:
         def __init__(self, api):
