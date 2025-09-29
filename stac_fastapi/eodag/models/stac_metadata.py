@@ -372,8 +372,6 @@ def create_stac_item(
     if eodag_args := getattr(request.state, "eodag_args", None):
         if provider := eodag_args.get("provider", None):
             retrieve_body["federation:backends"] = [provider]
-        if "validate" in eodag_args:
-            retrieve_body["validate"] = eodag_args["validate"]
 
     feature["links"] = ItemLinks(
         collection_id=collection,

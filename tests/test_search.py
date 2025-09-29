@@ -17,9 +17,6 @@
 # limitations under the License.
 """Search tests."""
 
-from typing import Any
-from urllib.parse import parse_qs, urlparse
-
 import pytest
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
 from eodag.utils import format_dict_items
@@ -532,16 +529,17 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
     )
 
 
-@pytest.mark.parametrize("input_validate,expected_validate", [(None, None), ("true", True), ("false", False)])
-async def test_search_validate(request_valid, defaults, input_validate, expected_validate):
+@pytest.mark.parametrize("validate", [True, False])
+async def test_search_validate(request_valid, defaults, validate):
     """
     Test request validation for the search endpoint.
     """
-    input_qs = f"&validate={input_validate}" if input_validate else ""
-    expected_kwargs = {"validate": expected_validate} if expected_validate is not None else {}
+    get_settings().validate = validate
+
+    expected_kwargs = {"validate": validate}
 
     await request_valid(
-        f"search?collections={defaults.product_type}{input_qs}",
+        f"search?collections={defaults.product_type}",
         expected_search_kwargs=dict(
             productType=defaults.product_type,
             page=1,
@@ -551,39 +549,3 @@ async def test_search_validate(request_valid, defaults, input_validate, expected
             **expected_kwargs,
         ),
     )
-
-
-@pytest.mark.parametrize("input_validate", [None, "true", "false"])
-async def test_search_response_contains_validate_parameter(request_valid, defaults, input_validate):
-    """Responses to valid search requests must propagate parameter `validate` in the links"""
-
-    def assert_validate(expected_value: str, params: dict[str, Any]):
-        if expected_value:
-            assert "validate" in params
-            actual_value: str
-            # if `params` comes from a query string, a list of values is given for each key
-            if isinstance(params["validate"], list):
-                actual_value = params["validate"][0]
-            else:
-                actual_value = params["validate"]
-            assert actual_value.lower() == expected_value.lower()
-        else:
-            assert "validate" not in params
-
-    params: dict[str, Any]
-    input_qs = f"&validate={input_validate}" if input_validate else ""
-    response = await request_valid(f"search?collections={defaults.product_type}{input_qs}")
-
-    # next page link
-    link_next: str = next(link for link in response["links"] if link["rel"] == "next")["href"]
-    params = parse_qs(urlparse(link_next).query)
-    assert_validate(input_validate, params)
-
-    # feature's links
-    for feature in response["features"]:
-        for link in feature["links"]:
-            if link["rel"] == "retrieve":
-                assert_validate(input_validate, link["body"])
-            elif link["rel"] == "self":
-                params = parse_qs(urlparse(link["href"]).query)
-                assert_validate(input_validate, params)

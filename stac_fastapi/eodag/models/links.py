@@ -315,15 +315,10 @@ class ItemLinks(CollectionLinksBase):
 
     def link_self(self) -> dict[str, str]:
         """Create the self link."""
-        query_string = ""
-        validate = self.retrieve_body.get("validate", None)
-        if validate is not None:
-            query_string = f"?validate={validate}"
-
         return {
             "rel": Relations.self.value,
             "type": MimeTypes.geojson.value,
-            "href": self.resolve(f"collections/{self.collection_id}/items/{self.item_id}{query_string}"),
+            "href": self.resolve(f"collections/{self.collection_id}/items/{self.item_id}"),
             "title": "Original item link",
         }
 

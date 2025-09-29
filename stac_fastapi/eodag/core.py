@@ -169,6 +169,10 @@ class EodagCoreClient(CustomCoreClient):
 
         request.state.eodag_args = eodag_args
 
+        # validate request
+        settings = get_settings()
+        validate: bool = settings.validate
+
         # check if the collection exists
         if collection := eodag_args.get("collection"):
             all_pt = request.app.state.dag.list_collections(fetch_providers=False)
@@ -184,11 +188,11 @@ class EodagCoreClient(CustomCoreClient):
             search_result = SearchResult([])
             for item_id in ids:
                 eodag_args["id"] = item_id
-                search_result.extend(request.app.state.dag.search(**eodag_args))
+                search_result.extend(request.app.state.dag.search(validate=validate, **eodag_args))
             search_result.number_matched = len(search_result)
         else:
             # search without ids
-            search_result = request.app.state.dag.search(**eodag_args)
+            search_result = request.app.state.dag.search(validate=validate, **eodag_args)
 
         if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
@@ -443,7 +447,6 @@ class EodagCoreClient(CustomCoreClient):
         intersects: Optional[str] = None,
         filter_expr: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
-        validate_request: Optional[bool] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -461,8 +464,6 @@ class EodagCoreClient(CustomCoreClient):
         :param intersects: GeoJSON geometry to filter the search.
         :param filter_expr: CQL filter to apply to the search.
         :param filter_lang: Language of the filter (default is "cql2-text").
-        :param validate_request: Set to True to validate the request query before sending it
-               to the provider
         :param kwargs: Additional arguments.
         :returns: Found items.
         :raises HTTPException: If the provided parameters are invalid.
@@ -488,9 +489,6 @@ class EodagCoreClient(CustomCoreClient):
 
             base_args["filter"] = str2json("filter_expr", filter_expr)
             base_args["filter_lang"] = "cql2-json"
-
-        if validate_request is not None:
-            base_args["validate"] = validate_request
 
         # Remove None values from dict
         clean = {}
@@ -621,8 +619,6 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         parsed_filter = parse_cql2(f)
         eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
-    validate = search_request.model_dump(exclude_none=True, by_alias=True, include={"validate_request"})
-
     # EODAG search support a single collection
     if search_request.collections:
         base_args["collection"] = search_request.collections[0]
@@ -631,7 +627,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         base_args["ids"] = search_request.ids
 
     # merge all eodag search arguments
-    base_args = base_args | sort_by | eodag_filter | eodag_query | validate
+    base_args = base_args | sort_by | eodag_filter | eodag_query
 
     return base_args
 
