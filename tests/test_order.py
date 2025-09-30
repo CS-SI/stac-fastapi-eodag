@@ -98,6 +98,7 @@ async def test_order_ok(request_valid, post_data):
             expected_search_kwargs=dict(
                 productType=collection_id,
                 provider=None,
+                validate=True,
                 **post_data,
             ),
         )
@@ -188,6 +189,7 @@ async def test_order_with_poll_pending(request_valid, post_data):
             expected_search_kwargs=dict(
                 productType=collection_id,
                 provider=None,
+                validate=True,
                 **post_data,
             ),
         )
@@ -339,9 +341,9 @@ async def test_order_not_order_id_ko(request_not_found, mock_search, mock_order)
 
 
 @pytest.mark.parametrize("validate", [True, False])
-async def test_order_validate(request_valid, validate):
+async def test_order_validate(request_valid, settings_cache_clear, validate):
     """Test product order validation"""
-    get_settings().validate = validate
+    get_settings().validate_request = validate
     post_data = {"foo": "bar"}
     federation_backend = "cop_ads"
     collection_id = "CAMS_EAC4"

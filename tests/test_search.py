@@ -49,6 +49,7 @@ async def test_request_params_valid(request_valid, defaults, input_bbox, expecte
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -70,6 +71,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=False,  # Ensure count is set to False
+            validate=True,
         ),
     )
     assert response["numberMatched"] is None
@@ -89,6 +91,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=True,  # Ensure count is set to True
+            validate=True,
         ),
     )
     assert response["numberMatched"] == 2
@@ -251,6 +254,7 @@ async def test_date_search(request_valid, defaults, input_start, input_end, expe
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -271,6 +275,7 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -298,6 +303,7 @@ async def test_sortby_items_parametrize(request_valid, defaults, sortby, expecte
             "items_per_page": 10,
             "raise_errors": False,
             "count": False,
+            "validate": True,
         },
         check_links=False,
     )
@@ -321,6 +327,7 @@ async def test_search_item_id_from_collection(request_valid, defaults):
         expected_search_kwargs={
             "id": "foo",
             "productType": defaults.product_type,
+            "validate": True,
         },
     )
 
@@ -343,6 +350,7 @@ async def test_cloud_cover_post_search(request_valid, defaults):
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
         ),
     )
 
@@ -363,6 +371,7 @@ async def test_intersects_post_search(request_valid, defaults):
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
         ),
     )
 
@@ -397,6 +406,7 @@ async def test_date_post_search(request_valid, defaults, input_start, input_end,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -416,10 +426,12 @@ async def test_ids_post_search(request_valid, defaults):
             {
                 "id": "foo",
                 "productType": defaults.product_type,
+                "validate": True,
             },
             {
                 "id": "bar",
                 "productType": defaults.product_type,
+                "validate": True,
             },
         ],
     )
@@ -523,6 +535,7 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
             raise_errors=False,
             count=False,
             productType=defaults.product_type,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -533,11 +546,11 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
 
 
 @pytest.mark.parametrize("validate", [True, False])
-async def test_search_validate(request_valid, defaults, validate):
+async def test_search_validate(request_valid, defaults, settings_cache_clear, validate):
     """
     Test request validation for the search endpoint.
     """
-    get_settings().validate = validate
+    get_settings().validate_request = validate
 
     expected_kwargs = {"validate": validate}
 
