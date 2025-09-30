@@ -28,6 +28,8 @@ from eodag.config import load_default_config
 from eodag.plugins.download.base import Download
 from eodag.plugins.manager import PluginManager
 
+from stac_fastapi.eodag.config import get_settings
+
 
 @pytest.mark.parametrize("post_data", [{"foo": "bar"}, {}])
 async def test_order_ok(request_valid, post_data):
@@ -336,3 +338,81 @@ async def test_order_not_order_id_ko(request_not_found, mock_search, mock_order)
         post_data={},
         error_message="Download order failed.",
     )
+
+
+@pytest.mark.parametrize("validate", [True, False])
+async def test_order_validate(request_valid, validate):
+    """Test product order validation"""
+    get_settings().validate = validate
+    post_data = {"foo": "bar"}
+    federation_backend = "cop_ads"
+    collection_id = "CAMS_EAC4"
+    expected_search_kwargs = dict(
+        productType=collection_id,
+        provider=None,
+        validate=validate,
+        **post_data,
+    )
+    url = f"collections/{collection_id}/order"
+    product = EOProduct(
+        federation_backend,
+        dict(
+            geometry="POINT (0 0)",
+            title="dummy_product",
+            id="dummy_id",
+        ),
+    )
+    product.product_type = collection_id
+
+    product_dataset = "cams-global-reanalysis-eac4"
+    endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
+    product.properties["orderLink"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
+
+    # order an offline product
+    product.properties["storageStatus"] = OFFLINE_STATUS
+
+    # add auth and download plugins to make the order works
+    plugins_manager = PluginManager(load_default_config())
+    download_plugin = plugins_manager.get_download_plugin(product)
+    auth_plugin = plugins_manager.get_auth_plugin(download_plugin, product)
+    auth_plugin.config.credentials = {"apikey": "anicekey"}
+    product.register_downloader(download_plugin, auth_plugin)
+
+    product_id = product.properties["id"]
+
+    @responses.activate(registry=responses.registries.OrderedRegistry)
+    async def run():
+        responses.add(
+            responses.POST,
+            f"{endpoint}/processes/{product_dataset}/execution",
+            status=200,
+            content_type="application/json",
+            body=f'{{"status": "accepted", "jobID": "{product_id}"}}'.encode("utf-8"),
+            auto_calculate_content_length=True,
+        )
+        responses.add(
+            responses.GET,
+            f"{endpoint}/jobs/{product_id}",
+            status=200,
+            content_type="application/json",
+            body=f'{{"status": "successful", "jobID": "{product_id}"}}'.encode("utf-8"),
+            auto_calculate_content_length=True,
+        )
+        responses.add(
+            responses.GET,
+            f"{endpoint}/jobs/{product_id}/results",
+            status=200,
+            content_type="application/json",
+            body=(f'{{"asset": {{"value": {{"href": "http://somewhere/download/{product_id}"}} }} }}'.encode("utf-8")),
+            auto_calculate_content_length=True,
+        )
+
+        await request_valid(
+            url=url,
+            method="POST",
+            post_data=post_data,
+            search_result=SearchResult([product]),
+            expected_search_kwargs=expected_search_kwargs,
+        )
+
+    await run()

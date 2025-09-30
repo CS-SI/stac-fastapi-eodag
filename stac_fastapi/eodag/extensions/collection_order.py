@@ -36,6 +36,7 @@ from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
 from stac_fastapi.types.stac import Item
 
+from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
@@ -81,14 +82,22 @@ class BaseCollectionOrderClient:
 
         if request_body is None:
             federation_backend = None
-            request_params = {}
+            search_params = {}
         else:
             federation_backend = request_body.federation_backends[0] if request_body.federation_backends else None
 
             request_params = request_body.model_dump(exclude={"federation_backends": True})
             # use eodag formatting for search
             search_params = {f"ecmwf:{k}": v for k, v in request_params.items()}
-        search_results = dag.search(collection=collection_id, provider=federation_backend, **search_params)
+
+        settings = get_settings()
+        validate: bool = settings.validate
+        search_results = dag.search(
+            productType=collection_id,
+            provider=federation_backend,
+            validate=validate,
+            **search_params,
+        )
 
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
