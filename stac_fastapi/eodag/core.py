@@ -171,7 +171,7 @@ class EodagCoreClient(CustomCoreClient):
 
         # validate request
         settings = get_settings()
-        validate: bool = settings.validate
+        validate: bool = settings.validate_request
 
         # check if the collection exists
         if collection := eodag_args.get("collection"):

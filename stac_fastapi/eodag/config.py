@@ -65,9 +65,10 @@ class Settings(ApiSettings):
         validate_default=False,
     )
 
-    validate: bool = Field(
+    validate_request: bool = Field(
         default=True,
         description="Validate search and product order requests",
+        alias="validate",
     )
 
 

@@ -91,7 +91,7 @@ class BaseCollectionOrderClient:
             search_params = {f"ecmwf:{k}": v for k, v in request_params.items()}
 
         settings = get_settings()
-        validate: bool = settings.validate
+        validate: bool = settings.validate_request
         search_results = dag.search(
             productType=collection_id,
             provider=federation_backend,
