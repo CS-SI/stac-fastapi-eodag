@@ -160,6 +160,10 @@ class EodagCoreClient(CustomCoreClient):
 
         request.state.eodag_args = eodag_args
 
+        # validate request
+        settings = get_settings()
+        validate: bool = settings.validate_request
+
         # check if the collection exists
         if product_type := eodag_args.get("productType"):
             all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
@@ -175,11 +179,11 @@ class EodagCoreClient(CustomCoreClient):
             search_result = SearchResult([])
             for item_id in ids:
                 eodag_args["id"] = item_id
-                search_result.extend(request.app.state.dag.search(**eodag_args))
+                search_result.extend(request.app.state.dag.search(validate=validate, **eodag_args))
             search_result.number_matched = len(search_result)
         else:
             # search without ids
-            search_result = request.app.state.dag.search(**eodag_args)
+            search_result = request.app.state.dag.search(validate=validate, **eodag_args)
 
         if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
@@ -552,7 +556,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
 
     :param search_request: the search request
     :param model: the model used to validate stac metadata
-    :returns: a dictionnary containing arguments for the eodag search
+    :returns: a dictionary containing arguments for the eodag search
     """
     base_args = (
         {
