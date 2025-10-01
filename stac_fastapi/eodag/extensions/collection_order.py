@@ -89,7 +89,7 @@ class BaseCollectionOrderClient:
             request_params = request_body.model_dump(exclude={"federation_backends": True})
 
         settings = get_settings()
-        validate: bool = settings.validate
+        validate: bool = settings.validate_request
         search_results = dag.search(
             productType=collection_id,
             provider=federation_backend,
