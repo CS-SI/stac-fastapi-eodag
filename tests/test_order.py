@@ -27,6 +27,7 @@ from eodag.api.product.metadata_mapping import OFFLINE_STATUS, STAGING_STATUS
 from eodag.config import load_default_config
 from eodag.plugins.download.base import Download
 from eodag.plugins.manager import PluginManager
+from eodag.utils.exceptions import ValidationError
 
 from stac_fastapi.eodag.config import get_settings
 
@@ -344,7 +345,7 @@ async def test_order_not_order_id_ko(request_not_found, mock_search, mock_order)
 
 @pytest.mark.parametrize("validate", [True, False])
 async def test_order_validate(request_valid, settings_cache_clear, validate):
-    """Test product order validation"""
+    """Product order through eodag server must be validated according to settings"""
     get_settings().validate_request = validate
     post_data = {"foo": "bar"}
     federation_backend = "cop_ads"
@@ -418,3 +419,48 @@ async def test_order_validate(request_valid, settings_cache_clear, validate):
         )
 
     await run()
+
+
+async def test_order_validate_with_errors(app, app_client, mocker, settings_cache_clear):
+    """Order a product through eodag server with invalid parameters must return informative error message"""
+    get_settings().validate_request = True
+    collection_id = "AG_ERA5"
+    errors = [
+        ("wekeo_ecmwf", ValidationError("2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required")),
+        ("cop_cds", ValidationError("2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required")),
+    ]
+    expected_response = {
+        "code": "400",
+        "description": "Something went wrong",
+        "errors": [
+            {
+                "provider": "wekeo_ecmwf",
+                "error": "ValidationError",
+                "status_code": 400,
+                "message": "2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required",
+            },
+            {
+                "provider": "cop_cds",
+                "error": "ValidationError",
+                "status_code": 400,
+                "message": "2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required",
+            },
+        ],
+    }
+
+    mock_search = mocker.patch.object(app.state.dag, "search")
+    mock_search.return_value = SearchResult([], 0, errors)
+
+    response = await app_client.request(
+        "POST",
+        f"/collections/{collection_id}/order",
+        json=None,
+        follow_redirects=True,
+        headers={},
+    )
+    response_content = response.json()
+
+    assert response.status_code == 400
+    assert "ticket" in response_content
+    response_content.pop("ticket", None)
+    assert expected_response == response_content

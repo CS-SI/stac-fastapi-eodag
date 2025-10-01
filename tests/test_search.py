@@ -19,7 +19,9 @@
 
 import pytest
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
+from eodag.api.search_result import SearchResult
 from eodag.utils import format_dict_items
+from eodag.utils.exceptions import ValidationError
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
@@ -545,7 +547,7 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
 @pytest.mark.parametrize("validate", [True, False])
 async def test_search_validate(request_valid, defaults, settings_cache_clear, validate):
     """
-    Test request validation for the search endpoint.
+    Search through eodag server must be validated according to settings
     """
     get_settings().validate_request = validate
 
@@ -562,3 +564,48 @@ async def test_search_validate(request_valid, defaults, settings_cache_clear, va
             **expected_kwargs,
         ),
     )
+
+
+async def test_search_validate_with_errors(app, app_client, mocker, settings_cache_clear):
+    """Search through eodag server must display provider's error if validation fails"""
+    get_settings().validate_request = True
+    collection_id = "AG_ERA5"
+    errors = [
+        ("wekeo_ecmwf", ValidationError("2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required")),
+        ("cop_cds", ValidationError("2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required")),
+    ]
+    expected_response = {
+        "code": "400",
+        "description": "Something went wrong",
+        "errors": [
+            {
+                "provider": "wekeo_ecmwf",
+                "error": "ValidationError",
+                "status_code": 400,
+                "message": "2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required",
+            },
+            {
+                "provider": "cop_cds",
+                "error": "ValidationError",
+                "status_code": 400,
+                "message": "2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required",
+            },
+        ],
+    }
+
+    mock_search = mocker.patch.object(app.state.dag, "search")
+    mock_search.return_value = SearchResult([], 0, errors)
+
+    response = await app_client.request(
+        "GET",
+        f"search?collections={collection_id}",
+        json=None,
+        follow_redirects=True,
+        headers={},
+    )
+    response_content = response.json()
+
+    assert response.status_code == 400
+    assert "ticket" in response_content
+    response_content.pop("ticket", None)
+    assert expected_response == response_content
