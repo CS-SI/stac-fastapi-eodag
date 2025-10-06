@@ -31,11 +31,11 @@ from eodag import EODataAccessGateway
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
+from eodag.plugins.authentication.aws_auth import AwsAuth
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.openid_connect import OIDCRefreshTokenBase
 from eodag.plugins.authentication.token import TokenAuth
 from eodag.plugins.authentication.token_exchange import OIDCTokenExchangeAuth
-from eodag.plugins.download.aws import AwsDownload
 from eodag.plugins.download.base import Download
 from eodag.plugins.download.http import HTTPDownload
 from eodag.plugins.search.qssearch import StacSearch
@@ -377,6 +377,14 @@ def mock_oidc_token_exchange_auth_authenticate(mocker):
 
 
 @pytest.fixture(scope="function")
+def mock_aws_authenticate(mocker, app):
+    """
+    Mocks the `authenticate` method of the `AwsAuth` plugin.
+    """
+    return mocker.patch.object(AwsAuth, "authenticate")
+
+
+@pytest.fixture(scope="function")
 def tmp_dir():
     """
     Get random temporary directory `Path`.
@@ -592,7 +600,7 @@ def request_accepted(app_client):
 @pytest.fixture(scope="function")
 def mock_presign_url(mocker):
     """Fixture for the presign_url function"""
-    return mocker.patch.object(AwsDownload, "presign_url")
+    return mocker.patch.object(AwsAuth, "presign_url")
 
 
 @dataclass
