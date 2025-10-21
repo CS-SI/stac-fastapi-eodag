@@ -35,7 +35,7 @@ async def test_download_item_from_collection_stream(
 
     resp = await request_valid_raw(f"data/peps/{defaults.product_type}/foo/downloadLink")
     assert resp.content == b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    assert resp.headers["content-disposition"] == "attachment; filename=alphabet.txt"
+    assert resp.headers["content-disposition"] == 'attachment; filename="alphabet.txt"'
     assert resp.headers["content-type"] == "text/plain"
 
 
