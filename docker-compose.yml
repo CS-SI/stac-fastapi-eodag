@@ -1,28 +1,25 @@
-networks:
-  stacapi-eodag-network:
-    driver: bridge
-
 services:
   stac_fastapi_eodag_server:
     image: stac-fastapi-eodag:latest
     container_name: eodag_server
     build: .
     ports:
-      - "8080:8000"
-    networks:
-      - stacapi-eodag-network
+      - "8080:8080"
     depends_on:
       - otel-collector
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318/"
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.90.1
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol-config.yml"]
     container_name: otel_collector
     restart: unless-stopped
     volumes:
-      - ./config/otelcol_config.yml:/etc/otelcol-contrib/config.yaml
-    networks:
-      - stacapi-eodag-network
+      - ./config/otelcol_config.yml:/etc/otelcol-config.yml
     ports:
       - "4318:4318"
       - "8000:8000"
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Jaeger UI
