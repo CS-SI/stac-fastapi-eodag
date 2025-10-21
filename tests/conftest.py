@@ -96,7 +96,8 @@ async def stream_response():
     """
     return StreamResponse(
         content=iter(ascii_uppercase),
-        headers={"content-disposition": "attachment; filename=alphabet.txt", "content-type": "text/plain"},
+        filename="alphabet.txt",
+        headers={"content-type": "text/plain"},
     )
 
 
