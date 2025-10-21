@@ -26,6 +26,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
+        with:
+          activate-environment: "true"
 
       - name: Install dependencies
         run: uv pip install ".[server,telemetry]"
