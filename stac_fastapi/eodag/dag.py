@@ -74,13 +74,13 @@ def init_dag(app: FastAPI) -> None:
     dag = EODataAccessGateway()
 
     ext_stac_collections = fetch_external_stac_collections(
-        dag.list_product_types(fetch_providers=settings.fetch_providers)
+        dag.list_collections(fetch_providers=settings.fetch_providers)
     )
 
     app.state.ext_stac_collections = ext_stac_collections
 
     # update eodag product_types config form external stac collections
-    for p, p_f in dag.product_types_config.source.items():
+    for p, p_f in dag.collections_config.source.items():
         for key in (p, p_f.get("alias")):
             if key is None:
                 continue

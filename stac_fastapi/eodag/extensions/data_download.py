@@ -40,7 +40,7 @@ from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.errors import (
     DownloadError,
     MisconfiguredError,
-    NoMatchingProductType,
+    NoMatchingCollection,
     NotAvailableError,
     ValidationError,
 )
@@ -108,11 +108,11 @@ class BaseDataDownloadClient:
 
         # check if the collection is known
         try:
-            dag.get_product_type_from_alias(collection_id)
-        except NoMatchingProductType as e:
+            dag.get_collection_from_alias(collection_id)
+        except NoMatchingCollection as e:
             raise NotFoundError(e) from e
 
-        search_results = dag.search(id=item_id, productType=collection_id, provider=federation_backend)
+        search_results = dag.search(id=item_id, collection=collection_id, provider=federation_backend)
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
 
@@ -133,7 +133,7 @@ class BaseDataDownloadClient:
                 product.downloader.order(product=product, auth=auth)  # type: ignore
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
-                product.properties["storageStatus"] = STAGING_STATUS
+                product.properties["order:status"] = STAGING_STATUS
             except Exception as e:
                 if (
                     isinstance(e, DownloadError) or isinstance(e, ValidationError)
@@ -149,19 +149,23 @@ class BaseDataDownloadClient:
                 f"Impossible to download {item_id} item in {collection_id} collection",
                 f" for backend {federation_backend}.",
             )
-        if product.properties.get("storageStatus", ONLINE_STATUS) != ONLINE_STATUS:
+        if product.properties.get("order:status", ONLINE_STATUS) != ONLINE_STATUS:
             # "title" property is a fake one create by EODAG, set it to the item ID
             # (the same one as order ID) to make error message clearer
             product.properties["title"] = product.properties["id"]
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
-            status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["orderStatusLink"]
-            product.properties["orderLink"] = product.properties["orderStatusLink"] = get_metadata_path_value(
+            status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["eodag:status_link"]
+            product.properties["eodag:order_link"] = product.properties["eodag:status_link"] = get_metadata_path_value(
                 status_link_metadata
             ).format(orderId=item_id)
 
-            search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get("searchLink")
+            search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get(
+                "eodag:search_link"
+            )
             if search_link_metadata:
-                product.properties["searchLink"] = get_metadata_path_value(search_link_metadata).format(orderId=item_id)
+                product.properties["eodag:search_link"] = get_metadata_path_value(search_link_metadata).format(
+                    orderId=item_id
+                )
 
             order_status_method = getattr(product.downloader, "_order_status", None)
             if not order_status_method:
@@ -174,7 +178,7 @@ class BaseDataDownloadClient:
                 order_status_method(product=product, auth=auth)
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
-                product.properties["storageStatus"] = STAGING_STATUS
+                product.properties["order:status"] = STAGING_STATUS
             except Exception as e:
                 if (
                     isinstance(e, DownloadError) or isinstance(e, ValidationError)
