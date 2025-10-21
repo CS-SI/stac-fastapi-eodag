@@ -36,6 +36,8 @@ from stac_fastapi.types.extension import ApiExtension
 from stac_fastapi.types.search import APIRequest
 from stac_fastapi.types.stac import Item
 
+from stac_fastapi.eodag.config import get_settings
+from stac_fastapi.eodag.errors import ResponseSearchError
 from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
@@ -86,11 +88,20 @@ class BaseCollectionOrderClient:
             federation_backend = request_body.federation_backends[0] if request_body.federation_backends else None
 
             request_params = request_body.model_dump(exclude={"federation_backends": True})
-        search_results = dag.search(productType=collection_id, provider=federation_backend, **request_params)
+
+        settings = get_settings()
+        validate: bool = settings.validate_request
+        search_results = dag.search(
+            productType=collection_id,
+            provider=federation_backend,
+            validate=validate,
+            **request_params,
+        )
 
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
-
+        elif search_results.errors:
+            raise ResponseSearchError(search_results.errors, self.stac_metadata_model)
         else:
             raise NotFoundError(
                 f"Could not find any item in {collection_id} collection for backend {federation_backend}.",

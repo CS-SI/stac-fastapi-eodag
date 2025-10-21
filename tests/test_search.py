@@ -19,7 +19,9 @@
 
 import pytest
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
+from eodag.api.search_result import SearchResult
 from eodag.utils import format_dict_items
+from eodag.utils.exceptions import ValidationError
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
@@ -49,6 +51,7 @@ async def test_request_params_valid(request_valid, defaults, input_bbox, expecte
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -70,6 +73,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=False,  # Ensure count is set to False
+            validate=True,
         ),
     )
     assert response["numberMatched"] is None
@@ -89,6 +93,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=True,  # Ensure count is set to True
+            validate=True,
         ),
     )
     assert response["numberMatched"] == 2
@@ -251,6 +256,7 @@ async def test_date_search(request_valid, defaults, input_start, input_end, expe
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -271,6 +277,7 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -298,6 +305,7 @@ async def test_sortby_items_parametrize(request_valid, defaults, sortby, expecte
             "items_per_page": 10,
             "raise_errors": False,
             "count": False,
+            "validate": True,
         },
         check_links=False,
     )
@@ -321,6 +329,7 @@ async def test_search_item_id_from_collection(request_valid, defaults):
         expected_search_kwargs={
             "id": "foo",
             "productType": defaults.product_type,
+            "validate": True,
         },
     )
 
@@ -343,6 +352,7 @@ async def test_cloud_cover_post_search(request_valid, defaults):
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
         ),
     )
 
@@ -363,6 +373,7 @@ async def test_intersects_post_search(request_valid, defaults):
             geom=defaults.bbox_wkt,
             raise_errors=False,
             count=False,
+            validate=True,
         ),
     )
 
@@ -397,6 +408,7 @@ async def test_date_post_search(request_valid, defaults, input_start, input_end,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
             count=False,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -416,10 +428,12 @@ async def test_ids_post_search(request_valid, defaults):
             {
                 "id": "foo",
                 "productType": defaults.product_type,
+                "validate": True,
             },
             {
                 "id": "bar",
                 "productType": defaults.product_type,
+                "validate": True,
             },
         ],
     )
@@ -523,6 +537,7 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
             raise_errors=False,
             count=False,
             productType=defaults.product_type,
+            validate=True,
             **expected_kwargs,
         ),
     )
@@ -530,3 +545,70 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
     assert all(
         [i["assets"]["downloadLink"]["href"] for i in response_items if i["properties"]["order:status"] != "orderable"]
     )
+
+
+@pytest.mark.parametrize("validate", [True, False])
+async def test_search_validate(request_valid, defaults, settings_cache_clear, validate):
+    """
+    Search through eodag server must be validated according to settings
+    """
+    get_settings().validate_request = validate
+
+    expected_kwargs = {"validate": validate}
+
+    await request_valid(
+        f"search?collections={defaults.product_type}",
+        expected_search_kwargs=dict(
+            productType=defaults.product_type,
+            page=1,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            raise_errors=False,
+            count=False,
+            **expected_kwargs,
+        ),
+    )
+
+
+async def test_search_validate_with_errors(app, app_client, mocker, settings_cache_clear):
+    """Search through eodag server must display provider's error if validation fails"""
+    get_settings().validate_request = True
+    collection_id = "AG_ERA5"
+    errors = [
+        ("wekeo_ecmwf", ValidationError("2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required")),
+        ("cop_cds", ValidationError("2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required")),
+    ]
+    expected_response = {
+        "code": "400",
+        "description": "Something went wrong",
+        "errors": [
+            {
+                "provider": "wekeo_ecmwf",
+                "error": "ValidationError",
+                "status_code": 400,
+                "message": "2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required",
+            },
+            {
+                "provider": "cop_cds",
+                "error": "ValidationError",
+                "status_code": 400,
+                "message": "2 error(s). ecmwf:version: Field required; ecmwf:variable: Field required",
+            },
+        ],
+    }
+
+    mock_search = mocker.patch.object(app.state.dag, "search")
+    mock_search.return_value = SearchResult([], 0, errors)
+
+    response = await app_client.request(
+        "GET",
+        f"search?collections={collection_id}",
+        json=None,
+        follow_redirects=True,
+        headers={},
+    )
+    response_content = response.json()
+
+    assert response.status_code == 400
+    assert "ticket" in response_content
+    response_content.pop("ticket", None)
+    assert expected_response == response_content
