@@ -98,7 +98,7 @@ class BaseCollectionOrderClient:
 
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
-        if product.properties.get("orderLink") is None or product.properties.get("storageStatus") != OFFLINE_STATUS:
+        if product.properties.get("orderLink") is None or product.properties.get("order:status") != OFFLINE_STATUS:
             raise NotFoundError(
                 "Product is not orderable. Please download it directly.",
             )

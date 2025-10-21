@@ -28,7 +28,7 @@ from stac_fastapi.types.requests import get_base_url
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.eodag_types.queryables import QueryablesGetParams
-from stac_fastapi.eodag.errors import UnsupportedProductType
+from stac_fastapi.eodag.errors import UnsupportedCollection
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 COMMON_QUERYABLES_PROPERTIES = {
@@ -193,15 +193,15 @@ class FiltersClient(AsyncBaseFiltersClient):
         # get queryables from eodag
         try:
             eodag_queryables = request.app.state.dag.list_queryables(**eodag_params)
-        except UnsupportedProductType as err:
+        except UnsupportedCollection as err:
             raise NotFoundError(err) from err
 
         if "start" in eodag_queryables:
             start_queryable = eodag_queryables.pop("start")
-            eodag_queryables["startTimeFromAscendingNode"] = start_queryable
+            eodag_queryables["start_datetime"] = start_queryable
         if "end" in eodag_queryables:
             end_queryable = eodag_queryables.pop("end")
-            eodag_queryables["completionTimeFromAscendingNode"] = end_queryable
+            eodag_queryables["end_datetime"] = end_queryable
 
         base_url = get_base_url(request)
         stac_fastapi_title = get_settings().stac_fastapi_title

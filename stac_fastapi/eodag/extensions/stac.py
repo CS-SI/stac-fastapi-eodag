@@ -57,13 +57,13 @@ class SarFields(BaseModel):
     https://github.com/stac-extensions/sar#item-properties-or-asset-fields
     """
 
-    instrument_mode: Optional[str] = Field(None, validation_alias="sensorMode")
-    frequency_band: Optional[str] = Field(None, validation_alias="dopplerFrequency")
+    instrument_mode: Optional[str] = Field(None)
+    frequency_band: Optional[str] = Field(None)
     center_frequency: Optional[float] = Field(None)
     polarizations: Annotated[
         Optional[Union[str, list[str]]],
         BeforeValidator(str2liststr),
-    ] = Field(None, validation_alias="polarizationChannels")  # TODO: EODAG split string by "," to get this list
+    ] = Field(None)  # TODO: EODAG split string by "," to get this list
     resolution_range: Optional[float] = Field(None)
     resolution_azimuth: Optional[float] = Field(None)
     pixel_spacing_range: Optional[float] = Field(None)
@@ -89,10 +89,10 @@ class SatelliteFields(BaseModel):
     https://github.com/stac-extensions/sat#item-properties
     """
 
-    platform_international_designator: Optional[str] = Field(None, validation_alias="platform_international_designator")
-    orbit_state: Optional[str] = Field(None, validation_alias="orbitDirection")
-    absolute_orbit: Optional[int] = Field(None, validation_alias="orbitNumber")
-    relative_orbit: Optional[int] = Field(None, validation_alias="relativeOrbitNumber")
+    platform_international_designator: Optional[str] = Field(None)
+    orbit_state: Optional[str] = Field(None)
+    absolute_orbit: Optional[int] = Field(None)
+    relative_orbit: Optional[int] = Field(None)
     anx_datetime: Optional[str] = Field(None)
 
 
@@ -132,7 +132,7 @@ class ProcessingFields(BaseModel):
 
     expression: Optional[dict[str, Any]] = Field(None)
     lineage: Optional[str] = Field(None)
-    level: Optional[str] = Field(None, validation_alias="processingLevel")
+    level: Optional[str] = Field(None)
     facility: Optional[str] = Field(None)
     software: Optional[dict[str, str]] = Field(None)
 
@@ -155,8 +155,8 @@ class ViewGeometryFields(BaseModel):
     off_nadir: Optional[float] = Field(None)
     incidence_angle: Optional[float] = Field(None)
     azimuth: Optional[float] = Field(None)
-    sun_azimuth: Optional[float] = Field(None, validation_alias="illuminationAzimuthAngle")
-    sun_elevation: Optional[float] = Field(None, validation_alias="illuminationElevationAngle")
+    sun_azimuth: Optional[float] = Field(None)
+    sun_elevation: Optional[float] = Field(None)
 
 
 @attr.s
@@ -174,8 +174,8 @@ class ElectroOpticalFields(BaseModel):
     https://github.com/stac-extensions/eo#item-properties
     """
 
-    cloud_cover: Optional[float] = Field(None, validation_alias="cloudCover")
-    snow_cover: Optional[float] = Field(None, validation_alias="snowCover")
+    cloud_cover: Optional[float] = Field(None)
+    snow_cover: Optional[float] = Field(None)
     bands: Optional[list[dict[str, Union[str, int]]]] = Field(None)
 
 

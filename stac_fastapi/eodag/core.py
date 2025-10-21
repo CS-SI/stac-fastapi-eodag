@@ -29,7 +29,6 @@ import orjson
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
-from pydantic.alias_generators import to_camel, to_snake
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
 from pygeofilter.parsers.cql2_json import parse as parse_json
@@ -46,11 +45,11 @@ from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
-from eodag.utils.exceptions import NoMatchingProductType as EodagNoMatchingProductType
+from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
-from stac_fastapi.eodag.errors import NoMatchingProductType, ResponseSearchError
+from stac_fastapi.eodag.errors import NoMatchingCollection, ResponseSearchError
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     CollectionSearchPagingLinks,
@@ -161,12 +160,12 @@ class EodagCoreClient(CustomCoreClient):
         request.state.eodag_args = eodag_args
 
         # check if the collection exists
-        if product_type := eodag_args.get("productType"):
-            all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
+        if product_type := eodag_args.get("collection"):
+            all_pt = request.app.state.dag.list_collections(fetch_providers=False)
             # only check the first collection (EODAG search only support a single collection)
             existing_pt = [pt for pt in all_pt if pt["ID"] == product_type]
             if not existing_pt:
-                raise NoMatchingProductType(f"Collection {product_type} does not exist.")
+                raise NoMatchingCollection(f"Collection {product_type} does not exist.")
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
@@ -255,7 +254,7 @@ class EodagCoreClient(CustomCoreClient):
             provider = parsed_query.get("federation:backends")
             provider = provider[0] if isinstance(provider, list) else provider
 
-        all_pt = request.app.state.dag.list_product_types(provider=provider, fetch_providers=False)
+        all_pt = request.app.state.dag.list_collections(provider=provider, fetch_providers=False)
 
         # datetime & free-text-search filters
         if any((q, datetime)):
@@ -266,10 +265,10 @@ class EodagCoreClient(CustomCoreClient):
             free_text = " AND ".join(q or [])
 
             try:
-                guessed_product_types = request.app.state.dag.guess_product_type(
-                    free_text=free_text, missionStartDate=start, missionEndDate=end
+                guessed_product_types = request.app.state.dag.guess_collection(
+                    free_text=free_text, start_date=start, end_date=end
                 )
-            except EodagNoMatchingProductType:
+            except EodagNoMatchingCollection:
                 product_types = []
             else:
                 product_types = [pt for pt in all_pt if pt["ID"] in guessed_product_types]
@@ -346,7 +345,7 @@ class EodagCoreClient(CustomCoreClient):
         :raises NotFoundError: If the collection does not exist.
         """
         product_type = next(
-            (pt for pt in request.app.state.dag.list_product_types(fetch_providers=False) if pt["ID"] == collection_id),
+            (pt for pt in request.app.state.dag.list_collections(fetch_providers=False) if pt["ID"] == collection_id),
             None,
         )
         if product_type is None:
@@ -578,8 +577,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     sort_by = {}
     if sortby := getattr(search_request, "sortby", None):
         sort_by_special_fields = {
-            "start": "startTimeFromAscendingNode",
-            "end": "completionTimeFromAscendingNode",
+            "start": "start_datetime",
+            "end": "end_datetime",
         }
         param_tuples = []
         for param in sortby:
@@ -587,8 +586,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
             param_tuples.append(
                 (
                     sort_by_special_fields.get(
-                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
-                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
+                        model.to_eodag(dumped_param["field"]),
+                        model.to_eodag(dumped_param["field"]),
                     ),
                     dumped_param["direction"],
                 )
@@ -608,7 +607,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
 
     # EODAG search support a single collection
     if search_request.collections:
-        base_args["productType"] = search_request.collections[0]
+        base_args["collection"] = search_request.collections[0]
 
     if search_request.ids:
         base_args["ids"] = search_request.ids
