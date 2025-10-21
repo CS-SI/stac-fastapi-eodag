@@ -29,23 +29,20 @@ jobs:
         with:
           activate-environment: "true"
 
-      - name: Install dependencies
-        run: uv pip install ".[server,telemetry]"
-
       - name: Determine the container tag and labels
         id: container_tag
         run: |
           APP_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
 
-          EODAG_VERSION=$(PYTHONWARNINGS="ignore::SyntaxWarning" uv run --active python -c "import eodag; print(eodag.__version__)")
-          echo "EODAG_VERSION=$EODAG_VERSION" >> $GITHUB_ENV
-
           # Default: branch name
           CONTAINER_TAG=${GITHUB_REF##*/}
 
           # Check if this is a release or eodag dispatch
           if [[ "${GITHUB_REF_TYPE}" == "tag" || ( "${GITHUB_EVENT_NAME}" == "repository_dispatch" && "${GITHUB_EVENT_CLIENT_PAYLOAD_TYPE}" == "release" ) ]]; then
+              uv pip install ".[server,telemetry]"
+              EODAG_VERSION=$(PYTHONWARNINGS="ignore::SyntaxWarning" uv run --active python -c "import eodag; print(eodag.__version__)")
+              echo "EODAG_VERSION=$EODAG_VERSION" >> $GITHUB_ENV
               CONTAINER_TAG="${APP_VERSION}-eodag-${EODAG_VERSION}"
           fi
 
@@ -67,7 +64,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            custom=stac-fastapi-eodag:${{ env.CONTAINER_TAG }}
+            type=raw,value=${{ env.CONTAINER_TAG }}
           labels: |
             org.opencontainers.image.title=stac-fastapi-eodag
             org.opencontainers.image.description=A STAC FastAPI backend using EODAG
