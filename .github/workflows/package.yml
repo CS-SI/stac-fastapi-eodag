@@ -28,7 +28,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Install dependencies
-        run: uv sync --with server --with telemetry
+        run: uv pip install ".[server,telemetry]"
 
       - name: Determine the container tag and labels
         id: container_tag
@@ -69,8 +69,8 @@ jobs:
           labels: |
             org.opencontainers.image.title=stac-fastapi-eodag
             org.opencontainers.image.description=A STAC FastAPI backend using EODAG
-            org.opencontainers.image.url=https://github.com/CS-SI/stac-fastapi-eodag
-            org.opencontainers.image.source=https://github.com/CS-SI/stac-fastapi-eodag.git
+            org.opencontainers.image.url=https://github.com/{{ github.repository }}
+            org.opencontainers.image.source=https://github.com/{{ github.repository }}.git
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.authors=CS GROUP - France (CSSI) <eodag@csgroup.space>
             org.opencontainers.image.version=${{ env.APP_VERSION }}
