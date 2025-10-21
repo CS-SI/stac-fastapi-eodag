@@ -6,7 +6,7 @@ on:
     tags: ['v*']
   workflow_dispatch:
   repository_dispatch:
-    types: [eodag_release]
+    types: [release]
 
 env:
   REGISTRY: ghcr.io
@@ -43,7 +43,7 @@ jobs:
           CONTAINER_TAG=${GITHUB_REF##*/}
 
           # Check if this is a release or eodag dispatch
-          if [[ "${GITHUB_REF_TYPE}" == "tag" || ( "${GITHUB_EVENT_NAME}" == "repository_dispatch" && "${GITHUB_EVENT_CLIENT_PAYLOAD_TYPE}" == "eodag_release" ) ]]; then
+          if [[ "${GITHUB_REF_TYPE}" == "tag" || ( "${GITHUB_EVENT_NAME}" == "repository_dispatch" && "${GITHUB_EVENT_CLIENT_PAYLOAD_TYPE}" == "release" ) ]]; then
               CONTAINER_TAG="${APP_VERSION}-eodag-${EODAG_VERSION}"
           fi
 

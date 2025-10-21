@@ -24,13 +24,12 @@ processors:
   batch:
 
 exporters:
-  debug:
-    verbosity: detailed
-  # Data sources: metrics
+  # metrics
   prometheus:
     endpoint: 0.0.0.0:8000
     namespace: eodag-otelcol-exporter
 
+  # traces
   otlphttp:
     endpoint: "http://jaeger:4318"
     tls:
@@ -43,12 +42,11 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug,otlphttp]
+      exporters: [otlphttp]
 
     metrics:
-#      receivers: [otlp, prometheus]
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug,prometheus]
+      exporters: [prometheus]
 
   extensions: [health_check, pprof, zpages]
