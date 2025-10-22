@@ -86,7 +86,7 @@ class BaseCollectionOrderClient:
             federation_backend = request_body.federation_backends[0] if request_body.federation_backends else None
 
             request_params = request_body.model_dump(exclude={"federation_backends": True})
-        search_results = dag.search(productType=collection_id, provider=federation_backend, **request_params)
+        search_results = dag.search(collection=collection_id, provider=federation_backend, **request_params)
 
         if len(search_results) > 0:
             product = cast(EOProduct, search_results[0])
@@ -98,7 +98,10 @@ class BaseCollectionOrderClient:
 
         auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
-        if product.properties.get("orderLink") is None or product.properties.get("order:status") != OFFLINE_STATUS:
+        if (
+            product.properties.get("eodag:order_link") is None
+            or product.properties.get("order:status") != OFFLINE_STATUS
+        ):
             raise NotFoundError(
                 "Product is not orderable. Please download it directly.",
             )
@@ -114,7 +117,7 @@ class BaseCollectionOrderClient:
             logger.debug("Order product")
             product.downloader.order(product=product, auth=auth, timeout=-1)
 
-        if raise_error or product.properties.get("orderId") is None:
+        if raise_error or product.properties.get("eodag:order_id") is None:
             raise NotFoundError(
                 "Download order failed. It can be due to a lack of product found, so you "
                 "may change the body of the request."
