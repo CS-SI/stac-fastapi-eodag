@@ -103,15 +103,14 @@ def init_dag(app: FastAPI) -> None:
 
             update_fields: dict[str, Any] = {
                 "title": p_f.get("title") or ext_col.get("title"),
-                "abstract": p_f.get("abstract") or ext_col["description"],
+                "description": p_f.get("description") or ext_col["description"],
                 "keywords": ext_col.get("keywords"),
-                "instrument": p_f.get("instrument") or instruments,
-                "platform": p_f.get("platform") or constellation,
-                "platformSerialIdentifier": p_f.get("platformSerialIdentifier") or platform,
-                "processingLevel": p_f.get("processingLevel") or processing_level,
+                "instruments": p_f.get("instruments") or instruments,
+                "platform": p_f.get("platform") or platform,
+                "constellation": p_f.get("constellation") or constellation,
+                "processing:level": p_f.get("processing:level") or processing_level,
                 "license": ext_col["license"],
-                "missionStartDate": ext_col["extent"]["temporal"]["interval"][0][0],
-                "missionEndDate": ext_col["extent"]["temporal"]["interval"][0][1],
+                "extent": ext_col["extent"],
             }
             clean = {k: v for k, v in update_fields.items() if v is not None}
             p_f.update(clean)

@@ -30,7 +30,7 @@ async def test_request_params_invalid(bbox, request_not_valid, defaults):
     """
     Test the invalid request parameters for the search endpoint.
     """
-    await request_not_valid(f"search?collections={defaults.product_type}&bbox={bbox}")
+    await request_not_valid(f"search?collections={defaults.collection}&bbox={bbox}")
 
 
 @pytest.mark.parametrize("input_bbox,expected_geom", [(None, None), ("bbox_csv", "bbox_wkt")])
@@ -42,9 +42,9 @@ async def test_request_params_valid(request_valid, defaults, input_bbox, expecte
     expected_kwargs = {"geom": getattr(defaults, expected_geom)} if expected_geom else {}
 
     await request_valid(
-        f"search?collections={defaults.product_type}{input_qs}",
+        f"search?collections={defaults.collection}{input_qs}",
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
@@ -59,13 +59,13 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
     Test the count setting during a search.
     """
     count = get_settings().count
-    qs = f"search?collections={defaults.product_type}"
+    qs = f"search?collections={defaults.collection}"
 
     assert count is False, "Default count setting should be False"
     response = await request_valid(
         qs,
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
@@ -84,7 +84,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
     response = await request_valid(
         qs,
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
@@ -100,7 +100,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
 async def test_items_response(request_valid, defaults):
     """Returned items properties must be mapped as expected"""
     resp_json = await request_valid(
-        f"search?collections={defaults.product_type}",
+        f"search?collections={defaults.collection}",
     )
     res = resp_json["features"]
     assert len(res) == 2
@@ -148,7 +148,7 @@ async def test_items_response(request_valid, defaults):
     get_settings().auto_order_whitelist = ["peps"]
 
     resp_json = await request_valid(
-        f"search?collections={defaults.product_type}",
+        f"search?collections={defaults.collection}",
     )
     res = resp_json["features"]
     assert res[1]["properties"]["order:status"] == "succeeded"
@@ -165,7 +165,7 @@ async def test_items_response_unexpected_types(request_valid, defaults, mock_sea
     result_properties = mock_search_result.data[0].properties
     result_properties["processingLevel"] = 2
     result_properties["platform"] = ["P1", "P2"]
-    resp_json = await request_valid(f"search?collections={defaults.product_type}", search_result=mock_search_result)
+    resp_json = await request_valid(f"search?collections={defaults.collection}", search_result=mock_search_result)
     res = resp_json["features"]
     assert len(res) == 2
     first_props = res[0]["properties"]
@@ -178,7 +178,7 @@ async def test_assets_with_different_download_base_url(request_valid, defaults):
     settings = get_settings()
     settings.download_base_url = "http://otherserver/"
     resp_json = await request_valid(
-        f"search?collections={defaults.product_type}",
+        f"search?collections={defaults.collection}",
     )
     res = resp_json["features"]
     assert len(res) == 2
@@ -196,7 +196,7 @@ async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_r
     result_properties["id"] = "id,with,commas"
     result_assets = mock_search_result.data[0].assets
     result_assets["asset*star"] = {"title": "asset*star", "href": "https://somewhere.fr"}
-    resp_json = await request_valid(f"search?collections={defaults.product_type}", search_result=mock_search_result)
+    resp_json = await request_valid(f"search?collections={defaults.collection}", search_result=mock_search_result)
     res = resp_json["features"]
     assert len(res) == 2
     assert "," not in res[0]["assets"]["downloadLink"]
@@ -219,7 +219,7 @@ async def test_search_results_with_errors(request_valid, mock_search_result, def
     mock_search_result.errors.extend(errors)
 
     await request_valid(
-        f"search?collections={defaults.product_type}",
+        f"search?collections={defaults.collection}",
         search_result=mock_search_result,
     )
 
@@ -243,9 +243,9 @@ async def test_date_search(request_valid, defaults, input_start, input_end, expe
     expected_kwargs |= {"end": getattr(defaults, expected_end)} if expected_end else {}
 
     await request_valid(
-        f"search?collections={defaults.product_type}&bbox={defaults.bbox_csv}{input_date_qs}",
+        f"search?collections={defaults.collection}&bbox={defaults.bbox_csv}{input_date_qs}",
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             geom=defaults.bbox_wkt,
@@ -263,9 +263,9 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
     expected_kwargs = {"start": defaults.start, "end": defaults.end} if use_dates else {}
 
     await request_valid(
-        f"collections/{defaults.product_type}/items?bbox={defaults.bbox_csv}{input_date_qs}",
+        f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}{input_date_qs}",
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             geom=defaults.bbox_wkt,
@@ -290,9 +290,9 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
 async def test_sortby_items_parametrize(request_valid, defaults, sortby, expected_sort_by):
     """Test sortby param with various values."""
     await request_valid(
-        f"collections/{defaults.product_type}/items?sortby={sortby}",
+        f"collections/{defaults.collection}/items?sortby={sortby}",
         expected_search_kwargs={
-            "productType": defaults.product_type,
+            "collection": defaults.collection,
             "sort_by": expected_sort_by,
             "page": 1,
             "items_per_page": 10,
@@ -306,7 +306,7 @@ async def test_sortby_items_parametrize(request_valid, defaults, sortby, expecte
 async def test_sortby_invalid_field_returns_400(app_client, defaults):
     """Test sortby with an invalid field returns a 400 error and expected error structure."""
     sortby = "-unknownfield"
-    response = await app_client.get(f"/collections/{defaults.product_type}/items?sortby={sortby}")
+    response = await app_client.get(f"/collections/{defaults.collection}/items?sortby={sortby}")
     assert response.status_code == 400
     resp_json = response.json()
     assert resp_json["code"] == "400"
@@ -317,10 +317,10 @@ async def test_sortby_invalid_field_returns_400(app_client, defaults):
 async def test_search_item_id_from_collection(request_valid, defaults):
     """Search by id through eodag server /collection endpoint should return a valid response"""
     await request_valid(
-        f"collections/{defaults.product_type}/items/foo",
+        f"collections/{defaults.collection}/items/foo",
         expected_search_kwargs={
             "id": "foo",
-            "productType": defaults.product_type,
+            "collection": defaults.collection,
         },
     )
 
@@ -331,19 +331,19 @@ async def test_cloud_cover_post_search(request_valid, defaults):
         "search",
         method="POST",
         post_data={
-            "collections": [defaults.product_type],
+            "collections": [defaults.collection],
             "bbox": defaults.bbox_list,
             "query": {"eo:cloud_cover": {"lte": 10}},
         },
-        expected_search_kwargs=dict(
-            productType=defaults.product_type,
-            page=1,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            cloudCover=10,
-            geom=defaults.bbox_wkt,
-            raise_errors=False,
-            count=False,
-        ),
+        expected_search_kwargs={
+            "collection": defaults.collection,
+            "page": 1,
+            "items_per_page": DEFAULT_ITEMS_PER_PAGE,
+            "eo:cloud_cover": 10,
+            "geom": defaults.bbox_wkt,
+            "raise_errors": False,
+            "count": False,
+        },
     )
 
 
@@ -353,11 +353,11 @@ async def test_intersects_post_search(request_valid, defaults):
         "search",
         method="POST",
         post_data={
-            "collections": [defaults.product_type],
+            "collections": [defaults.collection],
             "intersects": defaults.bbox_geojson,
         },
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             geom=defaults.bbox_wkt,
@@ -388,11 +388,11 @@ async def test_date_post_search(request_valid, defaults, input_start, input_end,
         "search",
         method="POST",
         post_data={
-            "collections": [defaults.product_type],
+            "collections": [defaults.collection],
             "datetime": input_date,
         },
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,
@@ -408,18 +408,18 @@ async def test_ids_post_search(request_valid, defaults):
         "search",
         method="POST",
         post_data={
-            "collections": [defaults.product_type],
+            "collections": [defaults.collection],
             "ids": ["foo", "bar"],
         },
         search_call_count=2,
         expected_search_kwargs=[
             {
                 "id": "foo",
-                "productType": defaults.product_type,
+                "collection": defaults.collection,
             },
             {
                 "id": "bar",
-                "productType": defaults.product_type,
+                "collection": defaults.collection,
             },
         ],
     )
@@ -430,7 +430,7 @@ async def test_ids_post_search(request_valid, defaults):
 
 async def test_search_response_contains_pagination_info(request_valid, defaults):
     """Responses to valid search requests must return a geojson with pagination info in properties"""
-    response = await request_valid(f"search?collections={defaults.product_type}")
+    response = await request_valid(f"search?collections={defaults.collection}")
     assert "numberMatched" in response
     assert "numberReturned" in response
 
@@ -463,7 +463,7 @@ async def test_assets_alt_url_blacklist(
     search_result[0].assets.update({"asset1": {"href": "https://peps.cnes.fr"}})
     search_result[1].assets.update({"asset1": {"href": "https://somewhere.fr"}})
     # make assets of the second product available for this test
-    search_result[1].properties["storageStatus"] = ONLINE_STATUS
+    search_result[1].properties["order:status"] = ONLINE_STATUS
 
     with pytest.MonkeyPatch.context() as mp:
         if keep_origin_url is not None:
@@ -472,7 +472,7 @@ async def test_assets_alt_url_blacklist(
             mp.setenv("ORIGIN_URL_BLACKLIST", origin_url_blacklist)
             mp.setenv("STAC_FASTAPI_LANDING_ID", "aaaaaaaaaaaa")
 
-        response = await request_valid(f"search?collections={defaults.product_type}")
+        response = await request_valid(f"search?collections={defaults.collection}")
         response_items = [f for f in response["features"]]
         assert ["alternate" in a for i in response_items for a in i["assets"].values()] == expected_found_alt_urls
 
@@ -484,20 +484,20 @@ async def test_assets_alt_url_blacklist(
         (
             "POST",
             "search",
-            {"collections": ["{defaults.product_type}"], "query": {"federation:backends": {"eq": "peps"}}},
+            {"collections": ["{defaults.collection}"], "query": {"federation:backends": {"eq": "peps"}}},
             {"provider": "peps"},
         ),
         # POST with no provider specified
-        ("POST", "search", {"collections": ["{defaults.product_type}"]}, {}),
+        ("POST", "search", {"collections": ["{defaults.collection}"]}, {}),
         # GET with provider specified
         (
             "GET",
-            'search?collections={defaults.product_type}&query={{"federation:backends":{{"eq":"peps"}} }}',
+            'search?collections={defaults.collection}&query={{"federation:backends":{{"eq":"peps"}} }}',
             None,
             {"provider": "peps"},
         ),
         # GET with no provider specified
-        ("GET", "search?collections={defaults.product_type}", None, {}),
+        ("GET", "search?collections={defaults.collection}", None, {}),
     ],
     ids=[
         "POST with provider specified",
@@ -522,7 +522,7 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
             items_per_page=10,
             raise_errors=False,
             count=False,
-            productType=defaults.product_type,
+            collection=defaults.collection,
             **expected_kwargs,
         ),
     )

@@ -29,23 +29,23 @@ async def test_collection(
     mock_oidc_token_exchange_auth_authenticate,
 ):
     """Requesting a collection through eodag server should return a valid response"""
-    result = await request_valid(f"collections/{defaults.product_type}")
-    assert result["id"] == defaults.product_type
+    result = await request_valid(f"collections/{defaults.collection}")
+    assert result["id"] == defaults.collection
     assert all(isinstance(v, list) for v in result["summaries"].values())
     assert len(result["summaries"]["federation:backends"]) > 0
     for link in result["links"]:
         assert link["rel"] in ["self", "items", "http://www.opengis.net/def/rel/ogc/1.0/queryables"]
 
 
-async def test_list_collections(app_client, mock_list_product_types):
+async def test_list_collections(app_client, mock_list_collections):
     """A simple request to list collections must succeed"""
-    mock_list_product_types.return_value = [
+    mock_list_collections.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
     ]
 
     r = await app_client.get("/collections")
-    assert mock_list_product_types.called
+    assert mock_list_collections.called
     assert r.status_code == 200
     result = r.json()
     assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in result.get("collections", [])]
@@ -65,51 +65,49 @@ async def test_list_collections(app_client, mock_list_product_types):
     }
 
 
-async def test_search_collections_freetext_ok(app_client, mock_list_product_types, mock_guess_product_type):
+async def test_search_collections_freetext_ok(app_client, mock_list_collections, mock_guess_collection):
     """A collections free-text search must succeed"""
-    mock_list_product_types.return_value = [
+    mock_list_collections.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
     ]
-    mock_guess_product_type.return_value = ["S2_MSI_L1C"]
+    mock_guess_collection.return_value = ["S2_MSI_L1C"]
 
     r = await app_client.get("/collections?q=TERM1,TERM2")
-    assert mock_list_product_types.called
-    mock_guess_product_type.assert_called_once_with(
-        free_text="TERM1 AND TERM2", missionStartDate=None, missionEndDate=None
-    )
+    assert mock_list_collections.called
+    mock_guess_collection.assert_called_once_with(free_text="TERM1 AND TERM2", start_date=None, end_date=None)
     assert r.status_code == 200
     assert ["S2_MSI_L1C"] == [col["id"] for col in r.json().get("collections", [])]
 
 
-async def test_search_collections_freetext_nok(app_client, mock_list_product_types):
+async def test_search_collections_freetext_nok(app_client, mock_list_collections):
     """A collections free-text search with a not supported filter must return all collections"""
-    mock_list_product_types.return_value = [
+    mock_list_collections.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
     ]
     r = await app_client.get("/collections?gibberish=gibberish")
-    assert mock_list_product_types.called
+    assert mock_list_collections.called
     assert r.status_code == 200
     assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in r.json().get("collections", [])]
 
 
-async def test_search_collections_query(app_client, mock_list_product_types):
+async def test_search_collections_query(app_client, mock_list_collections):
     """A collections query search must succeed"""
-    mock_list_product_types.return_value = [
+    mock_list_collections.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
     ]
     r = await app_client.get('/collections?query={"federation:backends":{"eq":"peps"}}')
 
-    mock_list_product_types.assert_called_once_with(provider="peps", fetch_providers=False)
+    mock_list_collections.assert_called_once_with(provider="peps", fetch_providers=False)
     assert r.status_code == 200
     assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in r.json().get("collections", [])]
 
 
-async def test_search_collections_bbox(app_client, mock_list_product_types, mocker, app):
+async def test_search_collections_bbox(app_client, mock_list_collections, mocker, app):
     """A collections bbox search must succeed"""
-    mock_list_product_types.return_value = [
+    mock_list_collections.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
         {"_id": "S1_SAR_GRD", "ID": "S1_SAR_GRD"},
@@ -127,31 +125,31 @@ async def test_search_collections_bbox(app_client, mock_list_product_types, mock
     assert ["S2_MSI_L1C", "S1_SAR_GRD"] == [col["id"] for col in r.json().get("collections", [])]
 
 
-async def test_search_collections_datetime(app_client, mock_list_product_types, mock_guess_product_type):
+async def test_search_collections_datetime(app_client, mock_list_collections, mock_guess_collection):
     """A collections datetime search must succeed"""
-    mock_list_product_types.return_value = [
+    mock_list_collections.return_value = [
         {
             "_id": "S2_MSI_L1C",
             "ID": "S2_MSI_L1C",
             "title": "SENTINEL2 Level-1C",
-            "missionStartDate": "2015-06-23T00:00:00Z",
+            "extenet": {"temporal": ["2015-06-23T00:00:00Z", None]},
         },
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
     ]
-    mock_guess_product_type.return_value = ["S2_MSI_L1C"]
+    mock_guess_collection.return_value = ["S2_MSI_L1C"]
 
     start = "2014-01-01T00:00:00Z"
     end = "2016-01-01T00:00:00Z"
 
     r = await app_client.get(f"/collections?datetime={start}/{end}")
 
-    assert mock_list_product_types.called
-    mock_guess_product_type.assert_called_once_with(free_text="", missionStartDate=start, missionEndDate=end)
+    assert mock_list_collections.called
+    mock_guess_collection.assert_called_once_with(free_text="", start_date=start, end_date=end)
     assert r.status_code == 200
     assert ["S2_MSI_L1C"] == [col["id"] for col in r.json().get("collections", [])]
 
 
-async def test_collections_pagination_default_and_custom_limits(app_client, mock_list_product_types):
+async def test_collections_pagination_default_and_custom_limits(app_client, mock_list_collections):
     """
     Test pagination behavior for collections with default and custom limits.
 
@@ -171,7 +169,7 @@ async def test_collections_pagination_default_and_custom_limits(app_client, mock
             }
         )
 
-    mock_list_product_types.return_value = collections
+    mock_list_collections.return_value = collections
 
     # Default limit returns 10 collections and correct pagination links (next, root, self)
     r = await app_client.get("/collections")
@@ -195,7 +193,7 @@ async def test_collections_pagination_default_and_custom_limits(app_client, mock
     assert {"root", "self"} == {link["rel"] for link in links}
 
 
-async def test_collections_pagination_with_offset_and_limit(app_client, mock_list_product_types):
+async def test_collections_pagination_with_offset_and_limit(app_client, mock_list_collections):
     """
       Test pagination behavior for collections with offset and limit parameters.
 
@@ -204,7 +202,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     - The correct number of collections is returned based on pagination parameters.
     - Pagination links ('next', 'previous', 'first', 'self', 'root') are generated appropriately depending on context.
     """
-    mock_list_product_types.return_value = [
+    mock_list_collections.return_value = [
         {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
         {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
     ]
