@@ -65,15 +65,15 @@ def mock_os_environ(mock_user_dir, session_mocker):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def disable_product_types_fetch(mock_os_environ):
+def disable_collections_fetch(mock_os_environ):
     """Disable auto fetching product types from providers."""
     with pytest.MonkeyPatch.context() as mp:
-        mp.setenv("EODAG_EXT_PRODUCT_TYPES_CFG_FILE", "")
+        mp.setenv("EODAG_EXT_COLLECTIONS_CFG_FILE", "")
         yield
 
 
 @pytest.fixture(autouse=True, scope="session")
-async def fake_credentials(disable_product_types_fetch):
+async def fake_credentials(disable_collections_fetch):
     """load fake credentials to prevent providers needing auth for search to be pruned."""
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("EODAG_CFG_FILE", os.path.join(TEST_RESOURCES_PATH, "wrong_credentials_conf.yml"))
@@ -140,23 +140,23 @@ def mock_search_result():
             "features": [
                 {
                     "properties": {
-                        "snowCover": None,
-                        "resolution": None,
-                        "completionTimeFromAscendingNode": "2018-02-16T00:12:14.035Z",
+                        "eo:snow_cover": None,
+                        "gsd": None,
+                        "end_datetime": "2018-02-16T00:12:14.035Z",
                         "keyword": {},
                         "providerProductType": "OCN",
-                        "downloadLink": (
+                        "eodag:download_link": (
                             "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7b/download"
                         ),
-                        "eodag_provider": "peps",
-                        "eodag_product_type": "S1_SAR_OCN",
-                        "platformSerialIdentifier": "S1A",
-                        "cloudCover": 0,
+                        "eodag:provider": "peps",
+                        "eodag:collection": "S1_SAR_OCN",
+                        "platform": "S1A",
+                        "eo:cloud_cover": 0,
                         "title": "S1A_WV_OCN__2SSV_20180215T235323_20180216T001213_020624_023501_0FD3",
-                        "orbitNumber": 20624,
-                        "instrument": "SAR-C SAR",
+                        "sat:absolute_orbit": 20624,
+                        "instruments": "SAR-C SAR",
                         "abstract": None,
-                        "eodag_search_intersection": {
+                        "eodag:search_intersection": {
                             "coordinates": [
                                 [
                                     [89.590721, 2.614019],
@@ -170,17 +170,17 @@ def mock_search_result():
                         },
                         "license": "other",
                         "organisationName": None,
-                        "startTimeFromAscendingNode": "2018-02-15T23:53:22.871Z",
-                        "platform": None,
-                        "sensorType": None,
-                        "processingLevel": None,
+                        "start_datetime": "2018-02-15T23:53:22.871Z",
+                        "constellation": None,
+                        "eodag:sensor_type": None,
+                        "processing:level": None,
                         "orbitType": None,
                         "topicCategory": None,
-                        "orbitDirection": None,
+                        "sat:orbit_state": None,
                         "parentIdentifier": None,
-                        "sensorMode": None,
+                        "sar:instrument_mode": None,
                         "quicklook": None,
-                        "storageStatus": ONLINE_STATUS,
+                        "order:status": ONLINE_STATUS,
                         "providerProperty": "foo",
                     },
                     "id": "578f1768-e66e-5b86-9363-b19f8931cc7b",
@@ -201,23 +201,23 @@ def mock_search_result():
                 },
                 {
                     "properties": {
-                        "snowCover": None,
-                        "resolution": None,
-                        "completionTimeFromAscendingNode": "2018-02-17T00:12:14.035Z",
+                        "eo:snow_cover": None,
+                        "gsd": None,
+                        "end_datetime": "2018-02-17T00:12:14.035Z",
                         "keyword": {},
                         "productType": "OCN",
-                        "downloadLink": (
+                        "eodag:download_link": (
                             "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7c/download"
                         ),
-                        "eodag_provider": "peps",
-                        "eodag_product_type": "S1_SAR_OCN",
-                        "platformSerialIdentifier": "S1A",
-                        "cloudCover": 0,
+                        "eodag:provider": "peps",
+                        "eodag:collection": "S1_SAR_OCN",
+                        "platform": "S1A",
+                        "eo:cloud_cover": 0,
                         "title": "S1A_WV_OCN__2SSV_20180216T235323_20180217T001213_020624_023501_0FD3",
-                        "orbitNumber": 20624,
-                        "instrument": "SAR-C SAR",
+                        "sat:absolute_orbit": 20624,
+                        "instruments": "SAR-C SAR",
                         "abstract": None,
-                        "eodag_search_intersection": {
+                        "eodag:search_intersection": {
                             "coordinates": [
                                 [
                                     [89.590721, 2.614019],
@@ -231,17 +231,17 @@ def mock_search_result():
                         },
                         "license": "other",
                         "organisationName": None,
-                        "startTimeFromAscendingNode": "2018-02-16T23:53:22.871Z",
-                        "platform": None,
-                        "sensorType": None,
-                        "processingLevel": None,
+                        "start_datetime": "2018-02-16T23:53:22.871Z",
+                        "constellation": None,
+                        "eodag:sensor_type": None,
+                        "processing:level": None,
                         "orbitType": None,
                         "topicCategory": None,
-                        "orbitDirection": None,
+                        "sat:orbit_state": None,
                         "parentIdentifier": None,
-                        "sensorMode": None,
+                        "sar:instrument_mode": None,
                         "quicklook": None,
-                        "storageStatus": OFFLINE_STATUS,
+                        "order:status": OFFLINE_STATUS,
                     },
                     "id": "578f1768-e66e-5b86-9363-b19f8931cc7c",
                     "type": "Feature",
@@ -281,19 +281,19 @@ def mock_search(mocker, app):
 
 
 @pytest.fixture(scope="function")
-def mock_list_product_types(mocker, app):
+def mock_list_collections(mocker, app):
     """
-    Mocks the `list_product_types` method of the `app.state.dag` object.
+    Mocks the `list_collections` method of the `app.state.dag` object.
     """
-    return mocker.patch.object(app.state.dag, "list_product_types")
+    return mocker.patch.object(app.state.dag, "list_collections")
 
 
 @pytest.fixture(scope="function")
-def mock_guess_product_type(mocker, app):
+def mock_guess_collection(mocker, app):
     """
-    Mocks the `guess_product_type` method of the `app.state.dag` object.
+    Mocks the `guess_collection` method of the `app.state.dag` object.
     """
-    return mocker.patch.object(app.state.dag, "guess_product_type")
+    return mocker.patch.object(app.state.dag, "guess_collection")
 
 
 @pytest.fixture(scope="function")
@@ -609,7 +609,7 @@ class TestDefaults:
     A class to hold default test values.
     """
 
-    product_type: str = "S2_MSI_L1C"
+    collection: str = "S2_MSI_L1C"
     bbox_wkt: str = "POLYGON ((0.0 43.0, 1.0 43.0, 1.0 44.0, 0.0 44.0, 0.0 43.0))"
     bbox_geojson: dict[str, Any] = field(
         default_factory=lambda: {
