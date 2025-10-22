@@ -20,10 +20,10 @@
 from collections.abc import Callable
 from datetime import datetime as dt
 from typing import Any, ClassVar, Optional, Union, cast
-from urllib.parse import quote, unquote_plus
+from urllib.parse import quote, urlparse
 
 import attr
-import orjson
+import geojson
 from fastapi import Request
 from pydantic import (
     AliasChoices,
@@ -98,11 +98,11 @@ class CommonStacMetadata(ItemProperties):
     @classmethod
     def parse_platform(cls, values: dict[str, Any]) -> dict[str, Any]:
         """
-        Convert constellation ``list`` to ``str``.
+        Convert platform ``list`` to ``str``.
         TODO: This should be removed after the refactoring of cop_marine because an item should only have one platform
         """
-        if platform := values.get("constellation"):
-            values["constellation"] = ",".join(platform) if isinstance(platform, list) else platform
+        if platform := values.get("platform"):
+            values["platform"] = ",".join(platform) if isinstance(platform, list) else platform
         return values
 
     @model_validator(mode="before")
@@ -122,23 +122,6 @@ class CommonStacMetadata(ItemProperties):
         """
         values.pop("id", None)
         return values
-
-    # @model_validator(mode="before")
-    # @classmethod
-    # def prepare_order_status_stac_property(cls, values: dict[str, Any]) -> dict[str, Any]:
-    #     """
-    #     Prepare the initialization of "order:status" STAC property according to "storageStatus" EODAG property.
-    #     """
-    #     if "storageStatus" not in values:
-    #         return values
-
-    #     if values["storageStatus"] == OFFLINE_STATUS:
-    #         values["status"] = "orderable"
-    #     elif values["storageStatus"] == STAGING_STATUS:
-    #         values["status"] = "shipping"
-    #     else:
-    #         values["status"] = "succeeded"
-    #     return values
 
     @model_validator(mode="after")
     def validate_datetime_or_start_end(self) -> Self:
@@ -356,7 +339,11 @@ def create_stac_item(
     else:
         extension_names = []
 
-    retrieve_body = orjson.loads(unquote_plus(product.properties.get("_dc_qs", "{}")))
+    if "eodag:order_link" in product.properties:
+        parts = urlparse(product.properties["eodag:order_link"])
+        retrieve_body = geojson.loads(parts.query)["request"]
+    else:
+        retrieve_body = {}
 
     if eodag_args := getattr(request.state, "eodag_args", None):
         if provider := eodag_args.get("provider", None):
