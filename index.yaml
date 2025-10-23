@@ -27,4 +27,30 @@ entries:
     urls:
     - https://github.com/CS-SI/stac-fastapi-eodag/releases/download/stac-fastapi-eodag-0.3.0/stac-fastapi-eodag-0.3.0.tgz
     version: 0.3.0
-generated: "2025-10-23T13:32:13.768465368Z"
+  - apiVersion: v2
+    appVersion: 0.1.0
+    created: "2025-10-23T13:39:46.409557341Z"
+    dependencies:
+    - name: common
+      repository: oci://registry-1.docker.io/bitnamicharts
+      tags:
+      - bitnami-common
+      version: 2.x.x
+    description: stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI
+      to provide a powerful, unified API for accessing Earth observation data. By
+      leveraging EODAG's ability to search, aggregate, and download remote-sensed
+      images from various providers, stac-fastapi-eodag offers a standardized and
+      efficient solution for data access. This integration simplifies the process
+      of managing Earth observation data, making it accessible and actionable for
+      researchers, developers, and data analysts.
+    digest: c62cb7d2de377baa18d68c6c01c720b9e67b97c7a793ae1db043fb91f8eb2368
+    home: https://github.com/CS-SI/stac-fastapi-eodag
+    icon: https://raw.githubusercontent.com/CS-SI/eodag/master/docs/_static/eodag_bycs.png
+    name: stac-fastapi-eodag
+    sources:
+    - https://github.com/CS-SI/stac-fastapi-eodag
+    type: application
+    urls:
+    - https://github.com/CS-SI/stac-fastapi-eodag/releases/download/stac-fastapi-eodag-0.1.0/stac-fastapi-eodag-0.1.0.tgz
+    version: 0.1.0
+generated: "2025-10-23T13:39:46.409565246Z"
