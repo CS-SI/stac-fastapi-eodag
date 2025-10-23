@@ -5,9 +5,9 @@ This chart bootstraps a [stac-fastapi-eodag](https://github.com/CS-SI/stac-fasta
 ## TL;DR
 
 ```console
-git clone https://github.com/CS-SI/stac-fastapi-eodag.git
-cd stac-fastapi-eodag
-helm install my-release ./helm/stac-fastapi-eodag
+helm repo add stac-fastapi-eodag https://cs-si.github.io/stac-fastapi-eodag
+helm repo update
+helm install my-release stac-fastapi-eodag/stac-fastapi-eodag
 ```
 
 ## Prerequisites
@@ -15,23 +15,30 @@ helm install my-release ./helm/stac-fastapi-eodag
 - Kubernetes 1.23+
 - Helm 3.8.0+
 
-
 ## Installing the Chart
+
+### Add the Helm Repository
+
+First, add the stac-fastapi-eodag Helm repository:
+
+```console
+helm repo add stac-fastapi-eodag https://cs-si.github.io/stac-fastapi-eodag
+helm repo update
+```
+
+### Install the Chart
 
 To install the chart with the release name `my-release`:
 
 ```console
-git clone https://github.com/CS-SI/stac-fastapi-eodag.git
-cd stac-fastapi-eodag
-helm install my-release ./helm/stac-fastapi-eodag
+helm install my-release stac-fastapi-eodag/stac-fastapi-eodag
 ```
 
-These commands deploy EODAG Server on the Kubernetes cluster in the default configuration.
+These commands deploy stac-fastapi-eodag on the Kubernetes cluster in the default configuration.
 
 > **Tip**: List all releases using `helm list`
 
 ## Uninstalling the Chart
-
 
 To uninstall the `my-release` deployment:
 
@@ -213,9 +220,9 @@ The command removes all the Kubernetes components associated with the chart and 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```console
-$ helm install my-release \
+helm install my-release \
   --set image.pullPolicy=Always \
-    ./helm/stac-fatapi-eodag
+  stac-fastapi-eodag/stac-fastapi-eodag
 ```
 
 The above command sets the `image.pullPolicy` to `Always`.
@@ -223,7 +230,7 @@ The above command sets the `image.pullPolicy` to `Always`.
 Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
 
 ```console
-helm install my-release -f values.yaml ./helm/stac-fatapi-eodag
+helm install my-release -f values.yaml stac-fastapi-eodag/stac-fastapi-eodag
 ```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
@@ -252,7 +259,7 @@ CS Group will release a new chart updating its containers if a new version of th
 
 ## License
 
-Copyright 2025, CS GROUP - France, https://www.cs-soprasteria.com
+Copyright 5, CS GROUP - France, https://www.cs-soprasteria.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

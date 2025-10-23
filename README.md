@@ -18,6 +18,7 @@ stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provid
 ### Run stac-fastapi-eodag locally
 
 #### Prerequisites
+
 Make sure you have the required dependencies installed:
 
 ```shell
@@ -25,6 +26,7 @@ pip install .[server]
 ```
 
 #### Running the server
+
 Once the server is properly set up, you can start it with:
 
 ```shell
@@ -149,7 +151,6 @@ We would like to express our gratitude to the maintainers and contributors of th
 
 - [stac-fastapi](https://github.com/stac-utils/stac-fastapi): Thanks to the stac-fastapi team for their implementation of the STAC API spec.
 - [FastAPI](https://github.com/FastAPI/FastAPI): Thanks to the FastAPI team for providing a modern, fast (high-performance) web framework for building APIs.
-
 
 ## License
 
