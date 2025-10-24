@@ -22,6 +22,8 @@ import os
 from eodag import SearchResult
 from eodag.api.product import EOProduct
 from eodag.config import PluginConfig
+from eodag.plugins.authentication.aws_auth import AwsAuth
+from eodag.plugins.download.aws import AwsDownload
 from eodag.plugins.download.http import HTTPDownload
 
 from stac_fastapi.eodag.config import get_settings
@@ -104,3 +106,35 @@ async def test_download_auto_order_whitelist(
 
     # restore the original auto_order_whitelist setting
     get_settings().auto_order_whitelist = auto_order_whitelist
+
+
+async def test_download_redirect_response(request_valid_raw, mock_search, mock_presign_url, mock_aws_authenticate):
+    """test that a reponse with status code 302 is returned if presigned urls are used"""
+    product_type = "MO_GLOBAL_ANALYSISFORECAST_PHY_001_024"
+    product = EOProduct(
+        "cop_marine",
+        dict(
+            geometry="POINT (0 0)",
+            title="dummy_product",
+            id="dummy",
+        ),
+        productType=product_type,
+    )
+    product.assets.update({"a1": {"href": "https://s3.waw3-1.cloudferro.com/b1/a1/a1.json"}})
+    product.assets.update({"a2": {"href": "https://s3.waw3-1.cloudferro.com/b1/a2/a2.json"}})
+
+    config = PluginConfig()
+    config.priority = 0
+    downloader = AwsDownload("cop_marine", config)
+    download_auth = AwsAuth("cop_marine", config)
+    product.register_downloader(downloader=downloader, authenticator=download_auth)
+    mock_search.return_value = SearchResult([product])
+
+    mock_presign_url.return_value = "s3://s3.abc.com/a1/b1?AWSAccesskeyId=123&expires=1543649"
+
+    await request_valid_raw(
+        f"data/cop_marine/{product_type}/foo/a1",
+        search_result=SearchResult([product]),
+        expected_status_code=302,
+        follow_redirects=False,
+    )

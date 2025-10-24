@@ -31,6 +31,7 @@ from eodag import EODataAccessGateway
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
+from eodag.plugins.authentication.aws_auth import AwsAuth
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.openid_connect import OIDCRefreshTokenBase
 from eodag.plugins.authentication.token import TokenAuth
@@ -338,7 +339,7 @@ def mock_http_base_stream_download_dict(mocker):
 @pytest.fixture(scope="function")
 def mock_order(mocker):
     """
-    Mocks the `HTTPDownload` method of the `HTTPDownload` download plugin.
+    Mocks the `order` method of the `HTTPDownload` download plugin.
     """
     return mocker.patch.object(HTTPDownload, "order")
 
@@ -376,6 +377,14 @@ def mock_oidc_token_exchange_auth_authenticate(mocker):
 
 
 @pytest.fixture(scope="function")
+def mock_aws_authenticate(mocker, app):
+    """
+    Mocks the `authenticate` method of the `AwsAuth` plugin.
+    """
+    return mocker.patch.object(AwsAuth, "authenticate")
+
+
+@pytest.fixture(scope="function")
 def tmp_dir():
     """
     Get random temporary directory `Path`.
@@ -397,6 +406,7 @@ def request_valid_raw(app_client, mock_search, mock_search_result):
         search_call_count: Optional[int] = None,
         search_result: Optional[SearchResult] = None,
         expected_status_code: int = 200,
+        follow_redirects: bool = True,
     ):
         if search_result:
             mock_search.return_value = search_result
@@ -407,7 +417,7 @@ def request_valid_raw(app_client, mock_search, mock_search_result):
             method,
             url,
             json=post_data,
-            follow_redirects=True,
+            follow_redirects=follow_redirects,
             headers={"Content-Type": "application/json"} if method == "POST" else {},
         )
 
@@ -585,6 +595,12 @@ def request_accepted(app_client):
         return response_content
 
     return _request_accepted
+
+
+@pytest.fixture(scope="function")
+def mock_presign_url(mocker):
+    """Fixture for the presign_url function"""
+    return mocker.patch.object(AwsAuth, "presign_url")
 
 
 @dataclass
