@@ -22,7 +22,7 @@ import logging
 import os
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, cast
+from typing import Annotated, Iterator, Optional, Union, cast
 
 import attr
 from eodag.api.core import EODataAccessGateway
@@ -101,7 +101,7 @@ class BaseDataDownloadClient:
         item_id: str,
         asset_name: Optional[str],
         request: Request,
-    ) -> StreamingResponse | RedirectResponse:
+    ) -> Union[StreamingResponse, RedirectResponse]:
         """Download an asset"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
@@ -187,8 +187,7 @@ class BaseDataDownloadClient:
             # return presigned url if available
             try:
                 presigned_url = product.downloader_auth.presign_url(asset_values)
-                headers = {"content-disposition": f"attachment; filename={asset_name}"}
-                return RedirectResponse(presigned_url, status_code=302, headers=headers)
+                return RedirectResponse(presigned_url, status_code=302)
             except NotImplementedError:
                 logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
             except EodagError:
