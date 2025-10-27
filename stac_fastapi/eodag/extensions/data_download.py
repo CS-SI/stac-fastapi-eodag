@@ -22,14 +22,15 @@ import logging
 import os
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, cast
+from typing import Annotated, Iterator, Optional, Union, cast
 
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
+from eodag.utils.exceptions import EodagError
 from fastapi import APIRouter, FastAPI, Path, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
@@ -100,7 +101,7 @@ class BaseDataDownloadClient:
         item_id: str,
         asset_name: Optional[str],
         request: Request,
-    ) -> StreamingResponse:
+    ) -> Union[StreamingResponse, RedirectResponse]:
         """Download an asset"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
@@ -180,6 +181,17 @@ class BaseDataDownloadClient:
                 ) and "order status could not be checked" in e.args[0]:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
+
+        if product.downloader_auth and asset_name and asset_name != "downloadLink":
+            asset_values = product.assets[asset_name]
+            # return presigned url if available
+            try:
+                presigned_url = product.downloader_auth.presign_url(asset_values)
+                return RedirectResponse(presigned_url, status_code=302)
+            except NotImplementedError:
+                logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
+            except EodagError:
+                logger.info("Presigned url could not be fetched for %s", asset_name)
 
         try:
             s = product.downloader._stream_download_dict(
