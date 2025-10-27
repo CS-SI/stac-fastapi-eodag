@@ -1,6 +1,6 @@
 [project]
 name = "stac_fastapi.eodag"
-version = "0.1.0"
+version = "0.2.0"
 description = "A stac-fastapi backend using EODAG"
 readme = "README.md"
 authors = [{ name = "CS GROUP - France (CSSI)", email = "eodag@csgroup.space" }]
