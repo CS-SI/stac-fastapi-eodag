@@ -23,7 +23,7 @@ from typing import Any, ClassVar, Optional, Union, cast
 from urllib.parse import quote, unquote_plus, urlparse
 
 import attr
-import geojson
+import geojson  # type: ignore
 from fastapi import Request
 from pydantic import (
     AliasChoices,
