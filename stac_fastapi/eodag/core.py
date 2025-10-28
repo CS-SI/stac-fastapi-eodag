@@ -522,19 +522,19 @@ class EodagCoreClient(CustomCoreClient):
 
         # Handle query params set up for _ORDERABLE_ items
         if "_ORDERABLE_" in item_id:
-            bbox: Optional[list[NumType]] = request.query_params.getlist("bbox")
-            datetime: Optional[str] = request.query_params.getlist("datetime")
-            query: Optional[dict[str, Any]] = request.query_params.getlist("query")
-            intersects: Optional[str] = request.query_params.getlist("intersects")
-            filter_expr: Optional[str] = request.query_params.getlist("filter_expr")
-            filter_lang: Optional[str] = request.query_params.getlist("filter_lang")
+            _bbox = request.query_params.getlist("bbox")
+            _datetime = request.query_params.getlist("datetime")
+            _query = request.query_params.getlist("query")
+            _intersects = request.query_params.getlist("intersects")
+            _filter_expr = request.query_params.getlist("filter_expr")
+            _filter_lang = request.query_params.getlist("filter_lang")
 
-            bbox = bbox[0] if bbox else bbox
-            datetime = datetime[0] if datetime else datetime
-            query = ast.literal_eval(query[0]) if query else query
-            intersects = intersects[0] if intersects else intersects
-            filter_expr = ast.literal_eval(filter_expr[0]) if filter_expr else filter_expr
-            filter_lang = filter_lang[0] if filter_lang else "cql2-text"
+            bbox = _bbox[0] if _bbox else None
+            datetime = _datetime[0] if _datetime else None
+            query = ast.literal_eval(_query[0]) if _query else None
+            intersects = _intersects[0] if _intersects else None
+            filter_expr = ast.literal_eval(_filter_expr[0]) if _filter_expr else None
+            filter_lang = _filter_lang[0] if _filter_lang else "cql2-text"
 
             base_args = {
                 "collections": [collection_id],
