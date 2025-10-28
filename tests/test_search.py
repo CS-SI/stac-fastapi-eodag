@@ -128,14 +128,12 @@ async def test_items_response(request_valid, defaults):
     assert first_props["sat:absolute_orbit"] == 20624
     assert first_props["product:type"] == "OCN"
     assert first_props["order:status"] == "succeeded"
-    assert first_props["storage:tier"] == "online"
     assert "asset1" in res[0]["assets"]
     assert (
         res[0]["assets"]["asset1"]["href"]
         == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
     assert res[1]["properties"]["order:status"] == "orderable"
-    assert res[1]["properties"]["storage:tier"] == "offline"
     assert "assets" in res[0]
     assert "asset1" in res[0]["assets"]
     assert (
@@ -152,25 +150,24 @@ async def test_items_response(request_valid, defaults):
     )
     res = resp_json["features"]
     assert res[1]["properties"]["order:status"] == "succeeded"
-    assert res[1]["properties"]["storage:tier"] == "online"
 
     # restore the original auto_order_whitelist setting
     get_settings().auto_order_whitelist = auto_order_whitelist
 
 
 async def test_items_response_unexpected_types(request_valid, defaults, mock_search_result):
-    """Item properties contain values in unexpected types for processingLevel and platform
+    """Item properties contain values in unexpected types for processing level and platform
     These values should be tranformed so that the validation passes
     """
     result_properties = mock_search_result.data[0].properties
-    result_properties["processingLevel"] = 2
+    result_properties["processing:level"] = 2
     result_properties["platform"] = ["P1", "P2"]
     resp_json = await request_valid(f"search?collections={defaults.collection}", search_result=mock_search_result)
     res = resp_json["features"]
     assert len(res) == 2
     first_props = res[0]["properties"]
     assert first_props["processing:level"] == "L2"
-    assert first_props["constellation"] == "P1,P2"
+    assert first_props["platform"] == "P1,P2"
 
 
 async def test_assets_with_different_download_base_url(request_valid, defaults):
@@ -279,12 +276,12 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
 @pytest.mark.parametrize(
     "sortby,expected_sort_by",
     [
-        ("-datetime", [("startTimeFromAscendingNode", "desc")]),
-        ("datetime", [("startTimeFromAscendingNode", "asc")]),
-        ("-start", [("startTimeFromAscendingNode", "desc")]),
-        ("start", [("startTimeFromAscendingNode", "asc")]),
-        ("-end", [("completionTimeFromAscendingNode", "desc")]),
-        ("end", [("completionTimeFromAscendingNode", "asc")]),
+        ("-datetime", [("start_datetime", "desc")]),
+        ("datetime", [("start_datetime", "asc")]),
+        ("-start", [("start_datetime", "desc")]),
+        ("start", [("start_datetime", "asc")]),
+        ("-end", [("end_datetime", "desc")]),
+        ("end", [("end_datetime", "asc")]),
     ],
 )
 async def test_sortby_items_parametrize(request_valid, defaults, sortby, expected_sort_by):

@@ -97,10 +97,10 @@ class EodagCoreClient(CustomCoreClient):
 
         collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {})))
 
-        platform_value = [p for p in (product_type.get("platformSerialIdentifier") or "").split(",") if p]
-        constellation = [c for c in (product_type.get("platform") or "").split(",") if c]
-        processing_level = [pl for pl in (product_type.get("processingLevel") or "").split(",") if pl]
-        instruments = [i for i in (product_type.get("instrument") or "").split(",") if i]
+        platform_value = [p for p in (product_type.get("platform") or "").split(",") if p]
+        constellation = [c for c in (product_type.get("constellation") or "").split(",") if c]
+        processing_level = [pl for pl in (product_type.get("processing:level") or "").split(",") if pl]
+        instruments = [i for i in (product_type.get("instruments") or []) if i]
 
         federation_backends = request.app.state.dag.available_providers(product_type["_id"])
 

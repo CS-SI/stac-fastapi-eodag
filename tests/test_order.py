@@ -43,14 +43,16 @@ async def test_order_ok(request_valid, post_data):
             id="dummy_id",
         ),
     )
-    product.product_type = collection_id
+    product.collection = collection_id
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
-    product.properties["orderLink"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
+    product.properties["eodag:order_link"] = (
+        f"{endpoint}/processes/{product_dataset}/execution" + '?{"request": {"quux": "abc"}}'
+    )
 
     # order an offline product
-    product.properties["storageStatus"] = OFFLINE_STATUS
+    product.properties["order:status"] = OFFLINE_STATUS
 
     # add auth and download plugins to make the order works
     plugins_manager = PluginManager(load_default_config())
@@ -94,7 +96,7 @@ async def test_order_ok(request_valid, post_data):
             post_data=post_data,
             search_result=SearchResult([product]),
             expected_search_kwargs=dict(
-                productType=collection_id,
+                collection=collection_id,
                 provider=None,
                 **post_data,
             ),
@@ -102,12 +104,11 @@ async def test_order_ok(request_valid, post_data):
 
         # check that the id of the stac item is the one of the EOProduct,
         # which had taken the value of the order id (given in response "jobID" value)
-        assert response["id"] == response["properties"]["order:id"] == product_id
+        assert response["id"] == response["properties"]["eodag:order_id"] == product_id
         # check the links
         for link in response["links"]:
             assert link["rel"] in ["self", "collection"]
         # check that status has been correctly updated
-        assert response["properties"]["storage:tier"] == "online"
         assert response["properties"]["order:status"] == "succeeded"
         # chech that the assets are available
         assert (
@@ -133,14 +134,16 @@ async def test_order_with_poll_pending(request_valid, post_data):
             id="dummy_id",
         ),
     )
-    product.product_type = collection_id
+    product.collection = collection_id
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
-    product.properties["orderLink"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
+    product.properties["eodag:order_link"] = (
+        f"{endpoint}/processes/{product_dataset}/execution" + '?{"inputs": {"qux": "quux"}}'
+    )
 
     # order an offline product
-    product.properties["storageStatus"] = OFFLINE_STATUS
+    product.properties["order:status"] = OFFLINE_STATUS
 
     # add auth and download plugins to make the order works
     plugins_manager = PluginManager(load_default_config())
@@ -184,7 +187,7 @@ async def test_order_with_poll_pending(request_valid, post_data):
             post_data=post_data,
             search_result=SearchResult([product]),
             expected_search_kwargs=dict(
-                productType=collection_id,
+                collection=collection_id,
                 provider=None,
                 **post_data,
             ),
@@ -192,13 +195,12 @@ async def test_order_with_poll_pending(request_valid, post_data):
 
         # check that the id of the stac item is the one of the EOProduct,
         # which had taken the value of the order id (given in response "jobID" value)
-        assert response["id"] == response["properties"]["order:id"] == product_id
+        assert response["id"] == response["properties"]["eodag:order_id"] == product_id
         # check the links
         for link in response["links"]:
             assert link["rel"] in ["self", "collection"]
         # check that status has been correctly updated
-        assert response["properties"]["storage:tier"] == "offline"
-        assert response["properties"]["order:status"] == "shipping"
+        assert response["properties"]["order:status"] == "ordered"
         # check that there is no asset available
         assert len(response["assets"]) == 0
 
@@ -221,8 +223,8 @@ async def test_order_product_not_orderable_ko(request_not_found, mock_search):
     product.product_type = collection_id
 
     # try to order a product which is offline but which does not have an order link
-    product.properties["storageStatus"] = OFFLINE_STATUS
-    assert product.properties.get("orderLink") is None
+    product.properties["order:status"] = OFFLINE_STATUS
+    assert product.properties.get("eodag:order_link") is None
 
     mock_search.return_value = SearchResult([product])
 
@@ -234,8 +236,8 @@ async def test_order_product_not_orderable_ko(request_not_found, mock_search):
     )
 
     # try to order a product which has an order link but which is not offline
-    product.properties["orderLink"] = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
-    product.properties["storageStatus"] = STAGING_STATUS
+    product.properties["eodag:order_link"] = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
+    product.properties["order:status"] = STAGING_STATUS
 
     mock_search.return_value = SearchResult([product])
 
@@ -264,10 +266,10 @@ async def test_order_product_wrong_downloader_ko(request_not_found, mock_search,
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
-    product.properties["orderLink"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
+    product.properties["eodag:order_link"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
 
     # try to order a product which is offline but which does not have a downloader
-    product.properties["storageStatus"] = OFFLINE_STATUS
+    product.properties["order:status"] = OFFLINE_STATUS
     assert product.downloader is None
 
     mock_search.return_value = SearchResult([product])
@@ -315,16 +317,16 @@ async def test_order_not_order_id_ko(request_not_found, mock_search, mock_order)
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
-    product.properties["orderLink"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
+    product.properties["eodag:order_link"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
 
     # mock orderStatusLink and searchLink values to make order works without order id
-    product.properties["orderStatusLink"] = f"{endpoint}/jobs/dummy_request_id"
-    product.properties["searchLink"] = f"{endpoint}/jobs/dummy_request_id/results"
+    product.properties["eodag:status_link"] = f"{endpoint}/jobs/dummy_request_id"
+    product.properties["eodag:search_link"] = f"{endpoint}/jobs/dummy_request_id/results"
 
     # try to order a product which is offline but which does not have an order id
     # this order id will not be mapped with the mock of the order
-    product.properties["storageStatus"] = OFFLINE_STATUS
-    assert product.properties.get("orderId") is None
+    product.properties["order:status"] = OFFLINE_STATUS
+    assert product.properties.get("eodag:order_id") is None
 
     mock_search.return_value = SearchResult([product])
 

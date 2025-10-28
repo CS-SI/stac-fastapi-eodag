@@ -20,7 +20,7 @@
 from collections.abc import Callable
 from datetime import datetime as dt
 from typing import Any, ClassVar, Optional, Union, cast
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, unquote_plus, urlparse
 
 import attr
 import geojson
@@ -48,6 +48,7 @@ from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
+from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
@@ -227,6 +228,22 @@ def get_federation_backend_dict(request: Request, provider: str) -> dict[str, An
     }
 
 
+def _get_retrieve_body_for_order(product: EOProduct) -> dict[str, Any]:
+    """returns the body of the request used to order a product"""
+    parts = urlparse(product.properties["eodag:order_link"])
+    keys = ["request", "inputs", "location"]  # keys used by different providers
+    request_dict = geojson.loads(parts.query)
+    retrieve_body = None
+    for key in keys:
+        if key in request_dict:
+            retrieve_body = request_dict[key]
+    if isinstance(retrieve_body, str):
+        retrieve_body = geojson.loads(unquote_plus(retrieve_body))
+    elif not isinstance(retrieve_body, dict):
+        raise MisconfiguredError("order_link must include a dict with key request, inputs or location")
+    return retrieve_body
+
+
 def create_stac_item(
     product: EOProduct,
     model: type[CommonStacMetadata],
@@ -339,9 +356,9 @@ def create_stac_item(
     else:
         extension_names = []
 
+    # get request body for retrieve link (if product has to be ordered)
     if "eodag:order_link" in product.properties:
-        parts = urlparse(product.properties["eodag:order_link"])
-        retrieve_body = geojson.loads(parts.query)["request"]
+        retrieve_body = _get_retrieve_body_for_order(product)
     else:
         retrieve_body = {}
 
