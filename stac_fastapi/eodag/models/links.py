@@ -332,10 +332,26 @@ class ItemLinks(CollectionLinksBase):
 
     def link_self(self) -> dict[str, str]:
         """Create the self link."""
+
+        _href = self.resolve(f"collections/{self.collection_id}/items/{self.item_id}")
+
+        # Orderable items need to contain their search parameters on the self link
+        # to be able to return them later on.
+        if "_ORDERABLE_" in self.item_id:
+            _params = ""
+            # POST search
+            if hasattr(self.request, "_json"):
+                _params = urlencode(self.request._json)
+            else:
+                # GET search
+                _params = str(self.request.query_params)
+
+            _href = f"{_href}?{_params}"
+
         return {
             "rel": Relations.self.value,
             "type": MimeTypes.geojson.value,
-            "href": self.resolve(f"collections/{self.collection_id}/items/{self.item_id}"),
+            "href": _href,
             "title": "Original item link",
         }
 

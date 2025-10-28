@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, cast
@@ -515,10 +516,59 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The item.
         :raises NotFoundError: If the item does not exist.
         """
+
         # If collection does not exist, NotFoundError wil be raised
         await self.get_collection(collection_id, request=request)
 
-        search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
+        # Handle query params set up for _ORDERABLE_ items
+        if "_ORDERABLE_" in item_id:
+            bbox: Optional[list[NumType]] = request.query_params.getlist("bbox")
+            datetime: Optional[str] = request.query_params.getlist("datetime")
+            query: Optional[dict[str, Any]] = request.query_params.getlist("query")
+            intersects: Optional[str] = request.query_params.getlist("intersects")
+            filter_expr: Optional[str] = request.query_params.getlist("filter_expr")
+            filter_lang: Optional[str] = request.query_params.getlist("filter_lang")
+
+            bbox = bbox[0] if bbox else bbox
+            datetime = datetime[0] if datetime else datetime
+            query = ast.literal_eval(query[0]) if query else query
+            intersects = intersects[0] if intersects else intersects
+            filter_expr = ast.literal_eval(filter_expr[0]) if filter_expr else filter_expr
+            filter_lang = filter_lang[0] if filter_lang else "cql2-text"
+
+            base_args = {
+                "collections": [collection_id],
+                "ids": [item_id],
+                "bbox": bbox,
+                "limit": 1,
+                "query": query,
+                "intersects": intersects,
+            }
+
+            if datetime:
+                base_args["datetime"] = format_datetime_range(datetime)
+
+            if filter_expr:
+                if filter_lang == "cql2-text":
+                    filter_expr = to_cql2(parse_cql2_text(filter_expr))
+                    filter_lang = "cql2-json"
+
+                base_args["filter"] = str2json("filter_expr", filter_expr)
+                base_args["filter_lang"] = "cql2-json"
+
+            # Remove None values from dict
+            clean = {}
+            for k, v in base_args.items():
+                if v is not None and v != []:
+                    clean[k] = v
+
+            try:
+                search_request = self.post_request_model(**clean)
+            except ValidationError as err:
+                raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
+        else:
+            search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
+
         item_collection = self._search_base(search_request, request)
         if not item_collection["features"]:
             raise NotFoundError(f"Item {item_id} in Collection {collection_id} does not exist.")
