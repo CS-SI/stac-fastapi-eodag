@@ -342,9 +342,11 @@ def create_stac_item(
     feature_model = model.model_validate({**product.properties, **{"federation:backends": [product.provider]}})
     stac_extensions.update(feature_model.get_conformance_classes())
 
+    # filter properties we do not want to expose
     feature["properties"] = {
         k: v for k, v in feature_model.model_dump(exclude_none=True).items() if not k.startswith("eodag:")
     }
+    feature["properties"].pop("qs", None)
 
     # append order:status property as it was replaced in feature with storage:tier
     if order_status := product.properties.get("order:status"):
