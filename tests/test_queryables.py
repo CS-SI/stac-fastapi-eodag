@@ -40,7 +40,7 @@ async def test_basic_queryables(request_valid):
 async def test_collection_queryables(mock_list_queryables, app_client):
     """Response for queryables of specific collection must contain values returned by eodag lib"""
     eodag_response = {
-        "providerProductType": Annotated[
+        "product:type": Annotated[
             Literal[tuple(sorted(["SAR", "GRD"]))], Field(default="SAR", **{"title": "Product type"})
         ],
         "start": Annotated[str, Field(..., **{"title": "Start date"})],

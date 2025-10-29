@@ -346,6 +346,10 @@ def create_stac_item(
         k: v for k, v in feature_model.model_dump(exclude_none=True).items() if not k.startswith("eodag:")
     }
 
+    # append order:status property as it was replaced in feature with storage:tier
+    if order_status := product.properties.get("order:status"):
+        feature["properties"]["order:status"] = order_status
+
     feature["stac_extensions"] = list(stac_extensions)
 
     if extension_names and product.provider not in auto_order_whitelist:

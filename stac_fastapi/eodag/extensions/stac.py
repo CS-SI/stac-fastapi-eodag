@@ -111,7 +111,7 @@ class TimestampFields(BaseModel):
     https://github.com/stac-extensions/timestamps#item-properties
     """
 
-    published: Optional[str] = Field(None, validation_alias="publicationDate")
+    published: Optional[str] = Field(None)
     unpublished: Optional[str] = Field(None)
     expires: Optional[str] = Field(None)
 
@@ -214,7 +214,7 @@ class ProductFields(BaseModel):
     https://github.com/stac-extensions/product#fields
     """
 
-    type: Optional[str] = Field(None, validation_alias="providerProductType")
+    type: Optional[str] = Field(None)
     timeliness: Optional[str] = Field(None)
     timeliness_category: Optional[str] = Field(None)
 
@@ -237,7 +237,7 @@ class StorageFields(BaseModel):
     platform: Optional[str] = Field(default=None)
     region: Optional[str] = Field(default=None)
     requester_pays: Optional[bool] = Field(default=None)
-    tier: Optional[str] = Field(default=None, validation_alias="storageStatus")
+    tier: Optional[str] = Field(default=None, validation_alias="order:status")
 
     @field_validator("tier")
     @classmethod
@@ -262,7 +262,7 @@ class OrderFields(BaseModel):
     """
 
     status: Optional[str] = Field(default=None)
-    id: Optional[str] = Field(default=None, validation_alias="orderId")
+    id: Optional[str] = Field(default=None, validation_alias="eodag:order_id")
     date: Optional[bool] = Field(default=None)
 
 
