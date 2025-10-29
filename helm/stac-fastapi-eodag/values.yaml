@@ -53,23 +53,23 @@ extraDeploy: []
 ## ref: https://eodag.readthedocs.io/en/stable/
 ##
 
-## @param productTypes Optional overwrite of product types default configuration
-## ref: https://github.com/CS-SI/eodag/blob/masster/eodag/resources/product_types.yml
-productTypes: ""
-# productTypes: |-
+## @param collections Optional overwrite of product types default configuration
+## ref: https://github.com/CS-SI/eodag/blob/master/eodag/resources/collections.yml
+collections: ""
+# collections: |-
 #   # CBERS 4 ---------------------------------------------------------------------
 #   CBERS4_MUX_L2:
-#     abstract: |
+#     description: |
 #       China-Brazil Earth Resources Satellite, CBERS-4 MUX camera Level-2 product. System corrected images, expect some
 #       translation error.
-#     instrument: MUX
-#     platform: CBERS
-#     platformSerialIdentifier: CBERS-4
-#     processingLevel: L2
-#     keywords: MUX,CBERS,CBERS-4,L2
-#     sensorType: OPTICAL
-#     license: proprietary
-#     missionStartDate: "2014-12-07T00:00:00Z"
+#     instruments: ["MUX"]
+#     constellation: CBERS
+#     platform: CBERS-4
+#     processing:level: L2
+#     keywords: ["MUX", "CBERS", "CBERS-4", "L2"]
+#     eodag:sensor_type: OPTICAL
+#     license: other
+#     extent: {"temporal": {"interval": [["2014-12-07T00:00:00Z", null]]}}
 #     title: CBERS-4 MUX Level-2
 
 ## @param providers Optional overwrite of providers default configuration
@@ -86,45 +86,52 @@ providers: ""
 #     api: !plugin
 #       type: UsgsApi
 #       need_auth: true
-#       google_base_url: 'http://storage.googleapis.com/earthengine-public/landsat/'
 #       pagination:
 #         max_items_per_page: 5000
 #         total_items_nb_key_path: '$.totalHits'
-#       common_metadata_mapping_path: '$'
 #       metadata_mapping:
-#         id: '$.displayId'
+#         id:
+#           - '_ID'
+#           - '$.displayId'
 #         geometry: '$.spatialBounds'
-#         productType: '$.productType'
 #         title: '$.displayId'
-#         abstract: '$.summary'
-#         cloudCover: '$.cloudCover'
-#         startTimeFromAscendingNode: '$.temporalCoverage.startDate'
-#         completionTimeFromAscendingNode: '$.temporalCoverage.endDate'
-#         publicationDate: '$.publishDate'
-#         thumbnail: '$.browse[0].thumbnailPath'
-#         quicklook: '$.browse[0].browsePath'
-#         storageStatus: '{$.available#get_group_name((?P<ONLINE>True)|(?P<OFFLINE>False))}'
-#         downloadLink: 'https://earthexplorer.usgs.gov/download/external/options/{productType}/{entityId}/M2M/'
+#         description: '$.summary'
+#         eo:cloud_cover: '$.cloudCover'
+#         start_datetime: '$.temporalCoverage.startDate'
+#         end_datetime: '$.temporalCoverage.endDate'
+#         published: '$.publishDate'
+#         eodag:thumbnail: '$.browse[0].thumbnailPath'
+#         eodag:quicklook: '$.browse[0].browsePath'
+#         order:status: '{$.available#get_group_name((?P<succeeded>True)|(?P<orderable>False))}'
+#         eodag:download_link: 'https://earthexplorer.usgs.gov/download/external/options/{_collection}/{entityId}/M2M/'
 #         # metadata needed for download
-#         entityId: '$.entityId'
-#         productId: '$.id'
+#         usgs:entityId: '$.entityId'
+#         usgs:productId: '$.id'
 #       extract: True
 #       order_enabled: true
 #     products:
 #       # datasets list http://kapadia.github.io/usgs/_sources/reference/catalog/ee.txt may be outdated
 #       # see also https://dds.cr.usgs.gov/ee-data/coveragemaps/shp/ee/
 #       LANDSAT_C2L1:
-#         dataset: landsat_ot_c2_l1
-#         outputs_extension: .tar.gz
+#         _collection: landsat_ot_c2_l1
 #       LANDSAT_C2L2:
-#         dataset: landsat_ot_c2_l2
-#         outputs_extension: .tar.gz
+#         _collection: landsat_ot_c2_l2
+#       LANDSAT_TM_C1:
+#         _collection: landsat_tm_c1
+#       LANDSAT_TM_C2L1:
+#         _collection: landsat_tm_c2_l1
+#       LANDSAT_TM_C2L2:
+#         _collection: landsat_tm_c2_l2
+#       LANDSAT_ETM_C1:
+#         _collection: landsat_etm_c1
+#       LANDSAT_ETM_C2L1:
+#         _collection: landsat_etm_c2_l1
+#       LANDSAT_ETM_C2L2:
+#         _collection: landsat_etm_c2_l2
 #       S2_MSI_L1C:
-#         dataset: SENTINEL_2A
-#         outputs_extension: .zip
-#       GENERIC_PRODUCT_TYPE:
-#         dataset: '{productType}'
-
+#         _collection: SENTINEL_2A
+#       GENERIC_COLLECTION:
+#         _collection: '{collection}'
 
 ## @param config [object] EODAG configuration
 ## doc: https://eodag.readthedocs.io/en/stable/getting_started_guide/configure.html

@@ -75,7 +75,7 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Name                        | Description                                                                         | Value |
 | --------------------------- | ----------------------------------------------------------------------------------- | ----- |
-| `productTypes`              | Optional overwrite of product types default configuration                           | `""`  |
+| `collections`               | Optional overwrite of collections default configuration                             | `""`  |
 | `providers`                 | Optional overwrite of providers default configuration                               | `""`  |
 | `config`                    | EODAG configuration                                                                 | `{}`  |
 | `configExistingSecret.name` | Existing secret name for EODAG config. If this is set, value config will be ignored | `""`  |

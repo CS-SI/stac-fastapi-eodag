@@ -39,20 +39,20 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_external_stac_collections(
-    product_types: list[dict[str, Any]],
+    collections: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """Load external STAC collections
 
-    :param product_types: detailed product types dict list
+    :param collections: detailed product types dict list
     :return: dict of external STAC collections indexed by product type ID
     """
     ext_stac_collections: dict[str, dict[str, Any]] = {}
 
-    for product_type in product_types:
-        file_path = product_type.get("stacCollection")
+    for collection in collections:
+        file_path = collection.get("stacCollection")
         if not file_path:
             continue
-        logger.info(f"Fetching external STAC collection for {product_type['ID']}")
+        logger.info(f"Fetching external STAC collection for {collection['ID']}")
 
         try:
             ext_stac_collection = fetch_json(file_path)
@@ -63,7 +63,7 @@ def fetch_external_stac_collections(
             )
             ext_stac_collection = {}
 
-        ext_stac_collections[product_type["ID"]] = ext_stac_collection
+        ext_stac_collections[collection["ID"]] = ext_stac_collection
     return ext_stac_collections
 
 
@@ -79,7 +79,7 @@ def init_dag(app: FastAPI) -> None:
 
     app.state.ext_stac_collections = ext_stac_collections
 
-    # update eodag product_types config form external stac collections
+    # update eodag collections config form external stac collections
     for p, p_f in dag.collections_config.source.items():
         for key in (p, p_f.get("alias")):
             if key is None:

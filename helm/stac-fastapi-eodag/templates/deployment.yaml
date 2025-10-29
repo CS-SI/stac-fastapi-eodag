@@ -35,7 +35,7 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.podLabels "context" $) | nindent 8 }}
         {{- end }}
       annotations:
-        {{- if or .Values.productTypes .Values.providers }}
+        {{- if or .Values.collections .Values.providers }}
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
         {{- end }}
         {{- if and .Values.otel.collector.enabled .Values.otel.collector.config }}
@@ -157,9 +157,9 @@ spec:
             - name: EODAG_CFG_FILE
               value: /eodag/resources/eodag.yml
             {{- end }}
-            {{- if .Values.productTypes }}
-            - name: EODAG_PRODUCT_TYPES_CFG_FILE
-              value: /eodag/resources/product_types.yml
+            {{- if .Values.collections }}
+            - name: EODAG_collectionS_CFG_FILE
+              value: /eodag/resources/collections.yml
             {{- end }}
             {{- if .Values.providers }}
             - name: EODAG_PROVIDERS_CFG_FILE
@@ -226,10 +226,10 @@ spec:
           resources: {{- toYaml .Values.resources | nindent 12 }}
           {{- end }}
           volumeMounts:
-            {{- if .Values.productTypes }}
+            {{- if .Values.collections }}
             - name: config
-              mountPath: /eodag/resources/product_types.yml
-              subPath: product_types.yml
+              mountPath: /eodag/resources/collections.yml
+              subPath: collections.yml
             {{- end }}
             {{- if .Values.providers }}
             - name: config
@@ -266,7 +266,7 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
         {{- end }}
       volumes:
-        {{- if or .Values.productTypes .Values.providers }}
+        {{- if or .Values.collections .Values.providers }}
         - name: config
           configMap:
             name: {{ printf "%s-config" (include "common.names.fullname" .) }}

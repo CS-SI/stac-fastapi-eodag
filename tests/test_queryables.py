@@ -121,7 +121,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
     assert response.status_code == 400
 
 
-async def test_default_in_product_type_queryables(
+async def test_default_in_collection_queryables(
     defaults,
     app_client,
     mock_stac_discover_queryables,

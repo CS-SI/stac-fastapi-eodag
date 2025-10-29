@@ -90,7 +90,7 @@ async def test_download_auto_order_whitelist(
             id="dummy_id",
         ),
     )
-    product.product_type = collection_id
+    product.collection = collection_id
     config = PluginConfig()
     config.priority = 0
     downloader = HTTPDownload(federation_backend, config)
@@ -110,7 +110,7 @@ async def test_download_auto_order_whitelist(
 
 async def test_download_redirect_response(request_valid_raw, mock_search, mock_presign_url, mock_aws_authenticate):
     """test that a reponse with status code 302 is returned if presigned urls are used"""
-    product_type = "MO_GLOBAL_ANALYSISFORECAST_PHY_001_024"
+    collection = "MO_GLOBAL_ANALYSISFORECAST_PHY_001_024"
     product = EOProduct(
         "cop_marine",
         dict(
@@ -118,7 +118,7 @@ async def test_download_redirect_response(request_valid_raw, mock_search, mock_p
             title="dummy_product",
             id="dummy",
         ),
-        productType=product_type,
+        collection=collection,
     )
     product.assets.update({"a1": {"href": "https://s3.waw3-1.cloudferro.com/b1/a1/a1.json"}})
     product.assets.update({"a2": {"href": "https://s3.waw3-1.cloudferro.com/b1/a2/a2.json"}})
@@ -133,7 +133,7 @@ async def test_download_redirect_response(request_valid_raw, mock_search, mock_p
     mock_presign_url.return_value = "s3://s3.abc.com/a1/b1?AWSAccesskeyId=123&expires=1543649"
 
     await request_valid_raw(
-        f"data/cop_marine/{product_type}/foo/a1",
+        f"data/cop_marine/{collection}/foo/a1",
         search_result=SearchResult([product]),
         expected_status_code=302,
         follow_redirects=False,

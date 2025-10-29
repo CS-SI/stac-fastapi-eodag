@@ -220,7 +220,7 @@ async def test_order_product_not_orderable_ko(request_not_found, mock_search):
             id="dummy_id",
         ),
     )
-    product.product_type = collection_id
+    product.collection = collection_id
 
     # try to order a product which is offline but which does not have an order link
     product.properties["order:status"] = OFFLINE_STATUS
@@ -262,7 +262,7 @@ async def test_order_product_wrong_downloader_ko(request_not_found, mock_search,
             id="dummy_id",
         ),
     )
-    product.product_type = collection_id
+    product.collection = collection_id
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
@@ -313,7 +313,7 @@ async def test_order_not_order_id_ko(request_not_found, mock_search, mock_order)
             id="dummy_id",
         ),
     )
-    product.product_type = collection_id
+    product.collection = collection_id
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"

@@ -22,7 +22,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
 
 
 @pytest.mark.parametrize(
-    "product_types, fetch_json_side_effect, expected_result",
+    "collections, fetch_json_side_effect, expected_result",
     [
         # Test case 1: Valid input
         (
@@ -80,7 +80,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
     ids=["valid input", "missing stacCollection", "requestError", "timeoutError", "empty input"],
 )
 def test_fetch_external_stac_collections(
-    product_types: List[Dict[str, Any]],
+    collections: List[Dict[str, Any]],
     fetch_json_side_effect: Any,
     expected_result: Dict[str, Dict[str, Any]],
     mock_fetch_json: MagicMock,
@@ -95,15 +95,15 @@ def test_fetch_external_stac_collections(
         mock_fetch_json.side_effect = fetch_json_side_effect
 
     # Act
-    result = fetch_external_stac_collections(product_types)
+    result = fetch_external_stac_collections(collections)
 
     # Assert
     assert result == expected_result
-    if product_types:
-        for product_type in product_types:
-            if "stacCollection" in product_type:
-                mock_fetch_json.assert_any_call(product_type["stacCollection"])
-    assert mock_fetch_json.call_count == len([pt for pt in product_types if "stacCollection" in pt])
+    if collections:
+        for collection in collections:
+            if "stacCollection" in collection:
+                mock_fetch_json.assert_any_call(collection["stacCollection"])
+    assert mock_fetch_json.call_count == len([pt for pt in collections if "stacCollection" in pt])
 
 
 @pytest.fixture(name="mock_fetch_external_stac_collections")
