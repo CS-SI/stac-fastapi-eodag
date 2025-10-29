@@ -98,7 +98,7 @@ async def test_order_ok(request_valid, post_data):
             expected_search_kwargs=dict(
                 collection=collection_id,
                 provider=None,
-                **post_data,
+                **{f"ecmwf:{k}": v for k, v in post_data.items()},
             ),
         )
 
@@ -189,7 +189,7 @@ async def test_order_with_poll_pending(request_valid, post_data):
             expected_search_kwargs=dict(
                 collection=collection_id,
                 provider=None,
-                **post_data,
+                **{f"ecmwf:{k}": v for k, v in post_data.items()},
             ),
         )
 
