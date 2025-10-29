@@ -65,6 +65,12 @@ class Settings(ApiSettings):
         validate_default=False,
     )
 
+    validate_request: bool = Field(
+        default=True,
+        description="Validate search and product order requests",
+        alias="validate",
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
