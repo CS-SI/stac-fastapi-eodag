@@ -94,7 +94,7 @@ class BaseCollectionOrderClient:
         settings = get_settings()
         validate: bool = settings.validate_request
         search_results = dag.search(
-            productType=collection_id,
+            collection=collection_id,
             provider=federation_backend,
             validate=validate,
             **search_params,

@@ -554,9 +554,9 @@ async def test_search_validate(request_valid, defaults, settings_cache_clear, va
     expected_kwargs = {"validate": validate}
 
     await request_valid(
-        f"search?collections={defaults.product_type}",
+        f"search?collections={defaults.collection}",
         expected_search_kwargs=dict(
-            productType=defaults.product_type,
+            collection=defaults.collection,
             page=1,
             items_per_page=DEFAULT_ITEMS_PER_PAGE,
             raise_errors=False,

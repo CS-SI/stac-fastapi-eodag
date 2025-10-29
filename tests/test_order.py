@@ -351,10 +351,10 @@ async def test_order_validate(request_valid, settings_cache_clear, validate):
     federation_backend = "cop_ads"
     collection_id = "CAMS_EAC4"
     expected_search_kwargs = dict(
-        productType=collection_id,
+        collection=collection_id,
         provider=None,
         validate=validate,
-        **post_data,
+        **{f"ecmwf:{k}": v for k, v in post_data.items()},
     )
     url = f"collections/{collection_id}/order"
     product = EOProduct(
@@ -365,7 +365,7 @@ async def test_order_validate(request_valid, settings_cache_clear, validate):
             id="dummy_id",
         ),
     )
-    product.product_type = collection_id
+    product.collection = collection_id
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
