@@ -104,7 +104,7 @@ async def test_order_ok(request_valid, post_data):
 
         # check that the id of the stac item is the one of the EOProduct,
         # which had taken the value of the order id (given in response "jobID" value)
-        assert response["id"] == response["properties"]["eodag:order_id"] == product_id
+        assert response["id"] == product.properties["eodag:order_id"] == product_id
         # check the links
         for link in response["links"]:
             assert link["rel"] in ["self", "collection"]
@@ -195,7 +195,7 @@ async def test_order_with_poll_pending(request_valid, post_data):
 
         # check that the id of the stac item is the one of the EOProduct,
         # which had taken the value of the order id (given in response "jobID" value)
-        assert response["id"] == response["properties"]["eodag:order_id"] == product_id
+        assert response["id"] == product.properties["eodag:order_id"] == product_id
         # check the links
         for link in response["links"]:
             assert link["rel"] in ["self", "collection"]

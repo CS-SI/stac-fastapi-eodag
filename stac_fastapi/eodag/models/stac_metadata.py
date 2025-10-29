@@ -47,7 +47,6 @@ from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
-from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
 from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
@@ -343,7 +342,9 @@ def create_stac_item(
     feature_model = model.model_validate({**product.properties, **{"federation:backends": [product.provider]}})
     stac_extensions.update(feature_model.get_conformance_classes())
 
-    feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
+    feature["properties"] = {
+        k: v for k, v in feature_model.model_dump(exclude_none=True).items() if not k.startswith("eodag:")
+    }
 
     feature["stac_extensions"] = list(stac_extensions)
 

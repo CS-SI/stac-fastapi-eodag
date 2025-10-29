@@ -17,23 +17,6 @@
 # limitations under the License.
 """Constants"""
 
-ITEM_PROPERTIES_EXCLUDE = {
-    "_id": True,
-    "productType": True,
-    "downloadLink": True,
-    "orderLink": True,
-    "orderStatus": True,
-    "orderStatusLink": True,
-    "searchLink": True,
-    "missionStartDate": True,
-    "missionEndDate": True,
-    "keywords": True,
-    "_date": True,
-    "_dc_qs": True,
-    "qs": True,
-    "defaultGeometry": True,
-}
-
 CACHE_KEY_COLLECTIONS = "collections"
 CACHE_KEY_COLLECTION = "collection"
 CACHE_KEY_SEARCH = "search"
