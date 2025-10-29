@@ -8,8 +8,9 @@ license = { file = "LICENSE" }
 requires-python = ">= 3.9"
 dependencies = [
     "attr",
-    "eodag[all-providers] < 4.0.0",
+    "eodag[all-providers] == 4.0.0a1",
     "fastapi",
+    "geojson",
     "geojson-pydantic",
     "orjson",
     "pydantic",
@@ -41,7 +42,6 @@ telemetry = [
 ]
 dev = [
     "stac_fastapi.eodag[server,telemetry]",
-    "geojson",
     "httpx",
     "importlib-metadata",
     "mypy",

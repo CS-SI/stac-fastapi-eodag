@@ -29,7 +29,6 @@ import orjson
 from fastapi import HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
-from pydantic.alias_generators import to_camel, to_snake
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
 from pygeofilter.parsers.cql2_json import parse as parse_json
@@ -46,11 +45,11 @@ from eodag import SearchResult
 from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
-from eodag.utils.exceptions import NoMatchingProductType as EodagNoMatchingProductType
+from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
-from stac_fastapi.eodag.errors import NoMatchingProductType, ResponseSearchError
+from stac_fastapi.eodag.errors import NoMatchingCollection, ResponseSearchError
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     CollectionSearchPagingLinks,
@@ -93,17 +92,19 @@ class EodagCoreClient(CustomCoreClient):
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
-    def _get_collection(self, product_type: dict[str, Any], request: Request) -> Collection:
+    def _get_collection(self, collection: dict[str, Any], request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
 
-        collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(product_type["ID"], {})))
+        # extend collection with external stac collection if any
+        extended_collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(collection["ID"], {})))
+        extended_collection["type"] = "Collection"
 
-        platform_value = [p for p in (product_type.get("platformSerialIdentifier") or "").split(",") if p]
-        constellation = [c for c in (product_type.get("platform") or "").split(",") if c]
-        processing_level = [pl for pl in (product_type.get("processingLevel") or "").split(",") if pl]
-        instruments = [i for i in (product_type.get("instrument") or "").split(",") if i]
+        platform_value = [p for p in (collection.get("platform") or "").split(",") if p]
+        constellation = [c for c in (collection.get("constellation") or "").split(",") if c]
+        processing_level = [pl for pl in (collection.get("processing:level") or "").split(",") if pl]
+        instruments = collection.get("instruments") or []
 
-        federation_backends = request.app.state.dag.available_providers(product_type["_id"])
+        federation_backends = request.app.state.dag.available_providers(collection["_id"])
 
         summaries: dict[str, Any] = {
             "platform": platform_value,
@@ -112,26 +113,32 @@ class EodagCoreClient(CustomCoreClient):
             "instruments": instruments,
             "federation:backends": federation_backends,
         }
-        collection["summaries"] = {**collection.get("summaries", {}), **{k: v for k, v in summaries.items() if v}}
-
-        collection["extent"] = {
-            "spatial": collection.get("extent", {}).get("spatial") or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
-            "temporal": collection.get("extent", {}).get("temporal")
-            or {"interval": [[product_type.get("missionStartDate"), product_type.get("missionEndDate")]]},
+        extended_collection["summaries"] = {
+            **collection.get("summaries", {}),
+            **{k: v for k, v in summaries.items() if v},
         }
 
-        for key in ["license", "abstract", "title"]:
-            if value := product_type.get(key):
-                collection[key if key != "abstract" else "description"] = value
+        extended_collection["extent"] = {
+            "spatial": extended_collection.get("extent", {}).get("spatial")
+            or collection.get("extent", {}).get("spatial")
+            or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+            "temporal": extended_collection.get("extent", {}).get("temporal")
+            or collection.get("extent", {}).get("temporal")
+            or {"interval": [[None, None]]},
+        }
 
-        pt_keywords = product_type.get("keywords", [])
-        pt_keywords = pt_keywords.split(",") if isinstance(pt_keywords, str) else pt_keywords
+        for key in ["license", "description", "title"]:
+            if value := collection.get(key):
+                extended_collection[key] = value
+
+        keywords = collection.get("keywords", [])
+        keywords = keywords.split(",") if isinstance(keywords, str) else keywords
         try:
-            collection["keywords"] = list(set(pt_keywords + collection.get("keywords", [])))
+            extended_collection["keywords"] = list(set(keywords + extended_collection.get("keywords", [])))
         except TypeError as e:
-            logger.warning("Could not merge keywords from external collection for %s: %s", product_type["ID"], str(e))
+            logger.warning("Could not merge keywords from external collection for %s: %s", collection["ID"], str(e))
 
-        collection["id"] = product_type["ID"]
+        extended_collection["id"] = collection["ID"]
 
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
@@ -148,12 +155,14 @@ class EodagCoreClient(CustomCoreClient):
         ):
             extension_names.remove("CollectionOrderExtension")
 
-        collection["links"] = CollectionLinks(
-            collection_id=collection["id"],
+        extended_collection["links"] = CollectionLinks(
+            collection_id=extended_collection["id"],
             request=request,
-        ).get_links(extensions=extension_names, extra_links=product_type.get("links", []) + collection.get("links", []))
+        ).get_links(
+            extensions=extension_names, extra_links=collection.get("links", []) + extended_collection.get("links", [])
+        )
 
-        return collection
+        return extended_collection
 
     def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
@@ -161,12 +170,12 @@ class EodagCoreClient(CustomCoreClient):
         request.state.eodag_args = eodag_args
 
         # check if the collection exists
-        if product_type := eodag_args.get("productType"):
-            all_pt = request.app.state.dag.list_product_types(fetch_providers=False)
+        if collection := eodag_args.get("collection"):
+            all_pt = request.app.state.dag.list_collections(fetch_providers=False)
             # only check the first collection (EODAG search only support a single collection)
-            existing_pt = [pt for pt in all_pt if pt["ID"] == product_type]
+            existing_pt = [pt for pt in all_pt if pt["ID"] == collection]
             if not existing_pt:
-                raise NoMatchingProductType(f"Collection {product_type} does not exist.")
+                raise NoMatchingCollection(f"Collection {collection} does not exist.")
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
@@ -255,7 +264,7 @@ class EodagCoreClient(CustomCoreClient):
             provider = parsed_query.get("federation:backends")
             provider = provider[0] if isinstance(provider, list) else provider
 
-        all_pt = request.app.state.dag.list_product_types(provider=provider, fetch_providers=False)
+        all_pt = request.app.state.dag.list_collections(provider=provider, fetch_providers=False)
 
         # datetime & free-text-search filters
         if any((q, datetime)):
@@ -266,17 +275,17 @@ class EodagCoreClient(CustomCoreClient):
             free_text = " AND ".join(q or [])
 
             try:
-                guessed_product_types = request.app.state.dag.guess_product_type(
-                    free_text=free_text, missionStartDate=start, missionEndDate=end
+                guessed_collections = request.app.state.dag.guess_collection(
+                    free_text=free_text, start_date=start, end_date=end
                 )
-            except EodagNoMatchingProductType:
-                product_types = []
+            except EodagNoMatchingCollection:
+                collections = []
             else:
-                product_types = [pt for pt in all_pt if pt["ID"] in guessed_product_types]
+                collections = [pt for pt in all_pt if pt["ID"] in guessed_collections]
         else:
-            product_types = all_pt
+            collections = all_pt
 
-        collections = [self._get_collection(pt, request) for pt in product_types]
+        collections = [self._get_collection(pt, request) for pt in collections]
 
         # bbox filter
         if bbox:
@@ -345,14 +354,14 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The collection.
         :raises NotFoundError: If the collection does not exist.
         """
-        product_type = next(
-            (pt for pt in request.app.state.dag.list_product_types(fetch_providers=False) if pt["ID"] == collection_id),
+        collection = next(
+            (pt for pt in request.app.state.dag.list_collections(fetch_providers=False) if pt["ID"] == collection_id),
             None,
         )
-        if product_type is None:
+        if collection is None:
             raise NotFoundError(f"Collection {collection_id} does not exist.")
 
-        return self._get_collection(product_type, request)
+        return self._get_collection(collection, request)
 
     async def item_collection(
         self,
@@ -522,7 +531,7 @@ class EodagCoreClient(CustomCoreClient):
         :returns: Streaming response for the item download.
         """
         product: EOProduct
-        product, _ = request.app.state.dag.search({"productType": collection_id, "id": item_id})[0]
+        product, _ = request.app.state.dag.search({"collection": collection_id, "id": item_id})[0]
 
         # when could this really happen ?
         if not product.downloader:
@@ -578,8 +587,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     sort_by = {}
     if sortby := getattr(search_request, "sortby", None):
         sort_by_special_fields = {
-            "start": "startTimeFromAscendingNode",
-            "end": "completionTimeFromAscendingNode",
+            "start": "start_datetime",
+            "end": "end_datetime",
         }
         param_tuples = []
         for param in sortby:
@@ -587,8 +596,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
             param_tuples.append(
                 (
                     sort_by_special_fields.get(
-                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
-                        to_camel(to_snake(model.to_eodag(dumped_param["field"]))),
+                        model.to_eodag(dumped_param["field"]),
+                        model.to_eodag(dumped_param["field"]),
                     ),
                     dumped_param["direction"],
                 )
@@ -608,7 +617,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
 
     # EODAG search support a single collection
     if search_request.collections:
-        base_args["productType"] = search_request.collections[0]
+        base_args["collection"] = search_request.collections[0]
 
     if search_request.ids:
         base_args["ids"] = search_request.ids

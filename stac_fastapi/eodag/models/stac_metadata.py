@@ -20,10 +20,10 @@
 from collections.abc import Callable
 from datetime import datetime as dt
 from typing import Any, ClassVar, Optional, Union, cast
-from urllib.parse import quote, unquote_plus
+from urllib.parse import quote, unquote_plus, urlparse
 
 import attr
-import orjson
+import geojson  # type: ignore
 from fastapi import Request
 from pydantic import (
     AliasChoices,
@@ -44,10 +44,10 @@ from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS, STAGING_STATUS
+from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
-from stac_fastapi.eodag.constants import ITEM_PROPERTIES_EXCLUDE
+from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
@@ -60,21 +60,17 @@ class CommonStacMetadata(ItemProperties):
     # TODO: replace dt by stac_pydantic.shared.UtcDatetime.
     # Requires timezone to be set in EODAG datetime properties
     # Tested with EFAS FORECAST
-    datetime: Optional[dt] = Field(default=None, validation_alias="startTimeFromAscendingNode")
-    start_datetime: Optional[dt] = Field(
-        default=None, validation_alias="startTimeFromAscendingNode"
-    )  # TODO do not set if start = end
-    end_datetime: Optional[dt] = Field(
-        default=None, validation_alias="completionTimeFromAscendingNode"
-    )  # TODO do not set if start = end
-    created: Optional[dt] = Field(default=None, validation_alias="creationDate")
-    updated: Optional[dt] = Field(default=None, validation_alias="modificationDate")
-    platform: Optional[str] = Field(default=None, validation_alias="platformSerialIdentifier")
-    instruments: Optional[list[str]] = Field(default=None, validation_alias="instrument")
-    constellation: Optional[str] = Field(default=None, validation_alias="platform")
+    datetime: Optional[dt] = Field(default=None, validation_alias="start_datetime")
+    start_datetime: Optional[dt] = Field(default=None)  # TODO do not set if start = end
+    end_datetime: Optional[dt] = Field(default=None)  # TODO do not set if start = end
+    created: Optional[dt] = Field(default=None)
+    updated: Optional[dt] = Field(default=None)
+    platform: Optional[str] = Field(default=None)
+    instruments: Optional[list[str]] = Field(default=None)
+    constellation: Optional[str] = Field(default=None)
     providers: Optional[list[Provider]] = None
-    gsd: Optional[float] = Field(default=None, validation_alias="resolution", gt=0)
-    collection: Optional[str] = Field(default=None, validation_alias="productType")
+    gsd: Optional[float] = Field(default=None, gt=0)
+    collection: Optional[str] = Field(default=None)
 
     _conformance_classes: ClassVar[dict[str, str]]
     get_conformance_classes: ClassVar[Callable[[Any], list[str]]]
@@ -90,12 +86,12 @@ class CommonStacMetadata(ItemProperties):
         """
         Convert instrument ``str`` to ``list``.
         """
-        if instrument := values.get("instrument"):
-            values["instrument"] = (
+        if instrument := values.get("instruments"):
+            values["instruments"] = (
                 ",".join(instrument.split()).split(",") if isinstance(instrument, str) else instrument
             )
-            if None in values["instrument"]:
-                values["instrument"].remove(None)
+            if None in values["instruments"]:
+                values["instruments"].remove(None)
         return values
 
     @model_validator(mode="before")
@@ -112,10 +108,10 @@ class CommonStacMetadata(ItemProperties):
     @model_validator(mode="before")
     @classmethod
     def convert_processing_level(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Convert processingLevel to ``str`` if it is ``int`"""
-        if processing_level := values.get("processingLevel"):
+        """Convert processing level to ``str`` if it is ``int`"""
+        if processing_level := values.get("processing:level"):
             if isinstance(processing_level, int):
-                values["processingLevel"] = f"L{processing_level}"
+                values["processing:level"] = f"L{processing_level}"
         return values
 
     @model_validator(mode="before")
@@ -125,23 +121,6 @@ class CommonStacMetadata(ItemProperties):
         Remove "id" property which is not STAC compliant if exists.
         """
         values.pop("id", None)
-        return values
-
-    @model_validator(mode="before")
-    @classmethod
-    def prepare_order_status_stac_property(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """
-        Prepare the initialization of "order:status" STAC property according to "storageStatus" EODAG property.
-        """
-        if "storageStatus" not in values:
-            return values
-
-        if values["storageStatus"] == OFFLINE_STATUS:
-            values["status"] = "orderable"
-        elif values["storageStatus"] == STAGING_STATUS:
-            values["status"] = "shipping"
-        else:
-            values["status"] = "succeeded"
         return values
 
     @model_validator(mode="after")
@@ -248,6 +227,22 @@ def get_federation_backend_dict(request: Request, provider: str) -> dict[str, An
     }
 
 
+def _get_retrieve_body_for_order(product: EOProduct) -> dict[str, Any]:
+    """returns the body of the request used to order a product"""
+    parts = urlparse(product.properties["eodag:order_link"])
+    keys = ["request", "inputs", "location"]  # keys used by different providers
+    request_dict = geojson.loads(parts.query)
+    retrieve_body = None
+    for key in keys:
+        if key in request_dict:
+            retrieve_body = request_dict[key]
+    if isinstance(retrieve_body, str):
+        retrieve_body = geojson.loads(unquote_plus(retrieve_body))
+    elif not isinstance(retrieve_body, dict):
+        raise MisconfiguredError("order_link must include a dict with key request, inputs or location")
+    return retrieve_body
+
+
 def create_stac_item(
     product: EOProduct,
     model: type[CommonStacMetadata],
@@ -257,13 +252,13 @@ def create_stac_item(
     request_json: Optional[Any] = None,
 ) -> Item:
     """Create a STAC item from an EODAG product"""
-    if product.product_type is None:
+    if product.collection is None:
         raise NotFoundError("A STAC item can not be created from an EODAG EOProduct without collection")
 
     settings: Settings = get_settings()
 
-    collection = request.app.state.dag.product_types_config.source.get(product.product_type, {}).get(
-        "alias", product.product_type
+    collection = request.app.state.dag.collections_config.source.get(product.collection, {}).get(
+        "alias", product.collection
     )
 
     feature = Item(
@@ -293,11 +288,11 @@ def create_stac_item(
     auto_order_whitelist = settings.auto_order_whitelist
     if product.provider in auto_order_whitelist:
         # a product from a whitelisted federation backend is considered as online
-        product.properties["storageStatus"] = ONLINE_STATUS
+        product.properties["order:status"] = ONLINE_STATUS
 
     # create assets only if product is not offline
     if (
-        product.properties.get("storageStatus", ONLINE_STATUS) != OFFLINE_STATUS
+        product.properties.get("order:status", ONLINE_STATUS) != OFFLINE_STATUS
         or product.provider in auto_order_whitelist
     ):
         for k, v in product.assets.items():
@@ -320,7 +315,7 @@ def create_stac_item(
                     feature["assets"][k]["alternate"] = {"origin": origin}
 
         # TODO: remove downloadLink asset after EODAG assets rework
-        if download_link := product.properties.get("downloadLink"):
+        if download_link := product.properties.get("eodag:download_link"):
             origin_href = download_link
             if asset_proxy_url:
                 download_link = asset_proxy_url + "/downloadLink"
@@ -347,20 +342,32 @@ def create_stac_item(
     feature_model = model.model_validate({**product.properties, **{"federation:backends": [product.provider]}})
     stac_extensions.update(feature_model.get_conformance_classes())
 
-    feature["properties"] = feature_model.model_dump(exclude_none=True, exclude=ITEM_PROPERTIES_EXCLUDE)
+    # filter properties we do not want to expose
+    feature["properties"] = {
+        k: v for k, v in feature_model.model_dump(exclude_none=True).items() if not k.startswith("eodag:")
+    }
+    feature["properties"].pop("qs", None)
+
+    # append order:status property as it was replaced in feature with storage:tier
+    if order_status := product.properties.get("order:status"):
+        feature["properties"]["order:status"] = order_status
 
     feature["stac_extensions"] = list(stac_extensions)
 
     if extension_names and product.provider not in auto_order_whitelist:
         if "CollectionOrderExtension" in extension_names and (
-            not product.properties.get("orderLink", False)
+            not product.properties.get("eodag:order_link", False)
             or feature["properties"].get("order:status", "") != "orderable"
         ):
             extension_names.remove("CollectionOrderExtension")
     else:
         extension_names = []
 
-    retrieve_body = orjson.loads(unquote_plus(product.properties.get("_dc_qs", "{}")))
+    # get request body for retrieve link (if product has to be ordered)
+    if "eodag:order_link" in product.properties:
+        retrieve_body = _get_retrieve_body_for_order(product)
+    else:
+        retrieve_body = {}
 
     if eodag_args := getattr(request.state, "eodag_args", None):
         if provider := eodag_args.get("provider", None):

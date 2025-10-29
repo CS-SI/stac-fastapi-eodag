@@ -35,8 +35,8 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
         (
             "creodias_s3",
             ValidationError(
-                "Validation message: startTimeFromAscendingNode, modificationDate",
-                {"startTimeFromAscendingNode", "modificationDate"},
+                "Validation message: datetime, updated",
+                {"datetime", "updated"},
             ),
         ),
     ]
@@ -72,8 +72,8 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
             {
                 "provider": "creodias_s3",
                 "error": "ValidationError",
-                "message": "Validation message: start_datetime, updated",
-                "detail": {"startTimeFromAscendingNode", "modificationDate"},
+                "message": "Validation message: datetime, updated",
+                "detail": {"datetime", "updated"},
                 "status_code": 400,
             },
         ],
@@ -105,7 +105,7 @@ async def test_auth_error(app_client, mock_search, defaults, caplog):
     """A request to eodag server raising a Authentication error must return a 500 HTTP error code"""
     mock_search.side_effect = AuthenticationError("you are not authorized")
     with caplog.at_level(logging.ERROR):
-        response = await app_client.get(f"search?collections={defaults.product_type}", follow_redirects=True)
+        response = await app_client.get(f"search?collections={defaults.collection}", follow_redirects=True)
         response_content = response.json()
 
         assert "description" in response_content
@@ -119,7 +119,7 @@ async def test_timeout_error(app_client, mock_search, defaults, caplog):
     """A request to eodag server raising a Authentication error must return a 500 HTTP error code"""
     mock_search.side_effect = TimeOutError("too long")
     with caplog.at_level(logging.ERROR):
-        response = await app_client.get(f"search?collections={defaults.product_type}", follow_redirects=True)
+        response = await app_client.get(f"search?collections={defaults.collection}", follow_redirects=True)
         response_content = response.json()
 
         assert "description" in response_content

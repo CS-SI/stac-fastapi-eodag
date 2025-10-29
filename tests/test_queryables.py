@@ -40,7 +40,7 @@ async def test_basic_queryables(request_valid):
 async def test_collection_queryables(mock_list_queryables, app_client):
     """Response for queryables of specific collection must contain values returned by eodag lib"""
     eodag_response = {
-        "providerProductType": Annotated[
+        "product:type": Annotated[
             Literal[tuple(sorted(["SAR", "GRD"]))], Field(default="SAR", **{"title": "Product type"})
         ],
         "start": Annotated[str, Field(..., **{"title": "Start date"})],
@@ -70,7 +70,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"productType": "ABC_DEF"})
+    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF"})
     mock_list_queryables.reset_mock()
     # get queryables for specific provider
     await app_client.request(
@@ -78,7 +78,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?federation:backends=abc_prod",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"productType": "ABC_DEF", "provider": "abc_prod"})
+    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "provider": "abc_prod"})
     mock_list_queryables.reset_mock()
     # queryables with filter that does not have to be changed
     await app_client.request(
@@ -86,7 +86,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?emcwf:year=2000",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"productType": "ABC_DEF", "emcwf:year": ["2000"]})
+    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "emcwf:year": ["2000"]})
     mock_list_queryables.reset_mock()
     # queryables with two values of the same filter param
     await app_client.request(
@@ -94,7 +94,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?emcwf:year=2000&emcwf:year=2001",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"productType": "ABC_DEF", "emcwf:year": ["2000", "2001"]})
+    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "emcwf:year": ["2000", "2001"]})
     mock_list_queryables.reset_mock()
     # queryables with filter that has to be changed to eodag param
     await app_client.request(
@@ -102,7 +102,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?sat:absolute_orbit=10",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"productType": "ABC_DEF", "orbitNumber": ["10"]})
+    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "sat:absolute_orbit": ["10"]})
     mock_list_queryables.reset_mock()
     # queryables with datetime filter
     await app_client.request(
@@ -110,9 +110,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?datetime=2020-01-01T00:00:00Z",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(
-        **{"productType": "ABC_DEF", "startTimeFromAscendingNode": "2020-01-01T00:00:00Z"}
-    )
+    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "start_datetime": "2020-01-01T00:00:00Z"})
     mock_list_queryables.reset_mock()
     # queryables with invalid datetime filter
     response = await app_client.request(
@@ -123,7 +121,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
     assert response.status_code == 400
 
 
-async def test_default_in_product_type_queryables(
+async def test_default_in_collection_queryables(
     defaults,
     app_client,
     mock_stac_discover_queryables,
@@ -132,7 +130,7 @@ async def test_default_in_product_type_queryables(
     mock_oidc_token_exchange_auth_authenticate,
 ):
     """The queryables should not have default value set to null."""
-    response = await app_client.get(f"/collections/{defaults.product_type}/queryables", follow_redirects=True)
+    response = await app_client.get(f"/collections/{defaults.collection}/queryables", follow_redirects=True)
     resp_json = response.json()
     for _, value in resp_json["properties"].items():
         if "default" in value:

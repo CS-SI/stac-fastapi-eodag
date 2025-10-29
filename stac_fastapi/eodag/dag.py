@@ -39,20 +39,20 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_external_stac_collections(
-    product_types: list[dict[str, Any]],
+    collections: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """Load external STAC collections
 
-    :param product_types: detailed product types dict list
+    :param collections: detailed product types dict list
     :return: dict of external STAC collections indexed by product type ID
     """
     ext_stac_collections: dict[str, dict[str, Any]] = {}
 
-    for product_type in product_types:
-        file_path = product_type.get("stacCollection")
+    for collection in collections:
+        file_path = collection.get("stacCollection")
         if not file_path:
             continue
-        logger.info(f"Fetching external STAC collection for {product_type['ID']}")
+        logger.info(f"Fetching external STAC collection for {collection['ID']}")
 
         try:
             ext_stac_collection = fetch_json(file_path)
@@ -63,7 +63,7 @@ def fetch_external_stac_collections(
             )
             ext_stac_collection = {}
 
-        ext_stac_collections[product_type["ID"]] = ext_stac_collection
+        ext_stac_collections[collection["ID"]] = ext_stac_collection
     return ext_stac_collections
 
 
@@ -74,13 +74,13 @@ def init_dag(app: FastAPI) -> None:
     dag = EODataAccessGateway()
 
     ext_stac_collections = fetch_external_stac_collections(
-        dag.list_product_types(fetch_providers=settings.fetch_providers)
+        dag.list_collections(fetch_providers=settings.fetch_providers)
     )
 
     app.state.ext_stac_collections = ext_stac_collections
 
-    # update eodag product_types config form external stac collections
-    for p, p_f in dag.product_types_config.source.items():
+    # update eodag collections config form external stac collections
+    for p, p_f in dag.collections_config.source.items():
         for key in (p, p_f.get("alias")):
             if key is None:
                 continue
@@ -103,15 +103,14 @@ def init_dag(app: FastAPI) -> None:
 
             update_fields: dict[str, Any] = {
                 "title": p_f.get("title") or ext_col.get("title"),
-                "abstract": p_f.get("abstract") or ext_col["description"],
+                "description": p_f.get("description") or ext_col["description"],
                 "keywords": ext_col.get("keywords"),
-                "instrument": p_f.get("instrument") or instruments,
-                "platform": p_f.get("platform") or constellation,
-                "platformSerialIdentifier": p_f.get("platformSerialIdentifier") or platform,
-                "processingLevel": p_f.get("processingLevel") or processing_level,
+                "instruments": p_f.get("instruments") or instruments,
+                "platform": p_f.get("platform") or platform,
+                "constellation": p_f.get("constellation") or constellation,
+                "processing:level": p_f.get("processing:level") or processing_level,
                 "license": ext_col["license"],
-                "missionStartDate": ext_col["extent"]["temporal"]["interval"][0][0],
-                "missionEndDate": ext_col["extent"]["temporal"]["interval"][0][1],
+                "extent": ext_col["extent"],
             }
             clean = {k: v for k, v in update_fields.items() if v is not None}
             p_f.update(clean)

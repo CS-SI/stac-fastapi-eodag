@@ -22,7 +22,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
 
 
 @pytest.mark.parametrize(
-    "product_types, fetch_json_side_effect, expected_result",
+    "collections, fetch_json_side_effect, expected_result",
     [
         # Test case 1: Valid input
         (
@@ -80,7 +80,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
     ids=["valid input", "missing stacCollection", "requestError", "timeoutError", "empty input"],
 )
 def test_fetch_external_stac_collections(
-    product_types: List[Dict[str, Any]],
+    collections: List[Dict[str, Any]],
     fetch_json_side_effect: Any,
     expected_result: Dict[str, Dict[str, Any]],
     mock_fetch_json: MagicMock,
@@ -95,15 +95,15 @@ def test_fetch_external_stac_collections(
         mock_fetch_json.side_effect = fetch_json_side_effect
 
     # Act
-    result = fetch_external_stac_collections(product_types)
+    result = fetch_external_stac_collections(collections)
 
     # Assert
     assert result == expected_result
-    if product_types:
-        for product_type in product_types:
-            if "stacCollection" in product_type:
-                mock_fetch_json.assert_any_call(product_type["stacCollection"])
-    assert mock_fetch_json.call_count == len([pt for pt in product_types if "stacCollection" in pt])
+    if collections:
+        for collection in collections:
+            if "stacCollection" in collection:
+                mock_fetch_json.assert_any_call(collection["stacCollection"])
+    assert mock_fetch_json.call_count == len([pt for pt in collections if "stacCollection" in pt])
 
 
 @pytest.fixture(name="mock_fetch_external_stac_collections")
@@ -139,10 +139,10 @@ def fixture_mock_dag() -> MagicMock:
     Mock the EODataAccessGateway object.
     """
     mock_dag = MagicMock(spec=EODataAccessGateway)
-    mock_dag.list_product_types.return_value = [{"ID": "test-product", "stacCollection": "mocked_url"}]
-    mock_dag.product_types_config = MagicMock()
-    # Set a default value for `product_types_config.source`
-    mock_dag.product_types_config.source = {}
+    mock_dag.list_collections.return_value = [{"ID": "test-product", "stacCollection": "mocked_url"}]
+    mock_dag.collections_config = MagicMock()
+    # Set a default value for `collections_config.source`
+    mock_dag.collections_config.source = {}
     mock_dag._plugins_manager = MagicMock()  # pylint: disable=protected-access
     mock_dag._plugins_manager.get_search_plugins = MagicMock()  # pylint: disable=protected-access
     mock_dag.available_providers = MagicMock(return_value=["provider1", "provider2"])
@@ -150,71 +150,73 @@ def fixture_mock_dag() -> MagicMock:
 
 
 @pytest.mark.parametrize(
-    "product_types_config_source, expected_updated_config",
+    "collections_config_source, expected_updated_config",
     [
-        # Test case 1: Empty product_types_config.source
+        # Test case 1: Empty collections_config.source
         (
             {
                 "test-product": {
                     "title": None,
-                    "abstract": None,
+                    "description": None,
                     "keywords": None,
-                    "instrument": None,
+                    "instruments": None,
                     "platform": None,
-                    "platformSerialIdentifier": None,
-                    "processingLevel": None,
+                    "constellation": None,
+                    "processing:level": None,
                     "license": None,
-                    "missionStartDate": None,
-                    "missionEndDate": None,
+                    "extent": {"temporal": {"interval": [[None, None]]}},
                 }
             },
             {
                 "title": "Mocked Title",
-                "abstract": "Mocked Description",
+                "description": "Mocked Description",
                 "keywords": ["keyword1", "keyword2"],
-                "instrument": "Mocked Instrument",
-                "platform": "Mocked Constellation",
-                "platformSerialIdentifier": "Mocked Platform",
-                "processingLevel": "Mocked Level",
+                "instruments": "Mocked Instrument",
+                "platform": "Mocked Platform",
+                "constellation": "Mocked Constellation",
+                "processing:level": "Mocked Level",
                 "license": "Mocked License",
-                "missionStartDate": "2020-01-01T00:00:00Z",
-                "missionEndDate": "2021-01-01T00:00:00Z",
+                "extent": {
+                    "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+                    "temporal": {"interval": [["2020-01-01T00:00:00Z", "2021-01-01T00:00:00Z"]]},
+                },
             },
         ),
-        # Test case 2: Partially filled product_types_config.source
+        # Test case 2: Partially filled collections_config.source
         (
             {
                 "test-product": {
                     "title": "Existing Title",
-                    "abstract": None,
+                    "description": None,
                     "keywords": None,
-                    "instrument": "Existing Instrument",
+                    "instruments": "Existing Instrument",
                     "platform": None,
-                    "platformSerialIdentifier": None,
-                    "processingLevel": None,
+                    "constellation": None,
+                    "processing:level": None,
                     "license": None,
-                    "missionStartDate": None,
-                    "missionEndDate": None,
+                    "extent": {"temporal": {"interval": [[None, None]]}},
                 }
             },
             {
                 "title": "Existing Title",
-                "abstract": "Mocked Description",
+                "description": "Mocked Description",
                 "keywords": ["keyword1", "keyword2"],
-                "instrument": "Existing Instrument",
-                "platform": "Mocked Constellation",
-                "platformSerialIdentifier": "Mocked Platform",
-                "processingLevel": "Mocked Level",
+                "instruments": "Existing Instrument",
+                "platform": "Mocked Platform",
+                "constellation": "Mocked Constellation",
+                "processing:level": "Mocked Level",
                 "license": "Mocked License",
-                "missionStartDate": "2020-01-01T00:00:00Z",
-                "missionEndDate": "2021-01-01T00:00:00Z",
+                "extent": {
+                    "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+                    "temporal": {"interval": [["2020-01-01T00:00:00Z", "2021-01-01T00:00:00Z"]]},
+                },
             },
         ),
     ],
     ids=["empty source", "partially filled source"],
 )
 def test_init_dag(
-    product_types_config_source: Dict[str, Dict[str, Any]],
+    collections_config_source: Dict[str, Dict[str, Any]],
     expected_updated_config: Dict[str, Any],
     mock_fetch_external_stac_collections: MagicMock,
     mock_dag: MagicMock,
@@ -222,13 +224,13 @@ def test_init_dag(
 ) -> None:
     """
     Parameterized test for `init_dag` to ensure it initializes the app state correctly
-    with different `product_types_config.source` values.
+    with different `collections_config.source` values.
     """
     # Arrange: Mock the EODataAccessGateway initialization
     mocker.patch("stac_fastapi.eodag.dag.EODataAccessGateway", return_value=mock_dag)
 
-    # Set the mocked `product_types_config.source`
-    mock_dag.product_types_config.source = product_types_config_source
+    # Set the mocked `collections_config.source`
+    mock_dag.collections_config.source = collections_config_source
 
     # Mock the FastAPI app
     mock_app = FastAPI()
@@ -237,13 +239,13 @@ def test_init_dag(
     init_dag(mock_app)
 
     # Assert: Verify that `fetch_external_stac_collections` was called
-    mock_fetch_external_stac_collections.assert_called_once_with(mock_dag.list_product_types.return_value)
+    mock_fetch_external_stac_collections.assert_called_once_with(mock_dag.list_collections.return_value)
 
     # Assert: Verify that `app.state.ext_stac_collections` is set correctly
     assert mock_app.state.ext_stac_collections == mock_fetch_external_stac_collections.return_value
 
-    # Assert: Verify that `dag.product_types_config.source` was updated
-    updated_config = mock_dag.product_types_config.source["test-product"]
+    # Assert: Verify that `dag.collections_config.source` was updated
+    updated_config = mock_dag.collections_config.source["test-product"]
     assert updated_config == expected_updated_config
 
     # Assert: Verify that `dag._plugins_manager.get_search_plugins` was called for each provider
