@@ -369,10 +369,12 @@ async def test_order_validate(request_valid, settings_cache_clear, validate):
 
     product_dataset = "cams-global-reanalysis-eac4"
     endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
-    product.properties["orderLink"] = f"{endpoint}/processes/{product_dataset}/execution" + '?{"qux": "quux"}'
+    product.properties["eodag:order_link"] = (
+        f"{endpoint}/processes/{product_dataset}/execution" + '?{"inputs": {"qux": "quux"}}'
+    )
 
     # order an offline product
-    product.properties["storageStatus"] = OFFLINE_STATUS
+    product.properties["order:status"] = OFFLINE_STATUS
 
     # add auth and download plugins to make the order works
     plugins_manager = PluginManager(load_default_config())
