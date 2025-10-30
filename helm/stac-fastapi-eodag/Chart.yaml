@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: APACHE-2.0
 
 apiVersion: v2
-appVersion: 0.2.0
+appVersion: 0.3.0
 dependencies:
   - name: common
     repository: oci://registry-1.docker.io/bitnamicharts
@@ -24,4 +24,4 @@ name: stac-fastapi-eodag
 sources:
   - https://github.com/CS-SI/stac-fastapi-eodag
 type: application
-version: 0.2.0
+version: 0.3.0

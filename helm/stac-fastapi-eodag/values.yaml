@@ -213,7 +213,7 @@ keepOriginUrl: false
 image:
   registry: ghcr.io
   repository: cs-si/stac-fastapi-eodag
-  tag: "v0.2.0-eodag-3.10.0"
+  tag: "v0.3.0-eodag-4.0.0"
   digest: ""
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'

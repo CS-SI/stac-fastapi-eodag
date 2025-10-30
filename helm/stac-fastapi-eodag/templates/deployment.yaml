@@ -158,7 +158,7 @@ spec:
               value: /eodag/resources/eodag.yml
             {{- end }}
             {{- if .Values.collections }}
-            - name: EODAG_collectionS_CFG_FILE
+            - name: EODAG_COLLECTIONS_CFG_FILE
               value: /eodag/resources/collections.yml
             {{- end }}
             {{- if .Values.providers }}
