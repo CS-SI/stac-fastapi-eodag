@@ -42,7 +42,6 @@ from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
 from eodag import SearchResult
-from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
@@ -217,13 +216,8 @@ class EodagCoreClient(CustomCoreClient):
 
         # pagination
         next_page = None
-        if search_request.page:
-            number_returned = len(search_result)
-            items_per_page = search_request.limit or DEFAULT_ITEMS_PER_PAGE
-            if not search_result.number_matched or (
-                (search_request.page - 1) * items_per_page + number_returned < search_result.number_matched
-            ):
-                next_page = search_request.page + 1
+        if hasattr(search_result, "next_page_token_key"):
+            next_page = search_result.next_page_token_key.split(":", 1)[1]
 
         collection["links"] = PagingLinks(
             request=request,
@@ -447,6 +441,7 @@ class EodagCoreClient(CustomCoreClient):
         intersects: Optional[str] = None,
         filter_expr: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
+        token: Optional[str] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -474,7 +469,7 @@ class EodagCoreClient(CustomCoreClient):
             "bbox": bbox,
             "limit": limit,
             "query": orjson.loads(unquote_plus(query)) if query else query,
-            "page": page,
+            "token": token,
             "sortby": get_sortby_to_post(sortby),
             "intersects": orjson.loads(unquote_plus(intersects)) if intersects else intersects,
         }
@@ -569,7 +564,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     """
     base_args = (
         {
-            "page": search_request.page,
+            "token": search_request.token,
             "items_per_page": search_request.limit,
             "raise_errors": False,
             "count": get_settings().count,
