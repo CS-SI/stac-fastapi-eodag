@@ -151,3 +151,17 @@ def convert_from_geojson_polytope(geom: dict[str, Any]) -> Polygon:
         return Polygon(polygon_args)
     else:
         raise ValidationError("convert_from_geojson_polytope only accepts shapes of type polygon")
+
+
+def convert_from_area_to_bbox(area: list[float]) -> list[float]:
+    """
+    Converts the bounding box from area format to bbox format.
+
+    bbox format: [min_lon,min_lat,max_lon,max_lat]
+    area format: [max_lat,min_lon,min_lat,max_lon]
+
+    :param area: bounding box in area format.
+    :returns: bounding box in bbox format.
+    """
+    max_lat, min_lon, min_lat, max_lon = area
+    return [min_lon, min_lat, max_lon, max_lat]

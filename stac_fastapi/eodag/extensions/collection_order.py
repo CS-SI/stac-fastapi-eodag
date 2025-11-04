@@ -42,7 +42,7 @@ from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
 )
-from stac_fastapi.eodag.utils import convert_from_geojson_polytope
+from stac_fastapi.eodag.utils import convert_from_area_to_bbox, convert_from_geojson_polytope
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +96,10 @@ class BaseCollectionOrderClient:
                 if search_params["ecmwf:feature"]["type"] == "polygon":
                     search_params["geometry"] = convert_from_geojson_polytope(search_params["ecmwf:feature"])
                     search_params.pop("ecmwf:feature")
+            # convert bounding box format
+            if "ecmwf:area" in search_params:
+                search_params["bbox"] = convert_from_area_to_bbox(search_params["ecmwf:area"])
+                search_params.pop("ecmwf:area")
 
         settings = get_settings()
         validate: bool = settings.validate_request
