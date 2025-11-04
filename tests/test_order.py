@@ -466,3 +466,69 @@ async def test_order_validate_with_errors(app, app_client, mocker, settings_cach
     assert "ticket" in response_content
     response_content.pop("ticket", None)
     assert expected_response == response_content
+
+
+async def test_order_product_with_polytope_shape(app, app_client, mocker):
+    """Order a product through eodag server with ECMWF Polytope shape must succeed"""
+    federation_backend = "cop_ads"
+    collection_id = "CAMS_EAC4"
+    post_data: dict = {
+        "feature": {
+            "shape": [
+                [50.0, 50.0],
+                [50.0, 60.0],
+                [60.0, 60.0],
+                [60.0, 50.0],
+                [50.0, 50.0],
+            ],
+            "type": "polygon",
+        }
+    }
+    # prepare product
+    product = EOProduct(
+        federation_backend,
+        dict(
+            geometry="POINT (0 0)",
+            title="dummy_product",
+            id="dummy_id",
+        ),
+    )
+    product_dataset = "cams-global-reanalysis-eac4"
+    endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
+    product.properties["eodag:order_link"] = (
+        f"{endpoint}/processes/{product_dataset}/execution" + '?{"inputs": {"qux": "quux"}}'
+    )
+    product.properties["order:status"] = OFFLINE_STATUS
+    # add auth and download plugins to make the order works
+    plugins_manager = PluginManager(load_default_config())
+    download_plugin = plugins_manager.get_download_plugin(product)
+    auth_plugin = plugins_manager.get_auth_plugin(download_plugin, product)
+    auth_plugin.config.credentials = {"apikey": "anicekey"}
+    product.register_downloader(download_plugin, auth_plugin)
+
+    # the only part to check in this test are the arguments passed to search
+    mock_order = mocker.patch.object(download_plugin, "order")
+    product_id = product.properties["id"]
+
+    def set_order_id(product, auth, timeout):
+        product.properties["eodag:order_id"] = product_id
+
+    mock_order.side_effect = set_order_id
+    mock_search = mocker.patch.object(app.state.dag, "search")
+    mock_search.return_value = SearchResult([product], 1)
+
+    # order product
+    await app_client.request(
+        "POST",
+        f"/collections/{collection_id}/order",
+        json=post_data,
+        follow_redirects=True,
+        headers={},
+    )
+    geometry = mock_search.call_args[1]["geometry"]
+    # converts the geometry back to a Shapely polygon
+    shape = {
+        "type": "polygon",
+        "shape": [[y, x] for x, y in geometry.exterior.coords],
+    }
+    assert shape == post_data["feature"]
