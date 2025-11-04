@@ -42,6 +42,7 @@ from stac_fastapi.eodag.models.stac_metadata import (
     CommonStacMetadata,
     create_stac_item,
 )
+from stac_fastapi.eodag.utils import convert_from_geojson_polytope
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,11 @@ class BaseCollectionOrderClient:
             request_params = request_body.model_dump(exclude={"federation_backends": True})
             # use eodag formatting for search
             search_params = {f"ecmwf:{k}": v for k, v in request_params.items()}
+            # ECMWF Polytope uses non-geojson structure for features
+            if "ecmwf:feature" in search_params:
+                if search_params["ecmwf:feature"]["type"] == "polygon":
+                    search_params["geometry"] = convert_from_geojson_polytope(search_params["ecmwf:feature"])
+                    search_params.pop("ecmwf:feature")
 
         settings = get_settings()
         validate: bool = settings.validate_request

@@ -26,6 +26,8 @@ from urllib.parse import unquote_plus
 import orjson
 from shapely.geometry import Point, Polygon
 
+from eodag.utils.exceptions import ValidationError
+
 if TYPE_CHECKING:
     from typing import Any, Optional, Union
 
@@ -134,3 +136,18 @@ def check_poly_is_point(poly: Polygon) -> Union[Point, Polygon]:
         return Point(poly.exterior.coords[0])
     else:
         return poly
+
+
+def convert_from_geojson_polytope(geom: dict[str, Any]) -> Polygon:
+    """
+    Converts from ECMWF Polytope non-geojson shape to Shapely polygon
+
+    :param geom: ECMWF Polytope shape.
+    :returns: A Shapely polygon.
+    """
+    if geom["type"] == "polygon":
+        shape: list = geom["shape"]
+        polygon_args = [(p[1], p[0]) for p in shape]
+        return Polygon(polygon_args)
+    else:
+        raise ValidationError("convert_from_geojson_polytope only accepts shapes of type polygon")
