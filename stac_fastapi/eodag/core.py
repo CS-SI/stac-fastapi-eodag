@@ -102,7 +102,9 @@ class EodagCoreClient(CustomCoreClient):
         platform_value = [p for p in (collection.get("platform") or "").split(",") if p]
         constellation = [c for c in (collection.get("constellation") or "").split(",") if c]
         processing_level = [pl for pl in (collection.get("processing:level") or "").split(",") if pl]
-        instruments = collection.get("instruments") or []
+        instruments = collection.get("instruments", [])
+        if isinstance(instruments, str):
+            instruments = instruments.split(",")
 
         federation_backends = request.app.state.dag.available_providers(collection["_id"])
 
