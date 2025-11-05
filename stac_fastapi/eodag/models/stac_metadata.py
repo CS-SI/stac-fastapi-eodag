@@ -40,7 +40,7 @@ from stac_fastapi.types.stac import Item
 from stac_pydantic.api.extensions.sort import SortDirections, SortExtension
 from stac_pydantic.api.version import STAC_API_VERSION
 from stac_pydantic.item import ItemProperties
-from stac_pydantic.shared import Provider
+from stac_pydantic.shared import Asset, Provider
 from typing_extensions import Self
 
 from eodag.api.product._product import EOProduct
@@ -297,8 +297,7 @@ def create_stac_item(
     ):
         for k, v in product.assets.items():
             # TODO: download extension with origin link (make it optional ?)
-            asset_model = model.model_validate(v)
-            stac_extensions.update(asset_model.get_conformance_classes())
+            asset_model = Asset.model_validate(v)
             feature["assets"][k] = asset_model.model_dump(exclude_none=True)
 
             if asset_proxy_url:
@@ -388,7 +387,11 @@ def _get_conformance_classes(self) -> list[str]:
     conformance_classes: set[str] = set()
 
     for f in self.model_fields_set:
-        mf = self.model_fields.get(f)
+        if ":" in f:
+            # remove prefix
+            mf = self.model_fields.get(f.split(":")[1])
+        else:
+            mf = self.model_fields.get(f)
         if not mf or not isinstance(mf, FieldInfo) or not mf.metadata:
             continue
         extension = next(

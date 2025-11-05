@@ -145,6 +145,15 @@ async def test_items_response(request_valid, defaults):
         res[0]["assets"]["asset1"]["href"]
         == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
+    expected_extensions = [
+        "https://stac-extensions.github.io/sat/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/product/v0.1.0/schema.json",
+        "https://api.openeo.org/extensions/federation/0.1.0",
+        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+    ]
+    for ext in expected_extensions:
+        assert ext in res[0]["stac_extensions"]
 
     # check order status and storage tier properties of the "OFFLINE" item when peps is whitelisted
     auto_order_whitelist = get_settings().auto_order_whitelist
