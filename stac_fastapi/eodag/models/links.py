@@ -21,10 +21,13 @@ from typing import Any, Optional
 from urllib.parse import ParseResult, parse_qs, unquote, urlencode, urljoin, urlparse
 
 import attr
+import geojson
 from stac_fastapi.types.requests import get_base_url
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 from starlette.requests import Request
+
+from eodag.utils import update_nested_dict
 
 # These can be inferred from the item/collection so they aren't included in the database
 # Instead they are dynamically generated when querying the database using the classes defined below
@@ -139,14 +142,25 @@ class BaseLinks:
 class PagingLinks(BaseLinks):
     """Create links for paging."""
 
-    next: Optional[int] = attr.ib(kw_only=True, default=None)
+    next: Optional[str] = attr.ib(kw_only=True, default=None)
+    federation_backend: Optional[str] = attr.ib(kw_only=True, default=None)
 
     def link_next(self) -> Optional[dict[str, Any]]:
         """Create link for next page."""
         if self.next is not None:
             method = self.request.method
+            federation_backend_dict = (
+                {"query": {"federation:backends": {"eq": self.federation_backend}}} if self.federation_backend else {}
+            )
             if method == "GET":
-                href = merge_params(self.url, {"token": [str(self.next)]})
+                params_update_dict: dict[str, list[str]] = {"token": [str(self.next)]}
+                if "query" in self.request.query_params:
+                    params_update_dict["query"] = [
+                        geojson.dumps(
+                            geojson.loads(self.request.query_params["query"]) | federation_backend_dict["query"]
+                        )
+                    ]
+                href = merge_params(self.url, params_update_dict)
                 return {
                     "rel": Relations.next.value,
                     "type": MimeTypes.geojson.value,
@@ -155,12 +169,15 @@ class PagingLinks(BaseLinks):
                     "title": "Next page",
                 }
             if method == "POST":
+                post_body = update_nested_dict(
+                    self.request.state.postbody, {"token": self.next} | federation_backend_dict
+                )
                 return {
                     "rel": Relations.next,
                     "type": MimeTypes.geojson,
                     "method": method,
                     "href": f"{self.request.url}",
-                    "body": {**self.request.state.postbody, "page": self.next},
+                    "body": post_body,
                     "title": "Next page",
                 }
 
