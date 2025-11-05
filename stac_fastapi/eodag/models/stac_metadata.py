@@ -236,8 +236,11 @@ def _get_retrieve_body_for_order(product: EOProduct) -> dict[str, Any]:
     for key in keys:
         if key in request_dict:
             retrieve_body = request_dict[key]
-    if isinstance(retrieve_body, str):
-        retrieve_body = geojson.loads(unquote_plus(retrieve_body))
+    if isinstance(retrieve_body, str):  # order link is quoted json or url
+        try:
+            retrieve_body = geojson.loads(unquote_plus(retrieve_body))
+        except ValueError:  # string is a url not a geojson -> no body required
+            retrieve_body = {}
     elif not isinstance(retrieve_body, dict):
         raise MisconfiguredError("order_link must include a dict with key request, inputs or location")
     return retrieve_body
