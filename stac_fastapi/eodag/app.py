@@ -45,6 +45,7 @@ from stac_fastapi.extensions.core import (
     SortExtension,
 )
 from stac_fastapi.extensions.core.free_text import FreeTextConformanceClasses
+from stac_fastapi.extensions.core.pagination.token_pagination import TokenPaginationExtension
 from stac_fastapi.extensions.core.query import QueryConformanceClasses
 from stac_fastapi.extensions.core.sort import SortConformanceClasses
 
@@ -60,7 +61,6 @@ from stac_fastapi.eodag.extensions.data_download import DataDownload
 from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
 from stac_fastapi.eodag.extensions.filter import FiltersClient
 from stac_fastapi.eodag.extensions.offset_pagination import OffsetPaginationExtension
-from stac_fastapi.eodag.extensions.pagination import PaginationExtension
 from stac_fastapi.eodag.extensions.stac import (
     ElectroOpticalExtension,
     FederationExtension,
@@ -107,7 +107,7 @@ search_extensions_map = {
     "query": QueryExtension(),
     "sort": SortExtension(),
     "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
-    "pagination": PaginationExtension(),
+    "token": TokenPaginationExtension(),
 }
 
 # collection_search extensions
@@ -120,7 +120,7 @@ cs_extensions_map = {
 
 # item_collection extensions
 itm_col_extensions_map = {
-    "pagination": PaginationExtension(),
+    "token": TokenPaginationExtension(),
     "sort": SortExtension(conformance_classes=[SortConformanceClasses.ITEMS]),
 }
 

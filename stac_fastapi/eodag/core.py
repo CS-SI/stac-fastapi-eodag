@@ -41,13 +41,13 @@ from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollectio
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
-from eodag import SearchResult
-from eodag.api.core import DEFAULT_ITEMS_PER_PAGE
+from eodag import EOProduct, SearchResult
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
+from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import NoMatchingCollection, ResponseSearchError
 from stac_fastapi.eodag.models.links import (
@@ -183,15 +183,18 @@ class EodagCoreClient(CustomCoreClient):
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
-        # get products by ids
         if ids := eodag_args.pop("ids", []):
+            # get products by ids
             search_result = SearchResult([])
             for item_id in ids:
                 eodag_args["id"] = item_id
                 search_result.extend(request.app.state.dag.search(validate=validate, **eodag_args))
             search_result.number_matched = len(search_result)
+        elif eodag_args.get("token") and eodag_args.get("provider"):
+            # search with pagination
+            search_result = eodag_search_next_page(request.app.state.dag, eodag_args)
         else:
-            # search without ids
+            # search without ids or pagination
             search_result = request.app.state.dag.search(validate=validate, **eodag_args)
 
         if search_result.errors and not len(search_result):
@@ -208,7 +211,7 @@ class EodagCoreClient(CustomCoreClient):
             )
             features.append(feature)
 
-        collection = ItemCollection(
+        feature_collection = ItemCollection(
             type="FeatureCollection",
             features=features,
             numberMatched=search_result.number_matched,
@@ -216,20 +219,14 @@ class EodagCoreClient(CustomCoreClient):
         )
 
         # pagination
-        next_page = None
-        if search_request.page:
-            number_returned = len(search_result)
-            items_per_page = search_request.limit or DEFAULT_ITEMS_PER_PAGE
-            if not search_result.number_matched or (
-                (search_request.page - 1) * items_per_page + number_returned < search_result.number_matched
-            ):
-                next_page = search_request.page + 1
-
-        collection["links"] = PagingLinks(
+        if "provider" not in request.state.eodag_args and len(search_result) > 0:
+            request.state.eodag_args["provider"] = search_result[-1].provider
+        feature_collection["links"] = PagingLinks(
             request=request,
-            next=next_page,
+            next=search_result.next_page_token,
+            federation_backend=request.state.eodag_args.get("provider"),
         ).get_links(request_json=request_json, extensions=extension_names)
-        return collection
+        return feature_collection
 
     async def all_collections(
         self,
@@ -447,6 +444,7 @@ class EodagCoreClient(CustomCoreClient):
         intersects: Optional[str] = None,
         filter_expr: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
+        token: Optional[str] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -474,7 +472,7 @@ class EodagCoreClient(CustomCoreClient):
             "bbox": bbox,
             "limit": limit,
             "query": orjson.loads(unquote_plus(query)) if query else query,
-            "page": page,
+            "token": token,
             "sortby": get_sortby_to_post(sortby),
             "intersects": orjson.loads(unquote_plus(intersects)) if intersects else intersects,
         }
@@ -569,7 +567,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     """
     base_args = (
         {
-            "page": search_request.page,
+            "token": search_request.token,
             "items_per_page": search_request.limit,
             "raise_errors": False,
             "count": get_settings().count,
@@ -735,3 +733,36 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError.from_exception_data(title="stac-fastapi-eodag", line_errors=errors)
 
     return cql_args
+
+
+def eodag_search_next_page(dag, eodag_args):
+    """Perform an eodag search with pagination.
+
+    :param dag: The EODAG instance.
+    :param eodag_args: The EODAG search arguments.
+    :returns: The search result for the next page.
+    """
+    eodag_args = eodag_args.copy()
+    next_page_token = eodag_args.pop("token", None)
+    provider = eodag_args.get("provider")
+    if not next_page_token or not provider:
+        raise HTTPException(
+            status_code=500, detail="Missing required token and federation backend for next page search."
+        )
+    search_plugin = next(dag._plugins_manager.get_search_plugins(provider=provider))
+    next_page_token_key = getattr(search_plugin.config, "pagination", {}).get("next_page_token_key", "page")
+    eodag_args.pop("count", None)
+    search_result = SearchResult(
+        [EOProduct(provider, {"id": "_"})] * int(eodag_args.get("items_per_page", DEFAULT_ITEMS_PER_PAGE)),
+        next_page_token=next_page_token,
+        next_page_token_key=next_page_token_key,
+        search_params=eodag_args,
+        raise_errors=eodag_args.pop("raise_errors", None),
+    )
+    search_result._dag = dag
+    try:
+        search_result = next(search_result.next_page())
+    except StopIteration:
+        logger.info("StopIteration encountered during next page search.")
+        search_result = SearchResult([])
+    return search_result
