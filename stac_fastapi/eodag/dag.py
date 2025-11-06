@@ -96,8 +96,6 @@ def init_dag(app: FastAPI) -> None:
                 platform = ",".join(platform)
             if isinstance(constellation, list):
                 constellation = ",".join(constellation)
-            if isinstance(instruments, list):
-                instruments = ",".join(instruments)
             if isinstance(processing_level, list):
                 processing_level = ",".join(processing_level)
 
