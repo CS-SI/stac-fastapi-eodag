@@ -237,7 +237,7 @@ class StorageFields(BaseModel):
     platform: Optional[str] = Field(default=None)
     region: Optional[str] = Field(default=None)
     requester_pays: Optional[bool] = Field(default=None)
-    tier: Optional[str] = Field(default=None, validation_alias="order:status")
+    tier: Optional[str] = Field(default=None, validation_alias="storage:tier")
 
     @field_validator("tier")
     @classmethod

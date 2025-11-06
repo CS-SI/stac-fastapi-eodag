@@ -143,7 +143,7 @@ def mock_search_result():
                         "eo:snow_cover": None,
                         "gsd": None,
                         "end_datetime": "2018-02-16T00:12:14.035Z",
-                        "keyword": [],
+                        "keywords": [],
                         "product:type": "OCN",
                         "eodag:download_link": (
                             "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7b/download"

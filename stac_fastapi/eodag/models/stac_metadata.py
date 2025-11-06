@@ -338,7 +338,12 @@ def create_stac_item(
                     },
                 }
 
-    feature_model = model.model_validate({**product.properties, **{"federation:backends": [product.provider]}})
+    feature_model = model.model_validate(
+        {
+            **product.properties,
+            **{"federation:backends": [product.provider], "storage:tier": product.properties.get("order:status")},
+        }
+    )
     stac_extensions.update(feature_model.get_conformance_classes())
 
     # filter properties we do not want to expose
@@ -346,10 +351,6 @@ def create_stac_item(
         k: v for k, v in feature_model.model_dump(exclude_none=True).items() if not k.startswith("eodag:")
     }
     feature["properties"].pop("qs", None)
-
-    # append order:status property as it was replaced in feature with storage:tier
-    if order_status := product.properties.get("order:status"):
-        feature["properties"]["order:status"] = order_status
 
     feature["stac_extensions"] = list(stac_extensions)
 
@@ -386,12 +387,14 @@ def _get_conformance_classes(self) -> list[str]:
     """Extract list of conformance classes from set fields metadata"""
     conformance_classes: set[str] = set()
 
+    model_fields_by_alias = {
+        field_info.serialization_alias: field_info
+        for name, field_info in self.model_fields.items()
+        if field_info.serialization_alias
+    }
+
     for f in self.model_fields_set:
-        if ":" in f:
-            # remove prefix
-            mf = self.model_fields.get(f.split(":")[1])
-        else:
-            mf = self.model_fields.get(f)
+        mf = model_fields_by_alias.get(f) or self.model_fields.get(f)
         if not mf or not isinstance(mf, FieldInfo) or not mf.metadata:
             continue
         extension = next(
