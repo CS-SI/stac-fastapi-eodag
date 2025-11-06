@@ -21,13 +21,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote_plus
 
 import attr
 import orjson
 from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
@@ -50,17 +50,14 @@ from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import NoMatchingCollection, ResponseSearchError
+from stac_fastapi.eodag.models.item import create_stac_item
 from stac_fastapi.eodag.models.links import (
     CollectionLinks,
     CollectionSearchPagingLinks,
     ItemCollectionLinks,
     PagingLinks,
 )
-from stac_fastapi.eodag.models.stac_metadata import (
-    CommonStacMetadata,
-    create_stac_item,
-    get_sortby_to_post,
-)
+from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 from stac_fastapi.eodag.utils import (
     check_poly_is_point,
     dt_range_to_eodag,
@@ -371,7 +368,7 @@ class EodagCoreClient(CustomCoreClient):
         bbox: Optional[list[NumType]] = None,
         datetime: Optional[str] = None,
         limit: Optional[int] = None,
-        page: Optional[str] = None,
+        token: Optional[str] = None,
         sortby: Optional[list[str]] = None,
         **kwargs: Any,
     ) -> ItemCollection:
@@ -398,17 +395,10 @@ class EodagCoreClient(CustomCoreClient):
             "bbox": bbox,
             "datetime": datetime,
             "limit": limit,
-            "page": page,
+            "token": token,
         }
 
-        if sortby:
-            sortby_converted = get_sortby_to_post(sortby)
-            base_args["sortby"] = cast(Any, sortby_converted)
-
-        clean = {}
-        for k, v in base_args.items():
-            if v is not None and v != []:
-                clean[k] = v
+        clean = self._clean_search_args(base_args, sortby=sortby)
 
         search_request = self.post_request_model.model_validate(clean)
         item_collection = self._search_base(search_request, request)
@@ -436,12 +426,12 @@ class EodagCoreClient(CustomCoreClient):
         collections: Optional[list[str]] = None,
         ids: Optional[list[str]] = None,
         bbox: Optional[list[NumType]] = None,
+        intersects: Optional[str] = None,
         datetime: Optional[str] = None,
         limit: Optional[int] = None,
+        # Extensions
         query: Optional[str] = None,
-        page: Optional[str] = None,
         sortby: Optional[list[str]] = None,
-        intersects: Optional[str] = None,
         filter_expr: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
         token: Optional[str] = None,
@@ -454,14 +444,14 @@ class EodagCoreClient(CustomCoreClient):
         :param collections: List of collection IDs to include in the search.
         :param ids: List of item IDs to include in the search.
         :param bbox: Bounding box to filter the search.
+        :param intersects: GeoJSON geometry to filter the search.
         :param datetime: Date and time range to filter the search.
         :param limit: Maximum number of items to return.
         :param query: Query string to filter the search.
-        :param page: Page token for pagination.
         :param sortby: List of fields to sort the results by.
-        :param intersects: GeoJSON geometry to filter the search.
         :param filter_expr: CQL filter to apply to the search.
-        :param filter_lang: Language of the filter (default is "cql2-text").
+        :param filter_lang: Language of the filter.
+        :param token: Page token for pagination.
         :param kwargs: Additional arguments.
         :returns: Found items.
         :raises HTTPException: If the provided parameters are invalid.
@@ -471,28 +461,19 @@ class EodagCoreClient(CustomCoreClient):
             "ids": ids,
             "bbox": bbox,
             "limit": limit,
-            "query": orjson.loads(unquote_plus(query)) if query else query,
             "token": token,
-            "sortby": get_sortby_to_post(sortby),
-            "intersects": orjson.loads(unquote_plus(intersects)) if intersects else intersects,
         }
 
-        if datetime:
-            base_args["datetime"] = format_datetime_range(datetime)
-
-        if filter_expr:
-            if filter_lang == "cql2-text":
-                filter_expr = to_cql2(parse_cql2_text(filter_expr))
-                filter_lang = "cql2-json"
-
-            base_args["filter"] = str2json("filter_expr", filter_expr)
-            base_args["filter_lang"] = "cql2-json"
-
-        # Remove None values from dict
-        clean = {}
-        for k, v in base_args.items():
-            if v is not None and v != []:
-                clean[k] = v
+        clean = self._clean_search_args(
+            base_args,
+            intersects=intersects,
+            datetime=datetime,
+            sortby=sortby,
+            query=query,
+            filter_expr=filter_expr,
+            filter_lang=filter_lang,
+            **kwargs,
+        )
 
         try:
             search_request = self.post_request_model(**clean)
@@ -522,40 +503,55 @@ class EodagCoreClient(CustomCoreClient):
 
         return Item(**item_collection["features"][0])
 
-    async def download_item(self, item_id: str, collection_id: str, request: Request, **kwargs) -> StreamingResponse:
-        """
-        Download item by ID.
+    def _clean_search_args(
+        self,
+        base_args: dict[str, Any],
+        intersects: Optional[str] = None,
+        datetime: Optional[str] = None,
+        sortby: Optional[str] = None,
+        query: Optional[str] = None,
+        filter_expr: Optional[str] = None,
+        filter_lang: Optional[str] = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Clean up search arguments to match format expected by pgstac"""
+        if filter_expr:
+            if filter_lang == "cql2-text":
+                filter_expr = to_cql2(parse_cql2_text(filter_expr))
+                filter_lang = "cql2-json"
 
-        :param item_id: ID of the item.
-        :param collection_id: ID of the collection.
-        :param request: The request object.
-        :param kwargs: Additional arguments.
-        :returns: Streaming response for the item download.
-        """
-        product: EOProduct
-        product, _ = request.app.state.dag.search({"collection": collection_id, "id": item_id})[0]
+            base_args["filter"] = str2json("filter_expr", filter_expr)
+            base_args["filter_lang"] = "cql2-json"
 
-        # when could this really happen ?
-        if not product.downloader:
-            download_plugin = request.app.state.dag._plugins_manager.get_download_plugin(product)
-            auth_plugin = request.app.state.dag._plugins_manager.get_auth_plugin(download_plugin.provider)
-            product.register_downloader(download_plugin, auth_plugin)
+        if datetime:
+            base_args["datetime"] = format_datetime_range(datetime)
 
-        # required for auth. Can be removed when EODAG implements the auth interface
-        auth = (
-            product.downloader_auth.authenticate() if product.downloader_auth is not None else product.downloader_auth
-        )
+        if query:
+            base_args["query"] = orjson.loads(unquote_plus(query))
 
-        if product.downloader is None:
-            raise HTTPException(status_code=500, detail="No downloader found for this product")
-        # can we make something more clean here ?
-        download_stream_dict = product.downloader._stream_download_dict(product, auth=auth)
+        if intersects:
+            base_args["intersects"] = orjson.loads(unquote_plus(intersects))
 
-        return StreamingResponse(
-            content=download_stream_dict.content,
-            headers=download_stream_dict.headers,
-            media_type=download_stream_dict.media_type,
-        )
+        if sortby:
+            sort_param = []
+            for sort in sortby:
+                sortparts = re.match(r"^([+-]?)(.*)$", sort)
+                if sortparts:
+                    sort_param.append(
+                        {
+                            "field": sortparts.group(2).strip(),
+                            "direction": "desc" if sortparts.group(1) == "-" else "asc",
+                        }
+                    )
+            base_args["sortby"] = sort_param
+
+        # Remove None values from dict
+        clean = {}
+        for k, v in base_args.items():
+            if v is not None and v != []:
+                clean[k] = v
+
+        return clean
 
 
 def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[CommonStacMetadata]) -> dict[str, Any]:
@@ -746,9 +742,7 @@ def eodag_search_next_page(dag, eodag_args):
     next_page_token = eodag_args.pop("token", None)
     provider = eodag_args.get("provider")
     if not next_page_token or not provider:
-        raise HTTPException(
-            status_code=500, detail="Missing required token and federation backend for next page search."
-        )
+        raise ValueError("Missing required token and federation backend for next page search.")
     search_plugin = next(dag._plugins_manager.get_search_plugins(provider=provider))
     next_page_token_key = getattr(search_plugin.config, "pagination", {}).get("next_page_token_key", "page")
     eodag_args.pop("count", None)
