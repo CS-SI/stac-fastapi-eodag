@@ -73,6 +73,7 @@ from stac_fastapi.eodag.extensions.stac import (
     StorageExtension,
     TimestampExtension,
     ViewGeometryExtension,
+    LabelExtension,
 )
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.middlewares import ProxyHeaderMiddleware
@@ -99,6 +100,7 @@ stac_metadata_model = create_stac_metadata_model(
         StorageExtension(),
         OrderExtension(),
         EcmwfExtension(),
+        LabelExtension(),
     ]
 )
 
