@@ -300,8 +300,8 @@ class LabelCountObject(BaseModel):
     https://github.com/stac-extensions/label
     """
 
-    name: str = Field(default=None)
-    count: int = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    count: Optional[int] = Field(default=None)
 
 
 class LabelStatsObject(BaseModel):
@@ -309,8 +309,8 @@ class LabelStatsObject(BaseModel):
     https://github.com/stac-extensions/label
     """
 
-    name: str = Field(default=None)
-    value: float = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    value: Optional[float] = Field(default=None)
 
 
 class LabelClassObject(BaseModel):
@@ -319,7 +319,7 @@ class LabelClassObject(BaseModel):
     """
 
     name: Optional[str] = Field(default=None)  # required but may be null
-    classes: List[Union[str, int]] = Field(default=None)
+    classes: Optional[List[Union[str, int]]] = Field(default=None)
 
 
 class LabelOverview(BaseModel):
@@ -340,9 +340,9 @@ class LabelFields(BaseModel):
     properties: Optional[List[str]] = Field(default=None)
     classes: Optional[List[LabelClassObject]] = Field(default=None)
     label_description: str = Field(
-        default=None, validation_alias="label:description", serialization_alias="label:description"
+        default="", validation_alias="label:description", serialization_alias="label:description"
     )
-    label_type: str = Field(default=None, validation_alias="label:type", serialization_alias="label:type")
+    label_type: str = Field(default="", validation_alias="label:type", serialization_alias="label:type")
     tasks: Optional[List[str]] = Field(default=None)
     methods: Optional[List[str]] = Field(default=None)
     overviews: Optional[List[LabelOverview]] = Field(default=None)

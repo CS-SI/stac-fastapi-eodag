@@ -64,6 +64,7 @@ from stac_fastapi.eodag.extensions.offset_pagination import OffsetPaginationExte
 from stac_fastapi.eodag.extensions.stac import (
     ElectroOpticalExtension,
     FederationExtension,
+    LabelExtension,
     OrderExtension,
     ProcessingExtension,
     ProductExtension,
@@ -73,7 +74,6 @@ from stac_fastapi.eodag.extensions.stac import (
     StorageExtension,
     TimestampExtension,
     ViewGeometryExtension,
-    LabelExtension,
 )
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.middlewares import ProxyHeaderMiddleware
