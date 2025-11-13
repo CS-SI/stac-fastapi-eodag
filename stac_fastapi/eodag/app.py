@@ -64,6 +64,7 @@ from stac_fastapi.eodag.extensions.offset_pagination import OffsetPaginationExte
 from stac_fastapi.eodag.extensions.stac import (
     ElectroOpticalExtension,
     FederationExtension,
+    LabelExtension,
     OrderExtension,
     ProcessingExtension,
     ProductExtension,
@@ -99,6 +100,7 @@ stac_metadata_model = create_stac_metadata_model(
         StorageExtension(),
         OrderExtension(),
         EcmwfExtension(),
+        LabelExtension(),
     ]
 )
 

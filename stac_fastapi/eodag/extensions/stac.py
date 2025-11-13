@@ -17,7 +17,7 @@
 # limitations under the License.
 """properties for extensions."""
 
-from typing import Annotated, Any, Optional, Union
+from typing import Annotated, Any, List, Optional, Union
 
 import attr
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
@@ -48,7 +48,8 @@ class BaseStacExtension:
         if self.field_name_prefix:
             fields: dict[str, Any] = getattr(self.FIELDS, "model_fields", {})
             for k, v in fields.items():
-                v.serialization_alias = f"{self.field_name_prefix}:{k}"
+                if not v.serialization_alias:
+                    v.serialization_alias = f"{self.field_name_prefix}:{k}"
                 v.metadata.insert(0, {"extension": self.__class__.__name__})
 
 
@@ -292,3 +293,66 @@ class FederationExtension(BaseStacExtension):
 
     schema_href: str = attr.ib(default="https://api.openeo.org/extensions/federation/0.1.0")
     field_name_prefix: Optional[str] = attr.ib(default="federation")
+
+
+class LabelCountObject(BaseModel):
+    """
+    https://github.com/stac-extensions/label
+    """
+
+    name: Optional[str] = Field(default=None)
+    count: Optional[int] = Field(default=None)
+
+
+class LabelStatsObject(BaseModel):
+    """
+    https://github.com/stac-extensions/label
+    """
+
+    name: Optional[str] = Field(default=None)
+    value: Optional[float] = Field(default=None)
+
+
+class LabelClassObject(BaseModel):
+    """
+    https://github.com/stac-extensions/label
+    """
+
+    name: Optional[str] = Field(default=None)  # required but may be null
+    classes: Optional[List[Union[str, int]]] = Field(default=None)
+
+
+class LabelOverview(BaseModel):
+    """
+    https://github.com/stac-extensions/label
+    """
+
+    property_key: Optional[str] = Field(default=None)
+    counts: Optional[List[LabelCountObject]] = Field(default=None)
+    statistics: Optional[List[LabelStatsObject]] = Field(default=None)
+
+
+class LabelFields(BaseModel):
+    """
+    https://github.com/stac-extensions/label
+    """
+
+    properties: Optional[List[str]] = Field(default=None)
+    classes: Optional[List[LabelClassObject]] = Field(default=None)
+    label_description: str = Field(
+        default="", validation_alias="label:description", serialization_alias="label:description"
+    )
+    label_type: str = Field(default="", validation_alias="label:type", serialization_alias="label:type")
+    tasks: Optional[List[str]] = Field(default=None)
+    methods: Optional[List[str]] = Field(default=None)
+    overviews: Optional[List[LabelOverview]] = Field(default=None)
+
+
+@attr.s
+class LabelExtension(BaseStacExtension):
+    """STAC label extension."""
+
+    FIELDS = LabelFields
+
+    schema_href: str = attr.ib(default="https://stac-extensions.github.io/label/v1.0.1/schema.json")
+    field_name_prefix: Optional[str] = attr.ib(default="label")
