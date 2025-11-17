@@ -388,6 +388,9 @@ class EodagCoreClient(CustomCoreClient):
         :param datetime: Date and time range to filter the items.
         :param limit: Maximum number of items to return.
         :param page: Page token for pagination.
+        :param sortby: List of fields to sort the results by.
+        :param filter_expr: CQL filter to apply to the search.
+        :param filter_lang: Language of the filter (default is "cql2-text").
         :param kwargs: Additional arguments.
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
@@ -768,7 +771,7 @@ def eodag_search_next_page(dag, eodag_args):
     return search_result
 
 
-def add_filter_to_args(base_args: dict[str, Any], filter_lang: str, filter_expr: str):
+def add_filter_to_args(base_args: dict[str, Any], filter_lang: Optional[str], filter_expr: Optional[str]):
     """Parse the filter from the query and add to arguments
 
     :param base_args:
