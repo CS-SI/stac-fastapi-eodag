@@ -290,6 +290,61 @@ async def test_date_search_from_items(request_valid, defaults, use_dates):
     )
 
 
+async def test_filter_extension_items(request_valid, defaults, mock_search):
+    """Search through eodag server /items endpoint using the filter extension should return a valid response"""
+
+    # one parameter
+    expected_kwargs = {"sat:absolute_orbit": 1234}
+    await request_valid(
+        f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}&filter=sat:absolute_orbit=1234",
+        expected_search_kwargs=dict(
+            collection=defaults.collection,
+            token=None,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            geom=defaults.bbox_wkt,
+            raise_errors=False,
+            count=False,
+            validate=True,
+            **expected_kwargs,
+        ),
+    )
+    mock_search.reset_mock()
+
+    # two parameters connected with 'and'
+    expected_kwargs = {"sat:absolute_orbit": 1234, "processing:level": "S2MSIL1C"}
+    filter_expr = "filter=sat:absolute_orbit=1234 AND processing:level='S2MSIL1C'"
+    await request_valid(
+        f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}&{filter_expr}",
+        expected_search_kwargs=dict(
+            collection=defaults.collection,
+            token=None,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            geom=defaults.bbox_wkt,
+            raise_errors=False,
+            count=False,
+            validate=True,
+            **expected_kwargs,
+        ),
+    )
+    mock_search.reset_mock()
+
+    # with IN
+    expected_kwargs = {"instruments": ["MSI"]}
+    await request_valid(
+        f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}&filter=instruments IN ('MSI')",
+        expected_search_kwargs=dict(
+            collection=defaults.collection,
+            token=None,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            geom=defaults.bbox_wkt,
+            raise_errors=False,
+            count=False,
+            validate=True,
+            **expected_kwargs,
+        ),
+    )
+
+
 @pytest.mark.parametrize(
     "sortby,expected_sort_by",
     [
