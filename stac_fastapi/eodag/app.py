@@ -124,6 +124,7 @@ cs_extensions_map = {
 itm_col_extensions_map = {
     "token": TokenPaginationExtension(),
     "sort": SortExtension(conformance_classes=[SortConformanceClasses.ITEMS]),
+    "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
 }
 
 all_extensions = {

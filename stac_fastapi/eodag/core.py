@@ -373,6 +373,8 @@ class EodagCoreClient(CustomCoreClient):
         limit: Optional[int] = None,
         page: Optional[str] = None,
         sortby: Optional[list[str]] = None,
+        filter_expr: Optional[str] = None,
+        filter_lang: Optional[str] = "cql2-text",
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -386,6 +388,9 @@ class EodagCoreClient(CustomCoreClient):
         :param datetime: Date and time range to filter the items.
         :param limit: Maximum number of items to return.
         :param page: Page token for pagination.
+        :param sortby: List of fields to sort the results by.
+        :param filter_expr: CQL filter to apply to the search.
+        :param filter_lang: Language of the filter (default is "cql2-text").
         :param kwargs: Additional arguments.
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
@@ -404,6 +409,9 @@ class EodagCoreClient(CustomCoreClient):
         if sortby:
             sortby_converted = get_sortby_to_post(sortby)
             base_args["sortby"] = cast(Any, sortby_converted)
+
+        if filter_expr:
+            add_filter_to_args(base_args, filter_lang, filter_expr)
 
         clean = {}
         for k, v in base_args.items():
@@ -481,12 +489,7 @@ class EodagCoreClient(CustomCoreClient):
             base_args["datetime"] = format_datetime_range(datetime)
 
         if filter_expr:
-            if filter_lang == "cql2-text":
-                filter_expr = to_cql2(parse_cql2_text(filter_expr))
-                filter_lang = "cql2-json"
-
-            base_args["filter"] = str2json("filter_expr", filter_expr)
-            base_args["filter_lang"] = "cql2-json"
+            add_filter_to_args(base_args, filter_lang, filter_expr)
 
         # Remove None values from dict
         clean = {}
@@ -766,3 +769,18 @@ def eodag_search_next_page(dag, eodag_args):
         logger.info("StopIteration encountered during next page search.")
         search_result = SearchResult([])
     return search_result
+
+
+def add_filter_to_args(base_args: dict[str, Any], filter_lang: Optional[str], filter_expr: Optional[str]):
+    """Parse the filter from the query and add to arguments
+
+    :param base_args:
+    :param filter_expr: CQL filter to apply to the search.
+    :param filter_lang: Language of the filter (default is "cql2-text").
+    """
+    if filter_lang == "cql2-text":
+        filter_expr = to_cql2(parse_cql2_text(filter_expr))
+        filter_lang = "cql2-json"
+
+    base_args["filter"] = str2json("filter_expr", filter_expr)
+    base_args["filter_lang"] = "cql2-json"
