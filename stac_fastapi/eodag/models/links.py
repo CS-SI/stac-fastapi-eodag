@@ -21,7 +21,7 @@ from typing import Any, Optional
 from urllib.parse import ParseResult, parse_qs, unquote, urlencode, urljoin, urlparse
 
 import attr
-import geojson
+import orjson
 from stac_fastapi.types.requests import get_base_url
 from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
@@ -147,41 +147,38 @@ class PagingLinks(BaseLinks):
 
     def link_next(self) -> Optional[dict[str, Any]]:
         """Create link for next page."""
-        if self.next is not None:
-            method = self.request.method
-            federation_backend_dict = (
-                {"query": {"federation:backends": {"eq": self.federation_backend}}} if self.federation_backend else {}
-            )
-            if method == "GET":
-                params_update_dict: dict[str, list[str]] = {"token": [str(self.next)]}
-                if "query" in self.request.query_params:
-                    params_update_dict["query"] = [
-                        geojson.dumps(
-                            geojson.loads(self.request.query_params["query"]) | federation_backend_dict["query"]
-                        )
-                    ]
-                href = merge_params(self.url, params_update_dict)
-                return {
-                    "rel": Relations.next.value,
-                    "type": MimeTypes.geojson.value,
-                    "method": method,
-                    "href": href,
-                    "title": "Next page",
-                }
-            if method == "POST":
-                post_body = update_nested_dict(
-                    self.request.state.postbody, {"token": self.next} | federation_backend_dict
-                )
-                return {
-                    "rel": Relations.next,
-                    "type": MimeTypes.geojson,
-                    "method": method,
-                    "href": f"{self.request.url}",
-                    "body": post_body,
-                    "title": "Next page",
-                }
+        if self.next is None:
+            return None
 
-        return None
+        method = self.request.method
+        federation_filter = (
+            {"query": {"federation:backends": {"eq": self.federation_backend}}} if self.federation_backend else {}
+        )
+
+        link = {
+            "rel": Relations.next.value,
+            "type": MimeTypes.geojson.value,
+            "method": method,
+            "title": "Next page",
+        }
+
+        if method == "GET":
+            params = {"token": [str(self.next)]}
+            if "query" in self.request.query_params:
+                existing_query = orjson.loads(self.request.query_params["query"])
+                combined_query = {**existing_query, **federation_filter.get("query", {})}
+                params["query"] = [orjson.dumps(combined_query)]
+            link["href"] = merge_params(self.url, params)
+
+        if method == "POST":
+            post_body = update_nested_dict(
+                self.request.state.postbody,
+                {"token": self.next, **federation_filter},
+            )
+            link["href"] = str(self.request.url)
+            link["body"] = post_body
+
+        return link
 
 
 @attr.s

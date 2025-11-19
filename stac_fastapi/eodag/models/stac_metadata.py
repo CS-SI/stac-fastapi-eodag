@@ -20,10 +20,8 @@
 from collections.abc import Callable
 from datetime import datetime as dt
 from typing import Any, ClassVar, Optional, Union, cast
-from urllib.parse import quote, unquote_plus, urlparse
 
 import attr
-import geojson  # type: ignore
 from fastapi import Request
 from pydantic import (
     AliasChoices,
@@ -34,24 +32,13 @@ from pydantic import (
 )
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic.fields import FieldInfo
-from stac_fastapi.types.errors import NotFoundError
-from stac_fastapi.types.requests import get_base_url
-from stac_fastapi.types.stac import Item
-from stac_pydantic.api.extensions.sort import SortDirections, SortExtension
-from stac_pydantic.api.version import STAC_API_VERSION
 from stac_pydantic.item import ItemProperties
-from stac_pydantic.shared import Asset, Provider
+from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
-from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
-from eodag.utils import deepcopy, guess_file_type
-from stac_fastapi.eodag.config import Settings, get_settings
-from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
-from stac_fastapi.eodag.models.links import ItemLinks
 
 
 class CommonStacMetadata(ItemProperties):
@@ -227,165 +214,6 @@ def get_federation_backend_dict(request: Request, provider: str) -> dict[str, An
     }
 
 
-def _get_retrieve_body_for_order(product: EOProduct) -> dict[str, Any]:
-    """returns the body of the request used to order a product"""
-    parts = urlparse(product.properties["eodag:order_link"])
-    keys = ["request", "inputs", "location"]  # keys used by different providers
-    request_dict = geojson.loads(parts.query)
-    retrieve_body = None
-    for key in keys:
-        if key in request_dict:
-            retrieve_body = request_dict[key]
-    if isinstance(retrieve_body, str):  # order link is quoted json or url
-        try:
-            retrieve_body = geojson.loads(unquote_plus(retrieve_body))
-        except ValueError:  # string is a url not a geojson -> no body required
-            retrieve_body = {}
-    elif not isinstance(retrieve_body, dict):
-        raise MisconfiguredError("order_link must include a dict with key request, inputs or location")
-    return retrieve_body
-
-
-def create_stac_item(
-    product: EOProduct,
-    model: type[CommonStacMetadata],
-    extension_is_enabled: Callable[[str], bool],
-    request: Request,
-    extension_names: Optional[list[str]],
-    request_json: Optional[Any] = None,
-) -> Item:
-    """Create a STAC item from an EODAG product"""
-    if product.collection is None:
-        raise NotFoundError("A STAC item can not be created from an EODAG EOProduct without collection")
-
-    settings: Settings = get_settings()
-
-    collection = request.app.state.dag.collections_config.source.get(product.collection, {}).get(
-        "alias", product.collection
-    )
-
-    feature = Item(
-        type="Feature",
-        assets={},
-        id=product.properties["id"],
-        geometry=product.geometry.__geo_interface__,
-        bbox=product.geometry.bounds,
-        collection=collection,
-        stac_version=STAC_API_VERSION,
-    )
-
-    stac_extensions: set[str] = set()
-
-    download_base_url = settings.download_base_url
-    if not download_base_url:
-        download_base_url = get_base_url(request)
-
-    quoted_id = quote(feature["id"])
-    asset_proxy_url = (
-        (download_base_url + f"data/{product.provider}/{collection}/{quoted_id}")
-        if extension_is_enabled("DataDownload")
-        else None
-    )
-
-    settings = get_settings()
-    auto_order_whitelist = settings.auto_order_whitelist
-    if product.provider in auto_order_whitelist:
-        # a product from a whitelisted federation backend is considered as online
-        product.properties["order:status"] = ONLINE_STATUS
-
-    # create assets only if product is not offline
-    if (
-        product.properties.get("order:status", ONLINE_STATUS) != OFFLINE_STATUS
-        or product.provider in auto_order_whitelist
-    ):
-        for k, v in product.assets.items():
-            # TODO: download extension with origin link (make it optional ?)
-            asset_model = Asset.model_validate(v)
-            feature["assets"][k] = asset_model.model_dump(exclude_none=True)
-
-            if asset_proxy_url:
-                origin = deepcopy(feature["assets"][k])
-                quoted_key = quote(k)
-                feature["assets"][k]["href"] = asset_proxy_url + "/" + quoted_key
-
-                origin_href = origin.get("href")
-                if (
-                    settings.keep_origin_url
-                    and origin_href
-                    and not origin_href.startswith(tuple(settings.origin_url_blacklist))
-                ):
-                    feature["assets"][k]["alternate"] = {"origin": origin}
-
-        # TODO: remove downloadLink asset after EODAG assets rework
-        if download_link := product.properties.get("eodag:download_link"):
-            origin_href = download_link
-            if asset_proxy_url:
-                download_link = asset_proxy_url + "/downloadLink"
-
-            mime_type = guess_file_type(origin_href) or "application/octet-stream"
-
-            feature["assets"]["downloadLink"] = {
-                "title": "Download link",
-                "href": download_link,
-                # TODO: download link is not always a ZIP archive
-                "type": mime_type,
-            }
-
-            if settings.keep_origin_url and not origin_href.startswith(tuple(settings.origin_url_blacklist)):
-                feature["assets"]["downloadLink"]["alternate"] = {
-                    "origin": {
-                        "title": "Origin asset link",
-                        "href": origin_href,
-                        # TODO: download link is not always a ZIP archive
-                        "type": mime_type,
-                    },
-                }
-
-    feature_model = model.model_validate(
-        {
-            **product.properties,
-            **{"federation:backends": [product.provider], "storage:tier": product.properties.get("order:status")},
-        }
-    )
-    stac_extensions.update(feature_model.get_conformance_classes())
-
-    # filter properties we do not want to expose
-    feature["properties"] = {
-        k: v for k, v in feature_model.model_dump(exclude_none=True).items() if not k.startswith("eodag:")
-    }
-    feature["properties"].pop("qs", None)
-
-    feature["stac_extensions"] = list(stac_extensions)
-
-    if extension_names and product.provider not in auto_order_whitelist:
-        if "CollectionOrderExtension" in extension_names and (
-            not product.properties.get("eodag:order_link", False)
-            or feature["properties"].get("order:status", "") != "orderable"
-        ):
-            extension_names.remove("CollectionOrderExtension")
-    else:
-        extension_names = []
-
-    # get request body for retrieve link (if product has to be ordered)
-    if "eodag:order_link" in product.properties:
-        retrieve_body = _get_retrieve_body_for_order(product)
-    else:
-        retrieve_body = {}
-
-    if eodag_args := getattr(request.state, "eodag_args", None):
-        if provider := eodag_args.get("provider", None):
-            retrieve_body["federation:backends"] = [provider]
-
-    feature["links"] = ItemLinks(
-        collection_id=collection,
-        item_id=quoted_id,
-        retrieve_body=retrieve_body,
-        request=request,
-    ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)
-
-    return feature
-
-
 def _get_conformance_classes(self) -> list[str]:
     """Extract list of conformance classes from set fields metadata"""
     conformance_classes: set[str] = set()
@@ -408,16 +236,3 @@ def _get_conformance_classes(self) -> list[str]:
             conformance_classes.add(c)
 
     return list(conformance_classes)
-
-
-def get_sortby_to_post(get_sortby: Optional[list[str]]) -> Optional[list[SortExtension]]:
-    """Convert sortby filter parameter GET syntax to POST syntax"""
-    if not get_sortby:
-        return None
-    post_sortby: list[SortExtension] = []
-    for sortby_param in get_sortby:
-        sortby_param = sortby_param.strip()
-        direction = "desc" if sortby_param.startswith("-") else "asc"
-        field = sortby_param.lstrip("+-")
-        post_sortby.append(SortExtension(field=field, direction=SortDirections(direction)))
-    return post_sortby
