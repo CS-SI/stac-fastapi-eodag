@@ -23,6 +23,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from eodag import EODataAccessGateway
+from eodag.api.collection import CollectionsList
 from eodag.utils.exceptions import (
     RequestError,
     TimeOutError,
@@ -39,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 def fetch_external_stac_collections(
-    collections: list[dict[str, Any]],
+    collections: CollectionsList,
 ) -> dict[str, dict[str, Any]]:
     """Load external STAC collections
 
@@ -49,10 +50,10 @@ def fetch_external_stac_collections(
     ext_stac_collections: dict[str, dict[str, Any]] = {}
 
     for collection in collections:
-        file_path = collection.get("stacCollection")
+        file_path = getattr(collection, "stacCollection", None)
         if not file_path:
             continue
-        logger.info(f"Fetching external STAC collection for {collection['ID']}")
+        logger.info(f"Fetching external STAC collection for {collection.id}")
 
         try:
             ext_stac_collection = fetch_json(file_path)
@@ -63,7 +64,7 @@ def fetch_external_stac_collections(
             )
             ext_stac_collection = {}
 
-        ext_stac_collections[collection["ID"]] = ext_stac_collection
+        ext_stac_collections[collection.id] = ext_stac_collection
     return ext_stac_collections
 
 
@@ -80,8 +81,8 @@ def init_dag(app: FastAPI) -> None:
     app.state.ext_stac_collections = ext_stac_collections
 
     # update eodag collections config form external stac collections
-    for p, p_f in dag.collections_config.source.items():
-        for key in (p, p_f.get("alias")):
+    for p, p_f in dag.collections_config.items():
+        for key in (p, getattr(p_f, "alias", None)):
             if key is None:
                 continue
             ext_col = ext_stac_collections.get(key)
@@ -100,18 +101,19 @@ def init_dag(app: FastAPI) -> None:
                 processing_level = ",".join(processing_level)
 
             update_fields: dict[str, Any] = {
-                "title": p_f.get("title") or ext_col.get("title"),
-                "description": p_f.get("description") or ext_col["description"],
+                "title": p_f.title or ext_col.get("title"),
+                "description": p_f.description or ext_col["description"],
                 "keywords": ext_col.get("keywords"),
-                "instruments": p_f.get("instruments") or instruments,
-                "platform": p_f.get("platform") or platform,
-                "constellation": p_f.get("constellation") or constellation,
-                "processing:level": p_f.get("processing:level") or processing_level,
+                "instruments": p_f.instruments or instruments,
+                "platform": p_f.platform or platform,
+                "constellation": p_f.constellation or constellation,
+                "processing_level": p_f.processing_level or processing_level,
                 "license": ext_col["license"],
                 "extent": ext_col["extent"],
             }
             clean = {k: v for k, v in update_fields.items() if v is not None}
-            p_f.update(clean)
+            for field, value in clean.items():
+                setattr(p_f, field, value)
 
     # pre-build search plugins
     for provider in dag.available_providers():

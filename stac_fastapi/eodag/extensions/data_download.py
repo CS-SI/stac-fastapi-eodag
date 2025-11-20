@@ -108,7 +108,7 @@ class BaseDataDownloadClient:
 
         # check if the collection is known
         try:
-            dag.get_collection_from_alias(collection_id)
+            collection_id = dag.get_collection_from_alias(collection_id)
         except NoMatchingCollection as e:
             raise NotFoundError(e) from e
 

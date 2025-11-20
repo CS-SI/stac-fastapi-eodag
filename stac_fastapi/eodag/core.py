@@ -38,7 +38,7 @@ from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
-from stac_pydantic.links import Relations
+from stac_pydantic.links import Links, Relations
 from stac_pydantic.shared import MimeTypes
 
 from eodag import EOProduct, SearchResult
@@ -96,15 +96,15 @@ class EodagCoreClient(CustomCoreClient):
         """Convert a EODAG produt type to a STAC collection."""
 
         # extend collection with external stac collection if any
-        extended_collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(collection["ID"], {})))
+        extended_collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(collection.id, {})))
         extended_collection["type"] = "Collection"
 
-        platform_value = [p for p in (collection.get("platform") or "").split(",") if p]
-        constellation = [c for c in (collection.get("constellation") or "").split(",") if c]
-        processing_level = [pl for pl in (collection.get("processing:level") or "").split(",") if pl]
-        instruments = collection.get("instruments") or []
+        platform_value = [p for p in (collection.platform or "").split(",") if p]
+        constellation = [c for c in (collection.constellation or "").split(",") if c]
+        processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
+        instruments = collection.instruments or []
 
-        federation_backends = request.app.state.dag.available_providers(collection["_id"])
+        federation_backends = request.app.state.dag.available_providers(collection.id)
 
         summaries: dict[str, Any] = {
             "platform": platform_value,
@@ -114,31 +114,31 @@ class EodagCoreClient(CustomCoreClient):
             "federation:backends": federation_backends,
         }
         extended_collection["summaries"] = {
-            **collection.get("summaries", {}),
+            **(getattr(collection, "summaries", {}) or {}),
             **{k: v for k, v in summaries.items() if v},
         }
 
         extended_collection["extent"] = {
             "spatial": extended_collection.get("extent", {}).get("spatial")
-            or collection.get("extent", {}).get("spatial")
+            or collection.extent.spatial
             or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
             "temporal": extended_collection.get("extent", {}).get("temporal")
-            or collection.get("extent", {}).get("temporal")
+            or collection.extent.temporal
             or {"interval": [[None, None]]},
         }
 
         for key in ["license", "description", "title"]:
-            if value := collection.get(key):
+            if value := getattr(collection, key):
                 extended_collection[key] = value
 
-        keywords = collection.get("keywords", [])
+        keywords = collection.keywords or []
         keywords = keywords.split(",") if isinstance(keywords, str) else keywords
         try:
             extended_collection["keywords"] = list(set(keywords + extended_collection.get("keywords", [])))
         except TypeError as e:
-            logger.warning("Could not merge keywords from external collection for %s: %s", collection["ID"], str(e))
+            logger.warning("Could not merge keywords from external collection for %s: %s", collection.id, str(e))
 
-        extended_collection["id"] = collection["ID"]
+        extended_collection["id"] = collection.id
 
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
@@ -155,12 +155,12 @@ class EodagCoreClient(CustomCoreClient):
         ):
             extension_names.remove("CollectionOrderExtension")
 
+        extra_links = (collection.links or Links([])).root
+        extended_coll_links = Links(extended_collection.get("links", [])).root
         extended_collection["links"] = CollectionLinks(
             collection_id=extended_collection["id"],
             request=request,
-        ).get_links(
-            extensions=extension_names, extra_links=collection.get("links", []) + extended_collection.get("links", [])
-        )
+        ).get_links(extensions=extension_names, extra_links=extra_links + extended_coll_links)
 
         return extended_collection
 
@@ -177,9 +177,10 @@ class EodagCoreClient(CustomCoreClient):
         if collection := eodag_args.get("collection"):
             all_pt = request.app.state.dag.list_collections(fetch_providers=False)
             # only check the first collection (EODAG search only support a single collection)
-            existing_pt = [pt for pt in all_pt if pt["ID"] == collection]
+            existing_pt = [pt for pt in all_pt if pt.id == collection]
             if not existing_pt:
                 raise NoMatchingCollection(f"Collection {collection} does not exist.")
+            eodag_args["collection"] = existing_pt[0]._id
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
@@ -206,6 +207,7 @@ class EodagCoreClient(CustomCoreClient):
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         for product in search_result:
+            product.collection = collection  # encure that alias is used
             feature = create_stac_item(
                 product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names, request_json
             )
@@ -356,7 +358,7 @@ class EodagCoreClient(CustomCoreClient):
         :raises NotFoundError: If the collection does not exist.
         """
         collection = next(
-            (pt for pt in request.app.state.dag.list_collections(fetch_providers=False) if pt["ID"] == collection_id),
+            (pt for pt in request.app.state.dag.list_collections(fetch_providers=False) if pt.id == collection_id),
             None,
         )
         if collection is None:
@@ -422,7 +424,7 @@ class EodagCoreClient(CustomCoreClient):
         item_collection = self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
-            extensions=extension_names, extra_links=item_collection["links"]
+            extensions=extension_names, extra_links=Links(item_collection["links"]).root
         )
         item_collection["links"] = links
         return item_collection

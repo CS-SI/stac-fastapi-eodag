@@ -260,9 +260,10 @@ def create_stac_item(
 
     settings: Settings = get_settings()
 
-    collection = request.app.state.dag.collections_config.source.get(product.collection, {}).get(
-        "alias", product.collection
-    )
+    collection_obj = request.app.state.dag.collections_config.get(product.collection)
+    collection = collection_obj.id if collection_obj else None
+    if not collection:
+        collection = product.collection
 
     feature = Item(
         type="Feature",
