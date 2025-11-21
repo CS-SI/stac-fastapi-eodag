@@ -22,6 +22,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from stac_pydantic.collection import Extent, SpatialExtent, TimeInterval
+
 from eodag import EODataAccessGateway
 from eodag.api.collection import CollectionsList
 from eodag.utils.exceptions import (
@@ -50,7 +52,7 @@ def fetch_external_stac_collections(
     ext_stac_collections: dict[str, dict[str, Any]] = {}
 
     for collection in collections:
-        file_path = getattr(collection, "stacCollection", None)
+        file_path = getattr(collection, "stac_collection", None)
         if not file_path:
             continue
         logger.info(f"Fetching external STAC collection for {collection.id}")
@@ -99,6 +101,9 @@ def init_dag(app: FastAPI) -> None:
                 constellation = ",".join(constellation)
             if isinstance(processing_level, list):
                 processing_level = ",".join(processing_level)
+            ext_extent = ext_col["extent"]
+            temporal_ext = TimeInterval(**ext_extent.get("temporal", [[None, None]]))
+            spatial_ext = SpatialExtent(**ext_extent.get("spatial", {"bbox": [[-180.0, -90.0, 180.0, 90.0]]}))
 
             update_fields: dict[str, Any] = {
                 "title": p_f.title or ext_col.get("title"),
@@ -109,7 +114,7 @@ def init_dag(app: FastAPI) -> None:
                 "constellation": p_f.constellation or constellation,
                 "processing_level": p_f.processing_level or processing_level,
                 "license": ext_col["license"],
-                "extent": ext_col["extent"],
+                "extent": Extent(temporal=temporal_ext, spatial=spatial_ext),
             }
             clean = {k: v for k, v in update_fields.items() if v is not None}
             for field, value in clean.items():

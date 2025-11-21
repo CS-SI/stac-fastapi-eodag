@@ -27,8 +27,8 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 1: Valid input
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
-                {"ID": "product2", "stacCollection": "http://example.com/collection2.json"},
+                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
+                {"id": "product2", "stac_collection": "http://example.com/collection2.json"},
             ],
             [
                 {"id": "collection1", "title": "Collection 1"},
@@ -42,8 +42,8 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 2: Missing `stacCollection`
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
-                {"ID": "product2"},  # Missing `stacCollection`
+                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
+                {"id": "product2"},  # Missing `stacCollection`
             ],
             [{"id": "collection1", "title": "Collection 1"}],
             {
@@ -53,7 +53,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 3: `fetch_json` raises RequestError
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
+                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
             ],
             RequestError(Exception("Mocked RequestError")),
             {
@@ -63,7 +63,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 4: `fetch_json` raises TimeOutError
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
+                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
             ],
             TimeOutError(Exception("Mocked TimeOutError")),
             {

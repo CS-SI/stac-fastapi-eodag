@@ -42,6 +42,8 @@ from stac_pydantic.links import Links, Relations
 from stac_pydantic.shared import MimeTypes
 
 from eodag import EOProduct, SearchResult
+from eodag.api.collection import Collection as EodagCollection
+from eodag.api.collection import CollectionsList
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
@@ -92,7 +94,7 @@ class EodagCoreClient(CustomCoreClient):
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
-    def _get_collection(self, collection: dict[str, Any], request: Request) -> Collection:
+    def _get_collection(self, collection: EodagCollection, request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
 
         # extend collection with external stac collection if any
@@ -120,10 +122,10 @@ class EodagCoreClient(CustomCoreClient):
 
         extended_collection["extent"] = {
             "spatial": extended_collection.get("extent", {}).get("spatial")
-            or collection.extent.spatial
+            or collection.extent.spatial.to_dict()
             or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
             "temporal": extended_collection.get("extent", {}).get("temporal")
-            or collection.extent.temporal
+            or collection.extent.temporal.to_dict()
             or {"interval": [[None, None]]},
         }
 
@@ -162,7 +164,7 @@ class EodagCoreClient(CustomCoreClient):
             request=request,
         ).get_links(extensions=extension_names, extra_links=extra_links + extended_coll_links)
 
-        return extended_collection
+        return Collection(**extended_collection)
 
     def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
@@ -281,10 +283,11 @@ class EodagCoreClient(CustomCoreClient):
                 guessed_collections = request.app.state.dag.guess_collection(
                     free_text=free_text, start_date=start, end_date=end
                 )
+                guessed_collections_ids = [coll.id for coll in guessed_collections]
             except EodagNoMatchingCollection:
-                collections = []
+                collections = CollectionsList([])
             else:
-                collections = [pt for pt in all_pt if pt["ID"] in guessed_collections]
+                collections = CollectionsList([pt for pt in all_pt if pt.id in guessed_collections_ids])
         else:
             collections = all_pt
 
