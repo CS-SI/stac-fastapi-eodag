@@ -401,6 +401,8 @@ class EodagCoreClient(CustomCoreClient):
         clean = self._clean_search_args(base_args, sortby=sortby)
 
         search_request = self.post_request_model.model_validate(clean)
+        if "query" in request._query_params:
+            search_request.query = orjson.loads(request._query_params["query"])
         item_collection = self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
