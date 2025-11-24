@@ -212,7 +212,7 @@ async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_r
     res = resp_json["features"]
     assert len(res) == 2
     assert "," not in res[0]["assets"]["downloadLink"]
-    assert res[0]["links"][1]["href"] == "http://testserver/collections/S1_SAR_OCN/items/id%2Cwith%2Ccommas"
+    assert res[0]["links"][1]["href"] == "http://testserver/collections/S2_MSI_L1C/items/id%2Cwith%2Ccommas"
     asset = res[0]["assets"]["asset*star"]
     assert asset["href"].endswith("asset%2Astar")
 
