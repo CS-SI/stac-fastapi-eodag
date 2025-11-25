@@ -105,7 +105,7 @@ class BaseLinks:
     def get_links(
         self,
         extensions: list[str],
-        extra_links: list[Link] = None,
+        extra_links: Optional[list[Link]] = None,
         request_json: Optional[dict[str, Any]] = None,
     ) -> list[dict[str, Any]]:
         """
@@ -131,7 +131,7 @@ class BaseLinks:
             # to the request url.
             for link in extra_links:
                 link.href = self.resolve(link.href)
-            links += [link for link in extra_links if link.rel not in INFERRED_LINK_RELS]
+            links += [link.model_dump() for link in extra_links if link.rel not in INFERRED_LINK_RELS]
 
         return links
 

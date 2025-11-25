@@ -291,16 +291,16 @@ class EodagCoreClient(CustomCoreClient):
         else:
             collections = all_pt
 
-        collections = [self._get_collection(pt, request) for pt in collections]
+        formatted_collections = [self._get_collection(pt, request) for pt in collections]
 
         # bbox filter
         if bbox:
             bbox_geom = get_geometry_from_various(geometry=bbox)
 
             default_extent = [[-180.0, -90.0, 180.0, 90.0]]
-            collections = [
+            formatted_collections = [
                 c
-                for c in collections
+                for c in formatted_collections
                 if check_poly_is_point(
                     get_geometry_from_various(  # type: ignore
                         geometry=c.get("extent", {}).get("spatial", {}).get("bbox", default_extent)[0]
@@ -308,7 +308,7 @@ class EodagCoreClient(CustomCoreClient):
                 ).intersection(bbox_geom)
             ]
 
-        total = len(collections)
+        total = len(formatted_collections)
 
         links = [
             {
@@ -323,7 +323,7 @@ class EodagCoreClient(CustomCoreClient):
             limit = limit if limit is not None else 10
             offset = offset if offset is not None else 0
 
-            collections = collections[offset : offset + limit]
+            formatted_collections = formatted_collections[offset : offset + limit]
 
             if offset + limit < total:
                 next_link = {"body": {"limit": limit, "offset": offset + limit}}
@@ -342,10 +342,10 @@ class EodagCoreClient(CustomCoreClient):
         links.extend(paging_links)
 
         return Collections(
-            collections=collections,
+            collections=formatted_collections,
             links=links,
             numberMatched=total,
-            numberReturned=len(collections),
+            numberReturned=len(formatted_collections),
         )
 
     async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
