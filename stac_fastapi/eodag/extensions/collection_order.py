@@ -38,10 +38,8 @@ from stac_fastapi.types.stac import Item
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.errors import ResponseSearchError
-from stac_fastapi.eodag.models.stac_metadata import (
-    CommonStacMetadata,
-    create_stac_item,
-)
+from stac_fastapi.eodag.models.item import create_stac_item
+from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 logger = logging.getLogger(__name__)
 
