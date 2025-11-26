@@ -26,6 +26,7 @@ from pydantic import (
     BeforeValidator,
     Field,
     field_validator,
+    model_validator,
 )
 
 from stac_fastapi.eodag.utils import str2liststr
@@ -336,6 +337,18 @@ class LabelFields(BaseModel):
     """
     https://github.com/stac-extensions/label
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_methods(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """
+        Convert methods ``str`` to ``list``.
+        """
+        if methods := values.get("methods"):
+            values["methods"] = ",".join(methods.split()).split(",") if isinstance(methods, str) else methods
+            if None in values["methods"]:
+                values["methods"].remove(None)
+        return values
 
     properties: Optional[List[str]] = Field(default=None)
     classes: Optional[List[LabelClassObject]] = Field(default=None)
