@@ -407,6 +407,8 @@ class EodagCoreClient(CustomCoreClient):
         clean = self._clean_search_args(base_args, sortby=sortby, filter_expr=filter_expr, filter_lang=filter_lang)
 
         search_request = self.post_request_model.model_validate(clean)
+        if "query" in request._query_params:
+            search_request.query = orjson.loads(request._query_params["query"])
         item_collection = self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
@@ -478,6 +480,7 @@ class EodagCoreClient(CustomCoreClient):
             query=query,
             filter_expr=filter_expr,
             filter_lang=filter_lang,
+            **kwargs,
         )
 
         try:
@@ -542,10 +545,12 @@ class EodagCoreClient(CustomCoreClient):
             for sort in sortby:
                 sortparts = re.match(r"^([+-]?)(.*)$", sort)
                 if sortparts:
-                    sort_param.append({
-                        "field": sortparts.group(2).strip(),
-                        "direction": "desc" if sortparts.group(1) == "-" else "asc",
-                    })
+                    sort_param.append(
+                        {
+                            "field": sortparts.group(2).strip(),
+                            "direction": "desc" if sortparts.group(1) == "-" else "asc",
+                        }
+                    )
             base_args["sortby"] = sort_param
 
         # Remove None values from dict
@@ -594,13 +599,15 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         param_tuples = []
         for param in sortby:
             dumped_param = param.model_dump(mode="json")
-            param_tuples.append((
-                sort_by_special_fields.get(
-                    model.to_eodag(dumped_param["field"]),
-                    model.to_eodag(dumped_param["field"]),
-                ),
-                dumped_param["direction"],
-            ))
+            param_tuples.append(
+                (
+                    sort_by_special_fields.get(
+                        model.to_eodag(dumped_param["field"]),
+                        model.to_eodag(dumped_param["field"]),
+                    ),
+                    dumped_param["direction"],
+                )
+            )
         sort_by["sort_by"] = param_tuples
 
     eodag_query = {}
