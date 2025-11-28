@@ -52,7 +52,7 @@ def fetch_external_stac_collections(
     ext_stac_collections: dict[str, dict[str, Any]] = {}
 
     for collection in collections:
-        file_path = getattr(collection, "stac_collection", None)
+        file_path = getattr(collection, "eodag_stac_collection", None)
         if not file_path:
             continue
         logger.info(f"Fetching external STAC collection for {collection.id}")

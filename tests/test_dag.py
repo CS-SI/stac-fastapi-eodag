@@ -29,8 +29,8 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 1: Valid input
         (
             [
-                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
-                {"id": "product2", "stac_collection": "http://example.com/collection2.json"},
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
+                {"id": "product2", "eodag_stac_collection": "http://example.com/collection2.json"},
             ],
             [
                 {"id": "collection1", "title": "Collection 1"},
@@ -44,7 +44,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 2: Missing `stacCollection`
         (
             [
-                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
                 {"id": "product2"},  # Missing `stacCollection`
             ],
             [{"id": "collection1", "title": "Collection 1"}],
@@ -55,7 +55,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 3: `fetch_json` raises RequestError
         (
             [
-                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
             ],
             RequestError(Exception("Mocked RequestError")),
             {
@@ -65,7 +65,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 4: `fetch_json` raises TimeOutError
         (
             [
-                {"id": "product1", "stac_collection": "http://example.com/collection1.json"},
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
             ],
             TimeOutError(Exception("Mocked TimeOutError")),
             {
@@ -107,9 +107,9 @@ def test_fetch_external_stac_collections(
     assert result == expected_result
     if collections:
         for collection in collections:
-            if "stac_collection" in collection:
-                mock_fetch_json.assert_any_call(collection["stac_collection"])
-    assert mock_fetch_json.call_count == len([pt for pt in collections if "stac_collection" in pt])
+            if "eodag_stac_collection" in collection:
+                mock_fetch_json.assert_any_call(collection["eodag_stac_collection"])
+    assert mock_fetch_json.call_count == len([pt for pt in collections if "eodag_stac_collection" in pt])
 
 
 @pytest.fixture(name="mock_fetch_external_stac_collections")
