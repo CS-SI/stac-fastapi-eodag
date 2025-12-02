@@ -233,7 +233,8 @@ class FiltersClient(AsyncBaseFiltersClient):
         for k, field in self.stac_metadata_model.model_fields.items():
             if field.validation_alias in properties:
                 properties[field.serialization_alias or k] = properties[field.validation_alias]
-                del properties[field.validation_alias]
+                if (field.serialization_alias or k) != field.validation_alias:
+                    del properties[field.validation_alias]
             if field.validation_alias in required:
                 required.remove(field.validation_alias)
                 required.append(field.serialization_alias or k)
