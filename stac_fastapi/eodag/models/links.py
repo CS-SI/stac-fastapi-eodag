@@ -18,7 +18,7 @@
 """link helpers."""
 
 from typing import Any, Optional
-from urllib.parse import ParseResult, parse_qs, unquote, urlencode, urljoin, urlparse
+from urllib.parse import ParseResult, parse_qs, quote, unquote, urlencode, urljoin, urlparse
 
 import attr
 import orjson
@@ -28,7 +28,7 @@ from stac_pydantic.shared import MimeTypes
 from starlette.requests import Request
 
 from eodag.utils import update_nested_dict
-from urllib.parse import quote
+
 # These can be inferred from the item/collection so they aren't included in the database
 # Instead they are dynamically generated when querying the database using the classes defined below
 INFERRED_LINK_RELS = ["self", "item", "collection"]
@@ -162,11 +162,11 @@ class PagingLinks(BaseLinks):
 
         if method == "GET":
             params = {"token": [str(self.next)]}
-            existing_query={}
+            existing_query = {}
             if "query" in self.request.query_params:
                 existing_query = orjson.loads(self.request.query_params["query"])
             combined_query = {**existing_query, **federation_filter.get("query", {})}
-            query_json = orjson.dumps(combined_query).decode()  
+            query_json = orjson.dumps(combined_query).decode()
             params["query"] = [quote(query_json)]
             link["href"] = merge_params(self.url, params)
 
