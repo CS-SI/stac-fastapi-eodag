@@ -216,7 +216,6 @@ class EodagCoreClient(CustomCoreClient):
         feature_collection = ItemCollection(
             type="FeatureCollection",
             features=features,
-            numberMatched=search_result.number_matched,
             numberReturned=len(features),
         )
 
