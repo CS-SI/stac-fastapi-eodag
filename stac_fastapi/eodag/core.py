@@ -106,7 +106,7 @@ class EodagCoreClient(CustomCoreClient):
         processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
         instruments = collection.instruments or []
 
-        federation_backends = request.app.state.dag.available_providers(collection.id)
+        federation_backends = request.app.state.dag.providers.filter(collection.id).names
 
         summaries: dict[str, Any] = {
             "platform": platform_value,

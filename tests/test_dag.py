@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from eodag import EODataAccessGateway
 from eodag.api.collection import Collection, CollectionsDict, CollectionsList
+from eodag.api.provider import Provider, ProviderConfig, ProvidersDict
 from eodag.utils.exceptions import RequestError, TimeOutError
 from fastapi import FastAPI
 from pytest_mock import MockerFixture
@@ -151,7 +152,17 @@ def fixture_mock_dag() -> MagicMock:
     mock_dag.collections_config.source = {}
     mock_dag._plugins_manager = MagicMock()  # pylint: disable=protected-access
     mock_dag._plugins_manager.get_search_plugins = MagicMock()  # pylint: disable=protected-access
-    mock_dag.available_providers = MagicMock(return_value=["provider1", "provider2"])
+    providers_dict = ProvidersDict(
+        {
+            "provider1": Provider(
+                ProviderConfig.from_mapping({"name": "provider1", "search": {"type": "QueryStringSearch"}})
+            ),
+            "provider2": Provider(
+                ProviderConfig.from_mapping({"name": "provider2", "search": {"type": "QueryStringSearch"}})
+            ),
+        }
+    )
+    mock_dag.providers = MagicMock(return_value=providers_dict)
     return mock_dag
 
 
@@ -279,6 +290,6 @@ def test_init_dag(
     assert clean_config == expected_updated_config
 
     # Assert: Verify that `dag._plugins_manager.get_search_plugins` was called for each provider
-    mock_dag.available_providers.assert_called_once()
-    for provider in mock_dag.available_providers.return_value:
+    mock_dag.providers.assert_called_once()
+    for provider in mock_dag.providers.return_value:
         mock_dag._plugins_manager.get_search_plugins.assert_any_call(provider=provider)  # pylint: disable=protected-access

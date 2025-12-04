@@ -121,7 +121,7 @@ def init_dag(app: FastAPI) -> None:
                 setattr(p_f, field, value)
 
     # pre-build search plugins
-    for provider in dag.available_providers():
+    for provider in dag.providers:
         next(dag._plugins_manager.get_search_plugins(provider=provider))
 
     app.state.dag = dag

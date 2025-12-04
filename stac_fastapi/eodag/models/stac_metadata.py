@@ -218,12 +218,12 @@ def get_federation_backend_dict(request: Request, provider: str) -> dict[str, An
     :return: Federation backend dictionary
     """
     provider_config = next(
-        p for p in request.app.state.dag.providers_config.values() if provider in [p.name, getattr(p, "group", None)]
+        p for p in request.app.state.dag.providers.values() if provider in [p.name, getattr(p, "group", None)]
     )
     return {
-        "title": getattr(provider_config, "group", provider_config.name),
-        "description": getattr(provider_config, "description", None),
-        "url": getattr(provider_config, "url", None),
+        "title": provider_config.group or provider_config.name,
+        "description": provider_config.title,
+        "url": provider_config.url,
     }
 
 
