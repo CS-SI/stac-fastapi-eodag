@@ -58,6 +58,51 @@ async def test_request_params_valid(request_valid, defaults, input_bbox, expecte
     )
 
 
+async def test_count_search(request_valid, defaults, mock_search, mock_search_result):
+    """
+    Test the count setting during a search.
+    """
+    count = get_settings().count
+    qs = f"search?collections={defaults.collection}"
+
+    assert count is False, "Default count setting should be False"
+    response = await request_valid(
+        qs,
+        expected_search_kwargs=dict(
+            collection=defaults.collection,
+            token=None,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            raise_errors=False,
+            count=False,  # Ensure count is set to False
+            validate=True,
+        ),
+    )
+    assert "numberMatched" not in response
+
+    # Reset search mock, set "number_matched" attribute of the search results mock for a counting search
+    # and set count to True
+    mock_search.reset_mock()
+    search_result = mock_search_result
+    search_result.number_matched = len(search_result)
+    get_settings().count = True
+
+    response = await request_valid(
+        qs,
+        expected_search_kwargs=dict(
+            collection=defaults.collection,
+            token=None,
+            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            raise_errors=False,
+            count=True,  # Ensure count is set to True
+            validate=True,
+        ),
+    )
+    assert response["numberMatched"] == 2
+
+    # Reset count setting to default
+    get_settings().count = count
+
+
 async def test_items_response(request_valid, defaults):
     """Returned items properties must be mapped as expected"""
     resp_json = await request_valid(

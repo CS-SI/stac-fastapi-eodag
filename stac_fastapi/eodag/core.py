@@ -214,8 +214,12 @@ class EodagCoreClient(CustomCoreClient):
         feature_collection = ItemCollection(
             type="FeatureCollection",
             features=features,
+            numberMatched=search_result.number_matched,
             numberReturned=len(features),
         )
+        # Remove numberMatched if it is None
+        if feature_collection.get("numberMatched") is None:
+            feature_collection.pop("numberMatched")
 
         # pagination
         if "provider" not in request.state.eodag_args and len(search_result) > 0:
