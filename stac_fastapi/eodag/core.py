@@ -182,7 +182,7 @@ class EodagCoreClient(CustomCoreClient):
             existing_pt = [pt for pt in all_pt if pt.id == collection]
             if not existing_pt:
                 raise NoMatchingCollection(f"Collection {collection} does not exist.")
-            eodag_args["collection"] = existing_pt[0]._id
+            eodag_args["collection"] = existing_pt[0].id
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
