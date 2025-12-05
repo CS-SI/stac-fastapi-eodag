@@ -113,7 +113,12 @@ def app() -> Iterator[FastAPI]:
         {
             "peps": Provider(
                 ProviderConfig.from_mapping(
-                    {"name": "peps", "url": "https://peps.cnes.fr", "search": {"type": "QueryStringSearch"}}
+                    {
+                        "name": "peps",
+                        "url": "https://peps.cnes.fr",
+                        "search": {"type": "QueryStringSearch"},
+                        "products": {"S2_MSI_L1C": {"_collection": "SENTINEL-2"}},
+                    }
                 )
             ),
             "creodias": Provider(

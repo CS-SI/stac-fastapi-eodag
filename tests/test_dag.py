@@ -162,7 +162,7 @@ def fixture_mock_dag() -> MagicMock:
             ),
         }
     )
-    mock_dag.providers = MagicMock(return_value=providers_dict)
+    mock_dag.providers = providers_dict
     return mock_dag
 
 
@@ -290,6 +290,5 @@ def test_init_dag(
     assert clean_config == expected_updated_config
 
     # Assert: Verify that `dag._plugins_manager.get_search_plugins` was called for each provider
-    mock_dag.providers.assert_called_once()
-    for provider in mock_dag.providers.return_value:
+    for provider in mock_dag.providers:
         mock_dag._plugins_manager.get_search_plugins.assert_any_call(provider=provider)  # pylint: disable=protected-access
