@@ -106,7 +106,7 @@ class EodagCoreClient(CustomCoreClient):
         processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
         instruments = collection.instruments or []
 
-        federation_backends = request.app.state.dag.providers.filter(collection.id).names
+        federation_backends = request.app.state.dag.providers.filter(collection._id).names
 
         summaries: dict[str, Any] = {
             "platform": platform_value,
@@ -177,12 +177,12 @@ class EodagCoreClient(CustomCoreClient):
 
         # check if the collection exists
         if collection := eodag_args.get("collection"):
-            all_pt = request.app.state.dag.list_collections(fetch_providers=False)
+            all_coll = request.app.state.dag.list_collections(fetch_providers=False)
             # only check the first collection (EODAG search only support a single collection)
-            existing_pt = [pt for pt in all_pt if pt.id == collection]
-            if not existing_pt:
+            existing_coll = [coll for coll in all_coll if coll.id == collection]
+            if not existing_coll:
                 raise NoMatchingCollection(f"Collection {collection} does not exist.")
-            eodag_args["collection"] = existing_pt[0].id
+            eodag_args["collection"] = existing_coll[0].id
         else:
             raise HTTPException(status_code=400, detail="A collection is required")
 
@@ -269,7 +269,7 @@ class EodagCoreClient(CustomCoreClient):
             provider = parsed_query.get("federation:backends")
             provider = provider[0] if isinstance(provider, list) else provider
 
-        all_pt = request.app.state.dag.list_collections(provider=provider, fetch_providers=False)
+        all_colls = request.app.state.dag.list_collections(provider=provider, fetch_providers=False)
 
         # datetime & free-text-search filters
         if any((q, datetime)):
@@ -287,11 +287,11 @@ class EodagCoreClient(CustomCoreClient):
             except EodagNoMatchingCollection:
                 collections = CollectionsList([])
             else:
-                collections = CollectionsList([pt for pt in all_pt if pt.id in guessed_collections_ids])
+                collections = CollectionsList([coll for coll in all_colls if coll.id in guessed_collections_ids])
         else:
-            collections = all_pt
+            collections = all_colls
 
-        formatted_collections = [self._get_collection(pt, request) for pt in collections]
+        formatted_collections = [self._get_collection(coll, request) for coll in collections]
 
         # bbox filter
         if bbox:
@@ -361,7 +361,7 @@ class EodagCoreClient(CustomCoreClient):
         :raises NotFoundError: If the collection does not exist.
         """
         collection = next(
-            (pt for pt in request.app.state.dag.list_collections(fetch_providers=False) if pt.id == collection_id),
+            (c for c in request.app.state.dag.list_collections(fetch_providers=False) if c.id == collection_id),
             None,
         )
         if collection is None:

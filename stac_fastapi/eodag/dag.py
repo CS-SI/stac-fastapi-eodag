@@ -83,8 +83,8 @@ def init_dag(app: FastAPI) -> None:
     app.state.ext_stac_collections = ext_stac_collections
 
     # update eodag collections config form external stac collections
-    for p, p_f in dag.collections_config.items():
-        for key in (p, getattr(p_f, "alias", None)):
+    for c, c_f in dag.collections_config.items():
+        for key in (c, getattr(c_f, "alias", None)):
             if key is None:
                 continue
             ext_col = ext_stac_collections.get(key)
@@ -106,19 +106,19 @@ def init_dag(app: FastAPI) -> None:
             spatial_ext = SpatialExtent(**ext_extent.get("spatial", {"bbox": [[-180.0, -90.0, 180.0, 90.0]]}))
 
             update_fields: dict[str, Any] = {
-                "title": p_f.title or ext_col.get("title"),
-                "description": p_f.description or ext_col["description"],
+                "title": c_f.title or ext_col.get("title"),
+                "description": c_f.description or ext_col["description"],
                 "keywords": ext_col.get("keywords"),
-                "instruments": p_f.instruments or instruments,
-                "platform": p_f.platform or platform,
-                "constellation": p_f.constellation or constellation,
-                "processing_level": p_f.processing_level or processing_level,
+                "instruments": c_f.instruments or instruments,
+                "platform": c_f.platform or platform,
+                "constellation": c_f.constellation or constellation,
+                "processing_level": c_f.processing_level or processing_level,
                 "license": ext_col["license"],
                 "extent": Extent(temporal=temporal_ext, spatial=spatial_ext),
             }
             clean = {k: v for k, v in update_fields.items() if v is not None}
             for field, value in clean.items():
-                setattr(p_f, field, value)
+                setattr(c_f, field, value)
 
     # pre-build search plugins
     for provider in dag.providers:
