@@ -209,7 +209,6 @@ class EodagCoreClient(CustomCoreClient):
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         for product in search_result:
-            product.collection = collection  # encure that alias is used
             feature = create_stac_item(
                 product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names, request_json
             )
