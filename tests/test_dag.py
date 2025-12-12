@@ -5,9 +5,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from eodag import EODataAccessGateway
+from eodag.api.collection import Collection, CollectionsDict, CollectionsList
+from eodag.api.provider import Provider, ProviderConfig, ProvidersDict
 from eodag.utils.exceptions import RequestError, TimeOutError
 from fastapi import FastAPI
 from pytest_mock import MockerFixture
+from stac_pydantic.collection import Extent, SpatialExtent, TimeInterval
 
 from stac_fastapi.eodag.dag import fetch_external_stac_collections, init_dag
 
@@ -27,8 +30,8 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 1: Valid input
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
-                {"ID": "product2", "stacCollection": "http://example.com/collection2.json"},
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
+                {"id": "product2", "eodag_stac_collection": "http://example.com/collection2.json"},
             ],
             [
                 {"id": "collection1", "title": "Collection 1"},
@@ -42,8 +45,8 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 2: Missing `stacCollection`
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
-                {"ID": "product2"},  # Missing `stacCollection`
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
+                {"id": "product2"},  # Missing `stacCollection`
             ],
             [{"id": "collection1", "title": "Collection 1"}],
             {
@@ -53,7 +56,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 3: `fetch_json` raises RequestError
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
             ],
             RequestError(Exception("Mocked RequestError")),
             {
@@ -63,7 +66,7 @@ def fixture_mock_fetch_json() -> Iterator[MagicMock]:
         # Test case 4: `fetch_json` raises TimeOutError
         (
             [
-                {"ID": "product1", "stacCollection": "http://example.com/collection1.json"},
+                {"id": "product1", "eodag_stac_collection": "http://example.com/collection1.json"},
             ],
             TimeOutError(Exception("Mocked TimeOutError")),
             {
@@ -95,15 +98,19 @@ def test_fetch_external_stac_collections(
         mock_fetch_json.side_effect = fetch_json_side_effect
 
     # Act
-    result = fetch_external_stac_collections(collections)
+    collections_list = []
+    for coll in collections:
+        collections_list.append(Collection(**coll))
+
+    result = fetch_external_stac_collections(CollectionsList(collections_list))
 
     # Assert
     assert result == expected_result
     if collections:
         for collection in collections:
-            if "stacCollection" in collection:
-                mock_fetch_json.assert_any_call(collection["stacCollection"])
-    assert mock_fetch_json.call_count == len([pt for pt in collections if "stacCollection" in pt])
+            if "eodag_stac_collection" in collection:
+                mock_fetch_json.assert_any_call(collection["eodag_stac_collection"])
+    assert mock_fetch_json.call_count == len([pt for pt in collections if "eodag_stac_collection" in pt])
 
 
 @pytest.fixture(name="mock_fetch_external_stac_collections")
@@ -124,7 +131,7 @@ def fixture_mock_fetch_external_stac_collections(mocker: MockerFixture) -> Magic
                 "processing:level": ["Mocked Level"],
             },
             "extent": {
-                "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+                "spatial": {"bbox": [[-160.0, -90.0, 180.0, 90.0]]},
                 "temporal": {"interval": [["2020-01-01T00:00:00Z", "2021-01-01T00:00:00Z"]]},
             },
             "keywords": ["keyword1", "keyword2"],
@@ -145,7 +152,17 @@ def fixture_mock_dag() -> MagicMock:
     mock_dag.collections_config.source = {}
     mock_dag._plugins_manager = MagicMock()  # pylint: disable=protected-access
     mock_dag._plugins_manager.get_search_plugins = MagicMock()  # pylint: disable=protected-access
-    mock_dag.available_providers = MagicMock(return_value=["provider1", "provider2"])
+    providers_dict = ProvidersDict(
+        {
+            "provider1": Provider(
+                ProviderConfig.from_mapping({"name": "provider1", "search": {"type": "QueryStringSearch"}})
+            ),
+            "provider2": Provider(
+                ProviderConfig.from_mapping({"name": "provider2", "search": {"type": "QueryStringSearch"}})
+            ),
+        }
+    )
+    mock_dag.providers = providers_dict
     return mock_dag
 
 
@@ -156,6 +173,7 @@ def fixture_mock_dag() -> MagicMock:
         (
             {
                 "test-product": {
+                    "id": "test-product",
                     "title": None,
                     "description": None,
                     "keywords": None,
@@ -164,20 +182,24 @@ def fixture_mock_dag() -> MagicMock:
                     "constellation": None,
                     "processing:level": None,
                     "license": None,
-                    "extent": {"temporal": {"interval": [[None, None]]}},
+                    "extent": {
+                        "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+                        "temporal": {"interval": [[None, None]]},
+                    },
                 }
             },
             {
+                "id": "test-product",
                 "title": "Mocked Title",
                 "description": "Mocked Description",
                 "keywords": ["keyword1", "keyword2"],
                 "instruments": ["Mocked Instrument"],
                 "platform": "Mocked Platform",
                 "constellation": "Mocked Constellation",
-                "processing:level": "Mocked Level",
+                "processing_level": "Mocked Level",
                 "license": "Mocked License",
                 "extent": {
-                    "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+                    "spatial": {"bbox": [[-160.0, -90.0, 180.0, 90.0]]},
                     "temporal": {"interval": [["2020-01-01T00:00:00Z", "2021-01-01T00:00:00Z"]]},
                 },
             },
@@ -186,6 +208,7 @@ def fixture_mock_dag() -> MagicMock:
         (
             {
                 "test-product": {
+                    "id": "test-product",
                     "title": "Existing Title",
                     "description": None,
                     "keywords": None,
@@ -194,20 +217,24 @@ def fixture_mock_dag() -> MagicMock:
                     "constellation": None,
                     "processing:level": None,
                     "license": None,
-                    "extent": {"temporal": {"interval": [[None, None]]}},
+                    "extent": {
+                        "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+                        "temporal": {"interval": [[None, None]]},
+                    },
                 }
             },
             {
+                "id": "test-product",
                 "title": "Existing Title",
                 "description": "Mocked Description",
                 "keywords": ["keyword1", "keyword2"],
                 "instruments": ["Existing Instrument"],
                 "platform": "Mocked Platform",
                 "constellation": "Mocked Constellation",
-                "processing:level": "Mocked Level",
+                "processing_level": "Mocked Level",
                 "license": "Mocked License",
                 "extent": {
-                    "spatial": {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
+                    "spatial": {"bbox": [[-160.0, -90.0, 180.0, 90.0]]},
                     "temporal": {"interval": [["2020-01-01T00:00:00Z", "2021-01-01T00:00:00Z"]]},
                 },
             },
@@ -230,7 +257,14 @@ def test_init_dag(
     mocker.patch("stac_fastapi.eodag.dag.EODataAccessGateway", return_value=mock_dag)
 
     # Set the mocked `collections_config.source`
-    mock_dag.collections_config.source = collections_config_source
+    collections_list = []
+    for values in collections_config_source.values():
+        extent = values["extent"]
+        temp_extent = TimeInterval(interval=extent["temporal"]["interval"])
+        spat_extent = SpatialExtent(bbox=extent["spatial"]["bbox"])
+        values["extent"] = Extent(temporal=temp_extent, spatial=spat_extent)
+        collections_list.append(Collection(**values))
+    mock_dag.collections_config = CollectionsDict(collections=collections_list)
 
     # Mock the FastAPI app
     mock_app = FastAPI()
@@ -244,11 +278,17 @@ def test_init_dag(
     # Assert: Verify that `app.state.ext_stac_collections` is set correctly
     assert mock_app.state.ext_stac_collections == mock_fetch_external_stac_collections.return_value
 
-    # Assert: Verify that `dag.collections_config.source` was updated
-    updated_config = mock_dag.collections_config.source["test-product"]
-    assert updated_config == expected_updated_config
+    # Assert: Verify that `dag.collections_config` was updated
+    updated_config = mock_dag.collections_config["test-product"].__dict__
+    clean_config = {k: v for k, v in updated_config.items() if v}
+    for k, v in expected_updated_config.items():
+        if k == "extent":
+            temp_extent = TimeInterval(interval=v["temporal"]["interval"])
+            spat_extent = SpatialExtent(bbox=v["spatial"]["bbox"])
+            expected_updated_config["extent"] = Extent(temporal=temp_extent, spatial=spat_extent)
+
+    assert clean_config == expected_updated_config
 
     # Assert: Verify that `dag._plugins_manager.get_search_plugins` was called for each provider
-    mock_dag.available_providers.assert_called_once()
-    for provider in mock_dag.available_providers.return_value:
+    for provider in mock_dag.providers:
         mock_dag._plugins_manager.get_search_plugins.assert_any_call(provider=provider)  # pylint: disable=protected-access

@@ -49,7 +49,7 @@ class CustomCoreClient(AsyncBaseCoreClient):
                     link["title"] = "Collections"
 
         # add federation backends infos
-        federation_backends = request.app.state.dag.available_providers()
+        federation_backends = request.app.state.dag.providers.names
         federation_dict = {fb: get_federation_backend_dict(request, fb) for fb in federation_backends}
         landing_page["federation"] = federation_dict
 

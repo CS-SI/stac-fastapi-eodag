@@ -17,6 +17,9 @@
 # limitations under the License.
 """Collections tests."""
 
+from eodag.api.collection import Collection, CollectionsList
+from stac_pydantic.collection import Extent, SpatialExtent, TimeInterval
+
 from stac_fastapi.eodag.config import get_settings
 
 
@@ -39,10 +42,10 @@ async def test_collection(
 
 async def test_list_collections(app_client, mock_list_collections):
     """A simple request to list collections must succeed"""
-    mock_list_collections.return_value = [
-        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
-        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
-    ]
+    collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
+    collection2 = Collection(id="S2_MSI_L2A")
+    collections_list = CollectionsList([collection1, collection2])
+    mock_list_collections.return_value = collections_list
 
     r = await app_client.get("/collections")
     assert mock_list_collections.called
@@ -67,11 +70,11 @@ async def test_list_collections(app_client, mock_list_collections):
 
 async def test_search_collections_freetext_ok(app_client, mock_list_collections, mock_guess_collection):
     """A collections free-text search must succeed"""
-    mock_list_collections.return_value = [
-        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
-        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
-    ]
-    mock_guess_collection.return_value = ["S2_MSI_L1C"]
+    collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
+    collection2 = Collection(id="S2_MSI_L2A")
+    collections_list = CollectionsList([collection1, collection2])
+    mock_list_collections.return_value = collections_list
+    mock_guess_collection.return_value = CollectionsList([collection1])
 
     r = await app_client.get("/collections?q=TERM1,TERM2")
     assert mock_list_collections.called
@@ -82,10 +85,9 @@ async def test_search_collections_freetext_ok(app_client, mock_list_collections,
 
 async def test_search_collections_freetext_nok(app_client, mock_list_collections):
     """A collections free-text search with a not supported filter must return all collections"""
-    mock_list_collections.return_value = [
-        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
-        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
-    ]
+    collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
+    collection2 = Collection(id="S2_MSI_L2A")
+    mock_list_collections.return_value = CollectionsList([collection1, collection2])
     r = await app_client.get("/collections?gibberish=gibberish")
     assert mock_list_collections.called
     assert r.status_code == 200
@@ -94,10 +96,9 @@ async def test_search_collections_freetext_nok(app_client, mock_list_collections
 
 async def test_search_collections_query(app_client, mock_list_collections):
     """A collections query search must succeed"""
-    mock_list_collections.return_value = [
-        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
-        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
-    ]
+    collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
+    collection2 = Collection(id="S2_MSI_L2A")
+    mock_list_collections.return_value = CollectionsList([collection1, collection2])
     r = await app_client.get('/collections?query={"federation:backends":{"eq":"peps"}}')
 
     mock_list_collections.assert_called_once_with(provider="peps", fetch_providers=False)
@@ -107,11 +108,11 @@ async def test_search_collections_query(app_client, mock_list_collections):
 
 async def test_search_collections_bbox(app_client, mock_list_collections, mocker, app):
     """A collections bbox search must succeed"""
-    mock_list_collections.return_value = [
-        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
-        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
-        {"_id": "S1_SAR_GRD", "ID": "S1_SAR_GRD"},
-    ]
+    collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
+    collection2 = Collection(id="S2_MSI_L2A")
+    collection3 = Collection(id="S1_SAR_GRD")
+    mock_list_collections.return_value = CollectionsList([collection1, collection2, collection3])
+
     mocker.patch.dict(
         app.state.ext_stac_collections,
         {
@@ -127,16 +128,13 @@ async def test_search_collections_bbox(app_client, mock_list_collections, mocker
 
 async def test_search_collections_datetime(app_client, mock_list_collections, mock_guess_collection):
     """A collections datetime search must succeed"""
-    mock_list_collections.return_value = [
-        {
-            "_id": "S2_MSI_L1C",
-            "ID": "S2_MSI_L1C",
-            "title": "SENTINEL2 Level-1C",
-            "extenet": {"temporal": ["2015-06-23T00:00:00Z", None]},
-        },
-        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
-    ]
-    mock_guess_collection.return_value = ["S2_MSI_L1C"]
+    temp_extent = TimeInterval(interval=[["2015-06-23T00:00:00Z", None]])
+    spatial_ext = SpatialExtent(bbox=[[-180.0, -90.0, 180.0, 90.0]])
+    collection1 = Collection(
+        id="S2_MSI_L1C", title="SENTINEL2 Level-1C", extent=Extent(temporal=temp_extent, spatial=spatial_ext)
+    )
+    mock_list_collections.return_value = CollectionsList([collection1])
+    mock_guess_collection.return_value = CollectionsList([collection1])
 
     start = "2014-01-01T00:00:00Z"
     end = "2016-01-01T00:00:00Z"
@@ -162,14 +160,15 @@ async def test_collections_pagination_default_and_custom_limits(app_client, mock
     collections = []
     for i in range(12):
         collections.append(
-            {
-                "_id": f"sample_collection_{i}",
-                "ID": "sample_collection",
-                "title": "Sample Collection",
-            }
+            Collection(
+                **{
+                    "id": f"sample_collection{i}",
+                    "title": f"Sample Collection {i}",
+                }
+            )
         )
 
-    mock_list_collections.return_value = collections
+    mock_list_collections.return_value = CollectionsList(collections)
 
     # Default limit returns 10 collections and correct pagination links (next, root, self)
     r = await app_client.get("/collections")
@@ -202,10 +201,9 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     - The correct number of collections is returned based on pagination parameters.
     - Pagination links ('next', 'previous', 'first', 'self', 'root') are generated appropriately depending on context.
     """
-    mock_list_collections.return_value = [
-        {"_id": "S2_MSI_L1C", "ID": "S2_MSI_L1C", "title": "SENTINEL2 Level-1C"},
-        {"_id": "S2_MSI_L2A", "ID": "S2_MSI_L2A"},
-    ]
+    collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
+    collection2 = Collection(id="S2_MSI_L2A")
+    mock_list_collections.return_value = CollectionsList([collection1, collection2])
 
     # Default pagination with only 2 collections
     r = await app_client.get("/collections")

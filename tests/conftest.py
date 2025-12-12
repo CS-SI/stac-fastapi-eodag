@@ -29,6 +29,7 @@ from urllib.parse import urljoin
 import pytest
 from eodag import EODataAccessGateway
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
+from eodag.api.provider import Provider, ProviderConfig, ProvidersDict
 from eodag.api.search_result import SearchResult
 from eodag.config import PluginConfig
 from eodag.plugins.authentication.aws_auth import AwsAuth
@@ -108,8 +109,27 @@ def app() -> Iterator[FastAPI]:
     Asynchronous generator that initializes and yields the FastAPI application,
     with `available_providers` mocked to return an empty list.
     """
+    providers_dict = ProvidersDict(
+        {
+            "peps": Provider(
+                ProviderConfig.from_mapping(
+                    {
+                        "name": "peps",
+                        "url": "https://peps.cnes.fr",
+                        "search": {"type": "QueryStringSearch"},
+                        "products": {"S2_MSI_L1C": {"_collection": "SENTINEL-2"}},
+                    }
+                )
+            ),
+            "creodias": Provider(
+                ProviderConfig.from_mapping({"name": "creodias", "search": {"type": "ODataV4Search"}})
+            ),
+        }
+    )
     # Mock the `available_providers` method of EODataAccessGateway
-    with unittest.mock.patch.object(EODataAccessGateway, "available_providers", return_value=["peps", "creodias"]):
+    with unittest.mock.patch.object(
+        EODataAccessGateway, "providers", return_value=providers_dict, new_callable=unittest.mock.PropertyMock
+    ):
         # Initialize the FastAPI app
         app = api.app
         init_dag(app)

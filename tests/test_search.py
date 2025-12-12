@@ -208,7 +208,7 @@ async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_r
     result_properties["id"] = "id,with,commas"
     result_assets = mock_search_result.data[0].assets
     result_assets["asset*star"] = {"title": "asset*star", "href": "https://somewhere.fr"}
-    resp_json = await request_valid(f"search?collections={defaults.collection}", search_result=mock_search_result)
+    resp_json = await request_valid("search?collections=S1_SAR_OCN", search_result=mock_search_result)
     res = resp_json["features"]
     assert len(res) == 2
     assert "," not in res[0]["assets"]["downloadLink"]

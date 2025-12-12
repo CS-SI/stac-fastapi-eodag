@@ -210,20 +210,20 @@ def create_stac_metadata_model(
     return model
 
 
-def get_federation_backend_dict(request: Request, provider: str) -> dict[str, Any]:
+def get_federation_backend_dict(request: Request, provider_name: str) -> dict[str, Any]:
     """Generate Federation backend dict
 
     :param request: FastAPI request
-    :param provider: provider name
+    :param provider_name: provider name
     :return: Federation backend dictionary
     """
-    provider_config = next(
-        p for p in request.app.state.dag.providers_config.values() if provider in [p.name, getattr(p, "group", None)]
+    provider = next(
+        p for p in request.app.state.dag.providers.values() if provider_name in [p.name, getattr(p, "group", None)]
     )
     return {
-        "title": getattr(provider_config, "group", provider_config.name),
-        "description": getattr(provider_config, "description", None),
-        "url": getattr(provider_config, "url", None),
+        "title": provider.group or provider.name,
+        "description": provider.title,
+        "url": provider.url,
     }
 
 
@@ -260,9 +260,8 @@ def create_stac_item(
 
     settings: Settings = get_settings()
 
-    collection = request.app.state.dag.collections_config.source.get(product.collection, {}).get(
-        "alias", product.collection
-    )
+    collection_obj = request.app.state.dag.collections_config.get(product.collection)
+    collection = collection_obj.id if collection_obj else product.collection
 
     feature = Item(
         type="Feature",
