@@ -17,6 +17,8 @@
 # limitations under the License.
 """Search tests."""
 
+from urllib.parse import unquote
+
 import pytest
 from eodag import EOProduct, SearchResult
 from eodag.api.product.metadata_mapping import ONLINE_STATUS
@@ -844,10 +846,11 @@ async def test_pagination_with_federation_backend(request_valid, defaults, metho
     assert next_link["method"] == method
 
     if method == "GET":
-        assert f"token={backend_token}" in next_link["href"]
-        assert "query=" in next_link["href"]
-        assert "federation:backends" in next_link["href"]
-        assert "test_provider" in next_link["href"]
+        next_link_url = unquote(next_link["href"])
+        assert f"token={backend_token}" in next_link_url
+        assert "query=" in next_link_url
+        assert "federation:backends" in next_link_url
+        assert "test_provider" in next_link_url
     else:  # POST
         assert "body" in next_link
         assert next_link["body"]["token"] == backend_token
@@ -869,7 +872,7 @@ async def test_pagination_limit_handling(request_valid, defaults, method, limit,
     """Test that pagination respects limit parameter for both GET and POST."""
     # Create a mock search result
     search_result = SearchResult(
-        [EOProduct("test_provider", {"id": "_", "collection": "_"})] * 10, next_page_token="limit_token_123"
+        [EOProduct("creodias", {"id": "_", "collection": "_"})] * 10, next_page_token="limit_token_123"
     )
 
     if method == "GET":

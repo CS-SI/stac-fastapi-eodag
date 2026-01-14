@@ -18,7 +18,7 @@
 """link helpers."""
 
 from typing import Any, Optional
-from urllib.parse import ParseResult, parse_qs, unquote, urlencode, urljoin, urlparse
+from urllib.parse import ParseResult, parse_qs, quote, unquote, urlencode, urljoin, urlparse
 
 import attr
 import orjson
@@ -162,10 +162,12 @@ class PagingLinks(BaseLinks):
 
         if method == "GET":
             params = {"token": [str(self.next)]}
+            existing_query = {}
             if "query" in self.request.query_params:
                 existing_query = orjson.loads(self.request.query_params["query"])
-                combined_query = {**existing_query, **federation_filter.get("query", {})}
-                params["query"] = [orjson.dumps(combined_query).decode("utf-8")]
+            combined_query = {**existing_query, **federation_filter.get("query", {})}
+            query_json = orjson.dumps(combined_query).decode()
+            params["query"] = [quote(query_json)]
             link["href"] = merge_params(self.url, params)
 
         if method == "POST":

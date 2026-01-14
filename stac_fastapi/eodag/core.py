@@ -377,6 +377,7 @@ class EodagCoreClient(CustomCoreClient):
         filter_expr: Optional[str] = None,
         filter_lang: Optional[str] = "cql2-text",
         token: Optional[str] = None,
+        query: Optional[str] = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -400,15 +401,11 @@ class EodagCoreClient(CustomCoreClient):
         # If collection does not exist, NotFoundError wil be raised
         await self.get_collection(collection_id, request=request)
 
-        base_args = {
-            "collections": [collection_id],
-            "bbox": bbox,
-            "datetime": datetime,
-            "limit": limit,
-            "token": token,
-        }
+        base_args = {"collections": [collection_id], "bbox": bbox, "datetime": datetime, "limit": limit, "token": token}
 
-        clean = self._clean_search_args(base_args, sortby=sortby, filter_expr=filter_expr, filter_lang=filter_lang)
+        clean = self._clean_search_args(
+            base_args, sortby=sortby, filter_expr=filter_expr, filter_lang=filter_lang, query=query
+        )
 
         search_request = self.post_request_model.model_validate(clean)
         item_collection = self._search_base(search_request, request)
