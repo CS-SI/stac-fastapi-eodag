@@ -23,7 +23,7 @@ from urllib.parse import ParseResult, parse_qs, quote, unquote, urlencode, urljo
 import attr
 import orjson
 from stac_fastapi.types.requests import get_base_url
-from stac_pydantic.links import Link, Relations
+from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 from starlette.requests import Request
 
@@ -105,7 +105,7 @@ class BaseLinks:
     def get_links(
         self,
         extensions: list[str],
-        extra_links: Optional[list[Link]] = None,
+        extra_links: Optional[list[dict[str, Any]]] = None,
         request_json: Optional[dict[str, Any]] = None,
     ) -> list[dict[str, Any]]:
         """
@@ -129,9 +129,11 @@ class BaseLinks:
             # to be stored in pgstac and for the hrefs in the
             # links of response STAC objects to be resolved
             # to the request url.
-            for link in extra_links:
-                link.href = self.resolve(link.href)
-            links += [link.model_dump() for link in extra_links if link.rel not in INFERRED_LINK_RELS]
+            links += [
+                {**link, "href": self.resolve(link["href"])}
+                for link in extra_links
+                if link["rel"] not in INFERRED_LINK_RELS
+            ]
 
         return links
 

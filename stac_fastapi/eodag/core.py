@@ -154,8 +154,11 @@ class EodagCoreClient(CustomCoreClient):
         ):
             extension_names.remove("CollectionOrderExtension")
 
-        extra_links = (collection.links or Links([])).root
-        extended_coll_links = Links(extended_collection.get("links", [])).root
+        if collection.links:
+            extra_links = [link.model_dump() for link in collection.links.root]
+        else:
+            extra_links = []
+        extended_coll_links = extended_collection.get("links", [])
         extended_collection["links"] = CollectionLinks(
             collection_id=extended_collection["id"],
             request=request,
