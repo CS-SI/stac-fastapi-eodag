@@ -38,7 +38,7 @@ from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
-from stac_pydantic.links import Links, Relations
+from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
 from eodag import EOProduct, SearchResult
@@ -154,8 +154,11 @@ class EodagCoreClient(CustomCoreClient):
         ):
             extension_names.remove("CollectionOrderExtension")
 
-        extra_links = (collection.links or Links([])).root
-        extended_coll_links = Links(extended_collection.get("links", [])).root
+        if collection.links:
+            extra_links = [link.model_dump() for link in collection.links.root]
+        else:
+            extra_links = []
+        extended_coll_links = extended_collection.get("links", [])
         extended_collection["links"] = CollectionLinks(
             collection_id=extended_collection["id"],
             request=request,
@@ -411,7 +414,7 @@ class EodagCoreClient(CustomCoreClient):
         item_collection = self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
-            extensions=extension_names, extra_links=Links(item_collection["links"]).root
+            extensions=extension_names, extra_links=item_collection["links"]
         )
         item_collection["links"] = links
         return item_collection
