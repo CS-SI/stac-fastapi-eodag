@@ -49,7 +49,7 @@ from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
-from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
+from stac_fastapi.eodag.constants import DEFAULT_LIMIT
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import NoMatchingCollection, ResponseSearchError
 from stac_fastapi.eodag.models.item import create_stac_item
@@ -567,18 +567,10 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     :param model: the model used to validate stac metadata
     :returns: a dictionary containing arguments for the eodag search
     """
-    base_args = (
-        {
-            "token": search_request.token,
-            "items_per_page": search_request.limit,
-            "raise_errors": False,
-            "count": get_settings().count,
-        }
-        if search_request.ids is None
-        else {}
-    )
     if search_request.ids is None:
         base_args = search_request.model_dump()
+        base_args["raise_errors"] = False
+        base_args["count"] = get_settings().count
     else:
         base_args = {}
 
@@ -616,6 +608,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
 
     # merge all eodag search arguments
     base_args = base_args | sort_by | eodag_filter | eodag_query
+    base_args = {k: v for k, v in base_args.items() if v is not None}  # remove parameters with value None
 
     return base_args
 
@@ -741,7 +734,7 @@ def eodag_search_next_page(dag, eodag_args):
     next_page_token_key = getattr(search_plugin.config, "pagination", {}).get("next_page_token_key", "page")
     eodag_args.pop("count", None)
     search_result = SearchResult(
-        [EOProduct(provider, {"id": "_"})] * int(eodag_args.get("items_per_page", DEFAULT_ITEMS_PER_PAGE)),
+        [EOProduct(provider, {"id": "_"})] * int(eodag_args.get("limit", DEFAULT_LIMIT)),
         next_page_token=next_page_token,
         next_page_token_key=next_page_token_key,
         search_params=eodag_args,

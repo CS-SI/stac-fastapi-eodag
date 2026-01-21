@@ -23,4 +23,4 @@ CACHE_KEY_SEARCH = "search"
 CACHE_KEY_QUERYABLES = "queryables"
 
 #: default number of items per page from stac-fastapi
-DEFAULT_ITEMS_PER_PAGE = 10
+DEFAULT_LIMIT = 10
