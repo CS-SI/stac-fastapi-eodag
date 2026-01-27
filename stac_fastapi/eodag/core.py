@@ -103,7 +103,7 @@ class EodagCoreClient(CustomCoreClient):
         constellation = [c for c in (collection.constellation or "").split(",") if c]
         processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
         instruments = collection.instruments or []
-        federation_backends = collections_providers[collection._id]
+        federation_backends = collections_providers.get(collection._id, set())
 
         summaries: dict[str, Any] = {
             "platform": platform_value,
@@ -293,10 +293,11 @@ class EodagCoreClient(CustomCoreClient):
         providers = request.app.state.dag.providers
         collections_providers = {}
         for p_name, p in providers.items():
-            for coll in p.config.products:
-                if coll not in collections_providers:
-                    collections_providers[coll] = set()
-                collections_providers[coll].add(p_name)
+            if getattr(p.config, "products", None):
+                for coll in p.config.products:
+                    if coll not in collections_providers:
+                        collections_providers[coll] = set()
+                    collections_providers[coll].add(p_name)
 
         formatted_collections = [self._get_collection(coll, request, collections_providers) for coll in collections]
 
@@ -375,10 +376,10 @@ class EodagCoreClient(CustomCoreClient):
             raise NotFoundError(f"Collection {collection_id} does not exist.")
 
         providers = request.app.state.dag.providers
-        collection_providers = {collection_id: set()}
+        collection_providers = {collection._id: set()}
         for p_name, p in providers.items():
-            if collection_id in p.config.products:
-                collection_providers[collection_id].add(p_name)
+            if getattr(p.config, "products", None) and collection._id in p.config.products:
+                collection_providers[collection._id].add(p_name)
 
         return self._get_collection(collection, request, collection_providers)
 
@@ -415,8 +416,6 @@ class EodagCoreClient(CustomCoreClient):
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
         """
-        # If collection does not exist, NotFoundError wil be raised
-        await self.get_collection(collection_id, request=request)
 
         base_args = {"collections": [collection_id], "bbox": bbox, "datetime": datetime, "limit": limit, "token": token}
 
@@ -516,8 +515,6 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The item.
         :raises NotFoundError: If the item does not exist.
         """
-        # If collection does not exist, NotFoundError wil be raised
-        await self.get_collection(collection_id, request=request)
 
         search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
         item_collection = self._search_base(search_request, request)
