@@ -291,7 +291,7 @@ class EodagCoreClient(CustomCoreClient):
             collections = all_colls
 
         providers = request.app.state.dag.providers
-        collections_providers = {}
+        collections_providers: dict[str, set] = {}
         for p_name, p in providers.items():
             if getattr(p.config, "products", None):
                 for coll in p.config.products:
@@ -376,7 +376,7 @@ class EodagCoreClient(CustomCoreClient):
             raise NotFoundError(f"Collection {collection_id} does not exist.")
 
         providers = request.app.state.dag.providers
-        collection_providers = {collection._id: set()}
+        collection_providers: dict[str, set] = {collection._id: set()}
         for p_name, p in providers.items():
             if getattr(p.config, "products", None) and collection._id in p.config.products:
                 collection_providers[collection._id].add(p_name)
