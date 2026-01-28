@@ -19,8 +19,10 @@
 
 import glob
 import logging
+import mimetypes
 import os
 from io import BufferedReader
+from pathlib import Path
 from shutil import make_archive, rmtree
 from typing import Annotated, Iterator, Optional, Union, cast
 
@@ -29,8 +31,8 @@ from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
 from eodag.utils.exceptions import EodagError
-from fastapi import APIRouter, FastAPI, Path, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi import APIRouter, FastAPI, Path as PathParam, Request
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
@@ -82,17 +84,81 @@ class BaseDataDownloadClient:
             },
         )
 
+    def _read_file_chunks(self, opened_file: BufferedReader, chunk_size: int = 64 * 1024) -> Iterator[bytes]:
+        """Yield file chunks without deleting."""
+        try:
+            while True:
+                data = opened_file.read(chunk_size)
+                if not data:
+                    break
+                yield data
+        finally:
+            opened_file.close()
+
     def _read_file_chunks_and_delete(self, opened_file: BufferedReader, chunk_size: int = 64 * 1024) -> Iterator[bytes]:
         """Yield file chunks and delete file when finished."""
-        while True:
-            data = opened_file.read(chunk_size)
-            if not data:
-                opened_file.close()
-                os.remove(opened_file.name)
-                logger.debug("%s deleted after streaming complete", opened_file.name)
-                break
-            yield data
-        yield data
+        try:
+            while True:
+                data = opened_file.read(chunk_size)
+                if not data:
+                    break
+                yield data
+        finally:
+            opened_file.close()
+            os.remove(opened_file.name)
+            logger.debug("%s deleted after streaming complete", opened_file.name)
+
+    def _list_zarr_files(
+        self,
+        zarr_store_path: str,
+        federation_backend: str,
+        collection_id: str,
+        item_id: str,
+    ) -> dict:
+        """List all files in a Zarr store."""
+        files = []
+        store_path = Path(zarr_store_path).resolve()
+
+        try:
+            for file_path in store_path.rglob("*"):
+                if file_path.is_file():
+                    # Get relative path from store root
+                    rel_path = file_path.relative_to(store_path)
+                    files.append(
+                        {
+                            "path": str(rel_path),
+                            "size": file_path.stat().st_size,
+                            "url": f"/data/{federation_backend}/{collection_id}/{item_id}/{rel_path}",
+                        }
+                    )
+
+            # Sort files by path
+            files.sort(key=lambda x: x["path"])
+
+            return {
+                "type": "zarr-file-index",
+                "item_id": item_id,
+                "collection_id": collection_id,
+                "backend": federation_backend,
+                "store_path": str(store_path),
+                "file_count": len(files),
+                "files": files,
+            }
+        except Exception as e:
+            logger.error(f"Failed to list Zarr files for {item_id}: {e}")
+            raise
+
+    def get_data_with_file(
+        self,
+        federation_backend: str,
+        collection_id: str,
+        item_id: str,
+        asset_name: Optional[str],
+        request: Request,
+        file_path: str,
+    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
+        """Download data with file path (wrapper for get_data)."""
+        return self.get_data(federation_backend, collection_id, item_id, asset_name, request, file_path)
 
     def get_data(
         self,
@@ -101,7 +167,8 @@ class BaseDataDownloadClient:
         item_id: str,
         asset_name: Optional[str],
         request: Request,
-    ) -> Union[StreamingResponse, RedirectResponse]:
+        file_path: Optional[str] = None,
+    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
         """Download an asset"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
@@ -186,7 +253,7 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        if product.downloader_auth and asset_name and asset_name != "downloadLink":
+        if product.downloader_auth and asset_name and asset_name not in ["downloadLink", "zarr"]:
             asset_values = product.assets[asset_name]
             # return presigned url if available
             try:
@@ -196,6 +263,93 @@ class BaseDataDownloadClient:
                 logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
             except EodagError:
                 logger.info("Presigned url could not be fetched for %s", asset_name)
+
+        # Handle zarr store - return file listing or individual file
+        if asset_name == "zarr":
+            logger.debug("Accessing Zarr store for product %s", item_id)
+            try:
+                # Check if zarr asset exists
+                if "zarr" not in product.assets:
+                    logger.error(f"No zarr asset found for product {item_id}")
+                    logger.error(f"Available assets: {list(product.assets.keys())}")
+                    raise NotFoundError(f"No zarr asset found for product '{item_id}'. Available assets: {list(product.assets.keys())}")
+                
+                logger.debug(f"Downloading zarr store for product {item_id}")
+                zarr_path = dag.download(product, extract=False, asset="zarr")
+                logger.debug(f"Zarr store downloaded to: {zarr_path}")
+                
+                if not Path(zarr_path).exists():
+                    logger.error(f"Zarr store path does not exist: {zarr_path}")
+                    raise NotFoundError(f"Zarr store not found at {zarr_path}")
+                
+                # If file_path is provided, handle it specially
+                if file_path:
+                    # Check if requesting the index/listing
+                    if file_path == "index":
+                        logger.debug(f"Returning Zarr index for product {item_id}")
+                        zarr_index = self._list_zarr_files(zarr_path, federation_backend, collection_id, item_id)
+                        return JSONResponse(content=zarr_index)
+                    
+                    # Otherwise, serve the requested file
+                    logger.debug(f"Retrieving zarr file: {file_path}")
+                    file_full_path = Path(zarr_path) / file_path
+                    
+                    # Security check: ensure path doesn't escape zarr store
+                    try:
+                        file_full_path.resolve().relative_to(Path(zarr_path).resolve())
+                    except ValueError:
+                        logger.error(f"Path traversal attempt detected: {file_path}")
+                        raise NotFoundError(f"Invalid file path: {file_path}")
+                    
+                    if not file_full_path.exists():
+                        logger.error(f"File not found: {file_full_path}")
+                        raise NotFoundError(f"File not found: {file_path}")
+                    
+                    if not file_full_path.is_file():
+                        logger.error(f"Path is not a file: {file_full_path}")
+                        raise NotFoundError(f"Path is not a file: {file_path}")
+                    
+                    # Stream the file
+                    filename = os.path.basename(str(file_full_path))
+                    
+                    # Determine content type and whether to download or display inline
+                    content_type, _ = mimetypes.guess_type(str(file_full_path))
+                    if content_type is None:
+                        content_type = "application/octet-stream"
+                    
+                    # For text-based formats (JSON, XML, etc), display inline in browser
+                    # For binary formats (zarr, etc), force download
+                    headers = {
+                        "cache-control": "public, max-age=86400",
+                    }
+                    
+                    if content_type.startswith("text/") or content_type in ["application/json", "application/xml"]:
+                        # Display inline
+                        headers["content-type"] = content_type
+                    else:
+                        # Force download
+                        headers["content-disposition"] = f"attachment; filename={filename}"
+                        headers["content-type"] = content_type
+                    
+                    return StreamingResponse(
+                        content=self._read_file_chunks(open(str(file_full_path), "rb")),
+                        headers=headers,
+                    )
+                
+                # If no file_path, try presigned URL or error
+                logger.debug(f"Attempting to get presigned URL for zarr asset")
+                try:
+                    asset_values = product.assets["zarr"]
+                    presigned_url = product.downloader_auth.presign_url(asset_values)
+                    return RedirectResponse(presigned_url, status_code=302)
+                except (NotImplementedError, AttributeError):
+                    logger.info("Presigned URLs not supported for zarr asset")
+                    raise NotFoundError(f"Use /data/{federation_backend}/{collection_id}/{item_id}/zarr/index to list files or access individual files directly")
+            except NotFoundError:
+                raise
+            except Exception as e:
+                logger.error(f"Failed to access Zarr store: {type(e).__name__}: {e}", exc_info=True)
+                raise NotFoundError(f"Failed to retrieve Zarr store for item '{item_id}': {str(e)}") from e
 
         try:
             s = product.downloader._stream_download_dict(
@@ -218,12 +372,23 @@ class BaseDataDownloadClient:
 
 @attr.s
 class DataDownloadUri(APIRequest):
-    """Download data."""
+    """Download data without file path."""
 
-    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
-    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
-    item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
-    asset_name: Annotated[str, Path(description="Item ID")] = attr.ib()
+    federation_backend: Annotated[str, PathParam(description="Federation backend name")] = attr.ib()
+    collection_id: Annotated[str, PathParam(description="Collection ID")] = attr.ib()
+    item_id: Annotated[str, PathParam(description="Item ID")] = attr.ib()
+    asset_name: Annotated[str, PathParam(description="Asset name (e.g., 'zarr')")] = attr.ib()
+
+
+@attr.s
+class DataDownloadUriWithFile(APIRequest):
+    """Download data with file path."""
+
+    federation_backend: Annotated[str, PathParam(description="Federation backend name")] = attr.ib()
+    collection_id: Annotated[str, PathParam(description="Collection ID")] = attr.ib()
+    item_id: Annotated[str, PathParam(description="Item ID")] = attr.ib()
+    asset_name: Annotated[str, PathParam(description="Asset name (e.g., 'zarr')")] = attr.ib()
+    file_path: Annotated[str, PathParam(description="File path within zarr store")] = attr.ib()
 
 
 @attr.s
@@ -250,6 +415,7 @@ class DataDownload(ApiExtension):
         :returns: None
         """
         self.router.prefix = app.state.router_prefix
+        # Route for /data/{backend}/{collection}/{item}/{asset_name}
         self.router.add_api_route(
             name="Download data",
             path="/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}",
@@ -262,5 +428,20 @@ class DataDownload(ApiExtension):
                 }
             },
             endpoint=create_async_endpoint(self.client.get_data, DataDownloadUri),
+        )
+        
+        # Route for /data/{backend}/{collection}/{item}/{asset_name}/{file_path}
+        self.router.add_api_route(
+            name="Download data with file path",
+            path="/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{file_path:path}",
+            methods=["GET"],
+            responses={
+                200: {
+                    "content": {
+                        "application/octet-stream": {},
+                    },
+                }
+            },
+            endpoint=create_async_endpoint(self.client.get_data_with_file, DataDownloadUriWithFile),
         )
         app.include_router(self.router, tags=["Data download"])
