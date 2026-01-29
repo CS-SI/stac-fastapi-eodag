@@ -64,8 +64,9 @@ class CommonStacMetadata(ItemProperties):
 
     @field_serializer("datetime", "start_datetime", "end_datetime", "created", "updated")
     def format_datetime(self, value: dt):
-        """format datetime properties"""
-        return value.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        """format datetime properties with milliseconds precision (3 decimal places)"""
+        milliseconds = value.microsecond // 1000
+        return value.strftime("%Y-%m-%dT%H:%M:%S") + f".{milliseconds:03d}Z"
 
     @model_validator(mode="before")
     @classmethod
