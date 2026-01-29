@@ -169,7 +169,7 @@ def mock_search_result():
                             "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7b/download"
                         ),
                         "eodag:provider": "peps",
-                        "eodag:collection": "S1_SAR_OCN",
+                        "collection": "S1_SAR_OCN",
                         "platform": "S1A",
                         "eo:cloud_cover": 0,
                         "title": "S1A_WV_OCN__2SSV_20180215T235323_20180216T001213_020624_023501_0FD3",
@@ -226,7 +226,7 @@ def mock_search_result():
                             "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7c/download"
                         ),
                         "eodag:provider": "peps",
-                        "eodag:collection": "S1_SAR_OCN",
+                        "collection": "S1_SAR_OCN",
                         "platform": "S1A",
                         "eo:cloud_cover": 0,
                         "title": "S1A_WV_OCN__2SSV_20180216T235323_20180217T001213_020624_023501_0FD3",
