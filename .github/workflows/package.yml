@@ -75,6 +75,11 @@ jobs:
             org.opencontainers.image.version=${{ env.APP_VERSION }}
             org.opencontainers.image.eodag.version=${{ env.EODAG_VERSION }}
 
+      - name: Install git
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git
+
       - name: Build and push container image
         id: push
         uses: docker/build-push-action@v6
