@@ -87,7 +87,7 @@ providers: ""
 #       type: UsgsApi
 #       need_auth: true
 #       pagination:
-#         max_items_per_page: 5000
+#         max_limit: 5000
 #         total_items_nb_key_path: '$.totalHits'
 #       metadata_mapping:
 #         id:

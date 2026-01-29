@@ -26,7 +26,7 @@ from eodag.utils import format_dict_items
 from eodag.utils.exceptions import ValidationError
 
 from stac_fastapi.eodag.config import get_settings
-from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
+from stac_fastapi.eodag.constants import DEFAULT_LIMIT
 from stac_fastapi.eodag.core import eodag_search_next_page
 
 
@@ -38,20 +38,19 @@ async def test_request_params_invalid(bbox, request_not_valid, defaults):
     await request_not_valid(f"search?collections={defaults.collection}&bbox={bbox}")
 
 
-@pytest.mark.parametrize("input_bbox,expected_geom", [(None, None), ("bbox_csv", "bbox_wkt")])
+@pytest.mark.parametrize("input_bbox,expected_geom", [(None, None), ("bbox_csv", "bbox_list")])
 async def test_request_params_valid(request_valid, defaults, input_bbox, expected_geom):
     """
     Test the valid request parameters for the search endpoint.
     """
     input_qs = f"&bbox={getattr(defaults, input_bbox)}" if input_bbox else ""
-    expected_kwargs = {"geom": getattr(defaults, expected_geom)} if expected_geom else {}
+    expected_kwargs = {"bbox": tuple(getattr(defaults, expected_geom))} if expected_geom else {}
 
     await request_valid(
         f"search?collections={defaults.collection}{input_qs}",
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            limit=DEFAULT_LIMIT,
             raise_errors=False,
             count=False,
             validate=True,
@@ -72,8 +71,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
         qs,
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            limit=DEFAULT_LIMIT,
             raise_errors=False,
             count=False,  # Ensure count is set to False
             validate=True,
@@ -92,8 +90,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
         qs,
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            limit=DEFAULT_LIMIT,
             raise_errors=False,
             count=True,  # Ensure count is set to True
             validate=True,
@@ -253,16 +250,17 @@ async def test_date_search(request_valid, defaults, input_start, input_end, expe
     input_date_qs = f"&datetime={getattr(defaults, input_start, input_start)}" if input_start else ""
     input_date_qs += f"/{getattr(defaults, input_end, input_end)}" if input_end else ""
 
-    expected_kwargs = {"start": getattr(defaults, expected_start)} if expected_start else {}
-    expected_kwargs |= {"end": getattr(defaults, expected_end)} if expected_end else {}
+    if input_date_qs:
+        expected_kwargs = {"datetime": input_date_qs.replace("&datetime=", "")}
+    else:
+        expected_kwargs = {}
 
     await request_valid(
         f"search?collections={defaults.collection}&bbox={defaults.bbox_csv}{input_date_qs}",
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            geom=defaults.bbox_wkt,
+            limit=DEFAULT_LIMIT,
+            bbox=tuple(defaults.bbox_list),
             raise_errors=False,
             count=False,
             validate=True,
@@ -275,15 +273,14 @@ async def test_date_search(request_valid, defaults, input_start, input_end, expe
 async def test_date_search_from_items(request_valid, defaults, use_dates):
     """Search through eodag server collection/items endpoint using dates filering should return a valid response"""
     input_date_qs = f"&datetime={defaults.start}/{defaults.end}" if use_dates else ""
-    expected_kwargs = {"start": defaults.start, "end": defaults.end} if use_dates else {}
+    expected_kwargs = {"datetime": input_date_qs.replace("&datetime=", "")} if use_dates else {}
 
     await request_valid(
         f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}{input_date_qs}",
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            geom=defaults.bbox_wkt,
+            limit=DEFAULT_LIMIT,
+            bbox=tuple(defaults.bbox_list),
             raise_errors=False,
             count=False,
             validate=True,
@@ -301,9 +298,8 @@ async def test_filter_extension_items(request_valid, defaults, mock_search):
         f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}&filter=sat:absolute_orbit=1234",
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            geom=defaults.bbox_wkt,
+            limit=DEFAULT_LIMIT,
+            bbox=tuple(defaults.bbox_list),
             raise_errors=False,
             count=False,
             validate=True,
@@ -319,9 +315,8 @@ async def test_filter_extension_items(request_valid, defaults, mock_search):
         f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}&{filter_expr}",
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            geom=defaults.bbox_wkt,
+            limit=DEFAULT_LIMIT,
+            bbox=tuple(defaults.bbox_list),
             raise_errors=False,
             count=False,
             validate=True,
@@ -336,9 +331,8 @@ async def test_filter_extension_items(request_valid, defaults, mock_search):
         f"collections/{defaults.collection}/items?bbox={defaults.bbox_csv}&filter=instruments IN ('MSI')",
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            geom=defaults.bbox_wkt,
+            limit=DEFAULT_LIMIT,
+            bbox=tuple(defaults.bbox_list),
             raise_errors=False,
             count=False,
             validate=True,
@@ -352,10 +346,10 @@ async def test_filter_extension_items(request_valid, defaults, mock_search):
     [
         ("-datetime", [("start_datetime", "desc")]),
         ("datetime", [("start_datetime", "asc")]),
-        ("-start", [("start_datetime", "desc")]),
-        ("start", [("start_datetime", "asc")]),
-        ("-end", [("end_datetime", "desc")]),
-        ("end", [("end_datetime", "asc")]),
+        ("-start_datetime", [("start_datetime", "desc")]),
+        ("start_datetime", [("start_datetime", "asc")]),
+        ("-end_datetime", [("end_datetime", "desc")]),
+        ("end_datetime", [("end_datetime", "asc")]),
     ],
 )
 async def test_sortby_items_parametrize(request_valid, defaults, sortby, expected_sort_by):
@@ -365,8 +359,7 @@ async def test_sortby_items_parametrize(request_valid, defaults, sortby, expecte
         expected_search_kwargs={
             "collection": defaults.collection,
             "sort_by": expected_sort_by,
-            "token": None,
-            "items_per_page": 10,
+            "limit": 10,
             "raise_errors": False,
             "count": False,
             "validate": True,
@@ -410,10 +403,9 @@ async def test_cloud_cover_post_search(request_valid, defaults):
         },
         expected_search_kwargs={
             "collection": defaults.collection,
-            "token": None,
-            "items_per_page": DEFAULT_ITEMS_PER_PAGE,
+            "limit": DEFAULT_LIMIT,
             "eo:cloud_cover": 10,
-            "geom": defaults.bbox_wkt,
+            "bbox": tuple(defaults.bbox_list),
             "raise_errors": False,
             "count": False,
             "validate": True,
@@ -423,6 +415,7 @@ async def test_cloud_cover_post_search(request_valid, defaults):
 
 async def test_intersects_post_search(request_valid, defaults):
     """POST search with intersects filtering through eodag server should return a valid response"""
+    expected_geom = {"type": "Polygon", "coordinates": [[(0, 43), (1, 43), (1, 44), (0, 44), (0, 43)]], "bbox": None}
     await request_valid(
         "search",
         method="POST",
@@ -432,9 +425,8 @@ async def test_intersects_post_search(request_valid, defaults):
         },
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
-            geom=defaults.bbox_wkt,
+            limit=DEFAULT_LIMIT,
+            intersects=expected_geom,
             raise_errors=False,
             count=False,
             validate=True,
@@ -456,8 +448,7 @@ async def test_date_post_search(request_valid, defaults, input_start, input_end,
     input_date = getattr(defaults, input_start, input_start)
     input_date += f"/{getattr(defaults, input_end, input_end)}" if input_end else ""
 
-    expected_kwargs = {"start": getattr(defaults, expected_start)} if expected_start else {}
-    expected_kwargs |= {"end": getattr(defaults, expected_end)} if expected_end else {}
+    expected_kwargs = {"datetime": input_date}
 
     await request_valid(
         "search",
@@ -468,8 +459,7 @@ async def test_date_post_search(request_valid, defaults, input_start, input_end,
         },
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            limit=DEFAULT_LIMIT,
             raise_errors=False,
             count=False,
             validate=True,
@@ -596,8 +586,7 @@ async def test_search_provider_in_downloadlink(request_valid, defaults, method, 
         post_data=post_data,
         check_links=False,
         expected_search_kwargs=dict(
-            token=None,
-            items_per_page=10,
+            limit=10,
             raise_errors=False,
             count=False,
             collection=defaults.collection,
@@ -624,8 +613,7 @@ async def test_search_validate(request_valid, defaults, settings_cache_clear, va
         f"search?collections={defaults.collection}",
         expected_search_kwargs=dict(
             collection=defaults.collection,
-            token=None,
-            items_per_page=DEFAULT_ITEMS_PER_PAGE,
+            limit=DEFAULT_LIMIT,
             raise_errors=False,
             count=False,
             **expected_kwargs,
@@ -719,8 +707,7 @@ async def test_pagination_basic(request_valid, defaults, method, has_next_token,
         post_data=post_data,
         expected_search_kwargs={
             "collection": defaults.collection,
-            "token": None,
-            "items_per_page": 10,
+            "limit": 10,
             "raise_errors": False,
             "count": False,
             "validate": True,
@@ -775,7 +762,7 @@ async def test_pagination_with_token(request_valid, defaults, method):
         expected_search_kwargs={
             "collection": defaults.collection,
             "token": current_token,
-            "items_per_page": 10,
+            "limit": 10,
             "raise_errors": False,
             "count": False,
             "validate": True,
@@ -829,8 +816,7 @@ async def test_pagination_with_federation_backend(request_valid, defaults, metho
         post_data=post_data,
         expected_search_kwargs={
             "collection": defaults.collection,
-            "token": None,
-            "items_per_page": 10,
+            "limit": 10,
             "provider": "test_provider",
             "raise_errors": False,
             "count": False,
@@ -858,17 +844,17 @@ async def test_pagination_with_federation_backend(request_valid, defaults, metho
 
 
 @pytest.mark.parametrize(
-    "method,limit,expected_items_per_page",
+    "method,limit,expected_limit",
     [
-        ("GET", None, DEFAULT_ITEMS_PER_PAGE),
+        ("GET", None, DEFAULT_LIMIT),
         ("GET", 5, 5),
         ("GET", 50, 50),
-        ("POST", None, DEFAULT_ITEMS_PER_PAGE),
+        ("POST", None, DEFAULT_LIMIT),
         ("POST", 5, 5),
         ("POST", 50, 50),
     ],
 )
-async def test_pagination_limit_handling(request_valid, defaults, method, limit, expected_items_per_page):
+async def test_pagination_limit_handling(request_valid, defaults, method, limit, expected_limit):
     """Test that pagination respects limit parameter for both GET and POST."""
     # Create a mock search result
     search_result = SearchResult(
@@ -893,8 +879,7 @@ async def test_pagination_limit_handling(request_valid, defaults, method, limit,
         post_data=post_data,
         expected_search_kwargs={
             "collection": defaults.collection,
-            "token": None,
-            "items_per_page": expected_items_per_page,
+            "limit": expected_limit,
             "raise_errors": False,
             "count": False,
             "validate": True,
@@ -953,7 +938,7 @@ async def test_next_page_token_key(app_client, defaults, mocker, pagination_conf
     # Call the function that should use the plugin configuration
     eodag_args = {
         "collection": defaults.collection,
-        "items_per_page": 10,
+        "limit": 10,
         "raise_errors": False,
         "token": "test_token",
         "provider": "test_provider",
