@@ -2,7 +2,6 @@ name: Build and publish a container image
 
 on:
   push:
-    branches: ['main']
     tags: ['v*']
   workflow_dispatch:
   repository_dispatch:
@@ -74,11 +73,6 @@ jobs:
             org.opencontainers.image.authors=CS GROUP - France (CSSI) <eodag@csgroup.space>
             org.opencontainers.image.version=${{ env.APP_VERSION }}
             org.opencontainers.image.eodag.version=${{ env.EODAG_VERSION }}
-
-      - name: Install git
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git
 
       - name: Build and push container image
         id: push
