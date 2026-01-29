@@ -450,7 +450,7 @@ def request_valid_raw(app_client, mock_search, mock_search_result):
                 pytest.fail(f"Assertion failed: {e}\nAdditional context: {response.text}.")
 
         assert expected_status_code == response.status_code, (
-            f"For {method}: {url}, body: {post_data}, got: {str(response)}"
+            f"For {method}: {url}, body: {post_data}, got: {response.content}"
         )
         return response
 
