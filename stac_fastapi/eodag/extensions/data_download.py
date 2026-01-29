@@ -22,7 +22,7 @@ import logging
 import mimetypes
 import os
 from io import BufferedReader
-from pathlib import Path
+from pathlib import Path as FilePath
 from shutil import make_archive, rmtree
 from typing import Annotated, Iterator, Optional, Union, cast
 
@@ -31,7 +31,7 @@ from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
 from eodag.utils.exceptions import EodagError
-from fastapi import APIRouter, FastAPI, Path as PathParam, Request
+from fastapi import APIRouter, FastAPI, Path, Request
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
@@ -97,16 +97,15 @@ class BaseDataDownloadClient:
 
     def _read_file_chunks_and_delete(self, opened_file: BufferedReader, chunk_size: int = 64 * 1024) -> Iterator[bytes]:
         """Yield file chunks and delete file when finished."""
-        try:
-            while True:
-                data = opened_file.read(chunk_size)
-                if not data:
-                    break
-                yield data
-        finally:
-            opened_file.close()
-            os.remove(opened_file.name)
-            logger.debug("%s deleted after streaming complete", opened_file.name)
+        while True:
+            data = opened_file.read(chunk_size)
+            if not data:
+                opened_file.close()
+                os.remove(opened_file.name)
+                logger.debug("%s deleted after streaming complete", opened_file.name)
+                break
+            yield data
+        yield data
 
     def _list_zarr_files(
         self,
@@ -117,7 +116,7 @@ class BaseDataDownloadClient:
     ) -> dict:
         """List all files in a Zarr store."""
         files = []
-        store_path = Path(zarr_store_path).resolve()
+        store_path = FilePath(zarr_store_path).resolve()
 
         try:
             for file_path in store_path.rglob("*"):
@@ -278,7 +277,7 @@ class BaseDataDownloadClient:
                 zarr_path = dag.download(product, extract=False, asset="zarr")
                 logger.debug(f"Zarr store downloaded to: {zarr_path}")
                 
-                if not Path(zarr_path).exists():
+                if not FilePath(zarr_path).exists():
                     logger.error(f"Zarr store path does not exist: {zarr_path}")
                     raise NotFoundError(f"Zarr store not found at {zarr_path}")
                 
@@ -292,11 +291,11 @@ class BaseDataDownloadClient:
                     
                     # Otherwise, serve the requested file
                     logger.debug(f"Retrieving zarr file: {file_path}")
-                    file_full_path = Path(zarr_path) / file_path
+                    file_full_path = FilePath(zarr_path) / file_path
                     
                     # Security check: ensure path doesn't escape zarr store
                     try:
-                        file_full_path.resolve().relative_to(Path(zarr_path).resolve())
+                        file_full_path.resolve().relative_to(FilePath(zarr_path).resolve())
                     except ValueError:
                         logger.error(f"Path traversal attempt detected: {file_path}")
                         raise NotFoundError(f"Invalid file path: {file_path}")
@@ -336,15 +335,6 @@ class BaseDataDownloadClient:
                         headers=headers,
                     )
                 
-                # If no file_path, try presigned URL or error
-                logger.debug(f"Attempting to get presigned URL for zarr asset")
-                try:
-                    asset_values = product.assets["zarr"]
-                    presigned_url = product.downloader_auth.presign_url(asset_values)
-                    return RedirectResponse(presigned_url, status_code=302)
-                except (NotImplementedError, AttributeError):
-                    logger.info("Presigned URLs not supported for zarr asset")
-                    raise NotFoundError(f"Use /data/{federation_backend}/{collection_id}/{item_id}/zarr/index to list files or access individual files directly")
             except NotFoundError:
                 raise
             except Exception as e:
@@ -372,23 +362,23 @@ class BaseDataDownloadClient:
 
 @attr.s
 class DataDownloadUri(APIRequest):
-    """Download data without file path."""
+    """Download data."""
 
-    federation_backend: Annotated[str, PathParam(description="Federation backend name")] = attr.ib()
-    collection_id: Annotated[str, PathParam(description="Collection ID")] = attr.ib()
-    item_id: Annotated[str, PathParam(description="Item ID")] = attr.ib()
-    asset_name: Annotated[str, PathParam(description="Asset name (e.g., 'zarr')")] = attr.ib()
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
+    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
+    item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
+    asset_name: Annotated[str, Path(description="Item ID")] = attr.ib()
 
 
 @attr.s
 class DataDownloadUriWithFile(APIRequest):
     """Download data with file path."""
 
-    federation_backend: Annotated[str, PathParam(description="Federation backend name")] = attr.ib()
-    collection_id: Annotated[str, PathParam(description="Collection ID")] = attr.ib()
-    item_id: Annotated[str, PathParam(description="Item ID")] = attr.ib()
-    asset_name: Annotated[str, PathParam(description="Asset name (e.g., 'zarr')")] = attr.ib()
-    file_path: Annotated[str, PathParam(description="File path within zarr store")] = attr.ib()
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
+    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
+    item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
+    asset_name: Annotated[str, Path(description="Asset name")] = attr.ib()
+    file_path: Annotated[str, Path(description="File path within zarr store")] = attr.ib()
 
 
 @attr.s
