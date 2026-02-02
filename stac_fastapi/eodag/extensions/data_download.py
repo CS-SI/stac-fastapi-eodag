@@ -334,7 +334,13 @@ class BaseDataDownloadClient:
                         content=self._read_file_chunks(open(str(file_full_path), "rb")),
                         headers=headers,
                     )
-                
+                try:
+                    asset_values = product.assets["zarr"]
+                    presigned_url = product.downloader_auth.presign_url(asset_values)
+                    return RedirectResponse(presigned_url, status_code=302)
+                except (NotImplementedError, AttributeError):
+                    logger.info("Presigned URLs not supported for zarr asset")
+                    raise NotFoundError(f"Use /data/{federation_backend}/{collection_id}/{item_id}/zarr/index to list files or access individual files directly")
             except NotFoundError:
                 raise
             except Exception as e:
