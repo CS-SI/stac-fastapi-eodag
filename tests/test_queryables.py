@@ -18,7 +18,7 @@
 """Queryables tests."""
 
 import os
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
@@ -64,13 +64,23 @@ async def test_collection_queryables(mock_list_queryables, app_client):
 
 async def test_collection_queryables_with_filters(mock_list_queryables, app_client):
     """check that queryable filters are correctly sent to eodag"""
+
     # no additional filters
+    def _assert_list_queryables_call(call_args_list: list, params: dict[str, Any]) -> None:
+        params_first_call = {k: params[k] for k in ["provider", "collection"] if k in params}
+        # first call with only provider and collection
+        args, kwargs = call_args_list[0]
+        assert params_first_call == kwargs
+        # second call with all the parameters
+        args, kwargs = call_args_list[1]
+        assert params == kwargs
+
     await app_client.request(
         method="GET",
         url="/collections/ABC_DEF/queryables",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF"})
+    _assert_list_queryables_call(mock_list_queryables.call_args_list, {"collection": "ABC_DEF"})
     mock_list_queryables.reset_mock()
     # get queryables for specific provider
     await app_client.request(
@@ -78,7 +88,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?federation:backends=abc_prod",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "provider": "abc_prod"})
+    _assert_list_queryables_call(mock_list_queryables.call_args_list, {"collection": "ABC_DEF", "provider": "abc_prod"})
     mock_list_queryables.reset_mock()
     # queryables with filter that does not have to be changed
     await app_client.request(
@@ -86,7 +96,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?emcwf:year=2000",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "emcwf:year": ["2000"]})
+    _assert_list_queryables_call(mock_list_queryables.call_args_list, {"collection": "ABC_DEF", "emcwf:year": ["2000"]})
     mock_list_queryables.reset_mock()
     # queryables with two values of the same filter param
     await app_client.request(
@@ -94,7 +104,10 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?emcwf:year=2000&emcwf:year=2001",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "emcwf:year": ["2000", "2001"]})
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "emcwf:year": ["2000", "2001"]},
+    )
     mock_list_queryables.reset_mock()
     # queryables with filter that has to be changed to eodag param
     await app_client.request(
@@ -102,7 +115,10 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?sat:absolute_orbit=10",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "sat:absolute_orbit": ["10"]})
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "sat:absolute_orbit": ["10"]},
+    )
     mock_list_queryables.reset_mock()
     # queryables with datetime filter
     await app_client.request(
@@ -110,7 +126,10 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         url="/collections/ABC_DEF/queryables?datetime=2020-01-01T00:00:00Z",
         follow_redirects=True,
     )
-    mock_list_queryables.assert_called_once_with(**{"collection": "ABC_DEF", "start_datetime": "2020-01-01T00:00:00Z"})
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "start_datetime": "2020-01-01T00:00:00Z"},
+    )
     mock_list_queryables.reset_mock()
     # queryables with invalid datetime filter
     response = await app_client.request(
