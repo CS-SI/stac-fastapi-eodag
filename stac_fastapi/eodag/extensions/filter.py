@@ -269,7 +269,7 @@ class FiltersClient(AsyncBaseFiltersClient):
 
         # the parameters in eodag_params are all lists:
         # adapt them to use list or primitive type according to the collection queryables
-        eodag_params_pc = {k: eodag_params[k] for k in ["provider", "collection"]}
+        eodag_params_pc = {k: eodag_params[k] for k in ["provider", "collection"] if k in eodag_params}
         try:
             eodag_queryables = request.app.state.dag.list_queryables(**eodag_params_pc)
         except UnsupportedCollection as err:
@@ -302,6 +302,8 @@ class FiltersClient(AsyncBaseFiltersClient):
                 raise NotImplementedError(
                     f"Error for stac name {queryables_key}: AliasPath is not currently handled to get field aliases"
                 )
+            elif validation_alias is None:
+                aliases = [queryables_key]
             else:
                 raise NotImplementedError(
                     f"Error for stac name {queryables_key}: validation alias no supported: {validation_alias}"
