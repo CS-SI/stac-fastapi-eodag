@@ -149,6 +149,13 @@ def create_stac_item(
                         "type": mime_type,
                     },
                 }
+        if "zarr" in product.assets and asset_proxy_url:
+            feature["assets"]["Zarr index"] = {
+                "title": "Download link",
+                "href": asset_proxy_url + "/zarr/index",
+                # TODO: download link is not always a ZIP archive
+                "type": mime_type,
+            }
 
     feature_model = model.model_validate(
         {
