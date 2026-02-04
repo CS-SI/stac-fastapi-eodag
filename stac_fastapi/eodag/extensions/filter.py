@@ -279,7 +279,9 @@ class FiltersClient(AsyncBaseFiltersClient):
             if queryables_key in ("provider", "collection"):
                 continue
             param_args = get_args(annotation)
-            param_origin = get_origin(param_args[0])
+            base_type = get_origin(param_args[0])
+            if base_type is None:
+                base_type = param_args[0]
             field_info = param_args[1]
 
             # get the aliases of queryable_key
@@ -316,14 +318,18 @@ class FiltersClient(AsyncBaseFiltersClient):
                 continue
 
             # adapt the value
-            if param_origin == Literal:
+            if base_type is Literal:
                 if isinstance(eodag_params[eodag_key], list):
                     # convert list to single value
                     eodag_params[eodag_key] = eodag_params[eodag_key][0]
-            elif param_origin in (tuple, list):
+            elif base_type in (tuple, list):
                 if not isinstance(eodag_params[eodag_key], list):
                     # convert single value to list
                     eodag_params[eodag_key] = [eodag_params[eodag_key]]
+            elif base_type is str:
+                if isinstance(eodag_params[eodag_key], list):
+                    # convert list to single value
+                    eodag_params[eodag_key] = eodag_params[eodag_key][0]
             else:
-                raise NotImplementedError(f"Error for stac name {queryables_key}: type not supported: {param_origin}")
+                raise NotImplementedError(f"Error for stac name {queryables_key}: type not supported: {param_args[0]}")
         return eodag_params
