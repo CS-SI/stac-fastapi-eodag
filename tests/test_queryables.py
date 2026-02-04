@@ -62,7 +62,7 @@ async def test_collection_queryables(mock_list_queryables, app_client):
     assert "$ref" not in result, "there is a '$ref' in the /queryables response"
 
 
-async def test_collection_queryables_with_filters(mock_list_queryables, app_client):
+async def test_collection_queryables_with_filters(mock_list_queryables, mock_list_queryables_return_value, app_client):
     """check that queryable filters are correctly sent to eodag"""
 
     # no additional filters
@@ -138,6 +138,124 @@ async def test_collection_queryables_with_filters(mock_list_queryables, app_clie
         follow_redirects=True,
     )
     assert response.status_code == 400
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type list of literals
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf:variable=ammonia&ecmwf:variable=carbon_monoxide",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf:variable": ["ammonia", "carbon_monoxide"]},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type list of literals and a single value is given
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf:variable=ammonia",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf:variable": ["ammonia"]},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type list of literals and no value is given
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf:variable",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf:variable": [""]},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type literal string
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf:data_format=grib",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf:data_format": "grib"},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type literal string: use first value
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf:data_format=grib&ecmwf:data_format=netcdf_zip",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf:data_format": "grib"},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type literal string and no value is given
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf:data_format",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf:data_format": ""},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type tuple
+    # Note: we cannot test here if a value is missing from the tuple, this can be done in the
+    #       test of the `list_queryables` function in EODAG.
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf:area=10&ecmwf:area=40&ecmwf:area=12&ecmwf:area=42",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf:area": ["10", "40", "12", "42"]},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter of type string
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?start_datetime=2020-01-01T00:00:00Z&end_datetime=2020-01-31T00:00:00Z",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "start_datetime": "2020-01-01T00:00:00Z", "end_datetime": "2020-01-31T00:00:00Z"},
+    )
+    mock_list_queryables.reset_mock()
+    # queryables with filter by alias (alias as AliasChoices)
+    # Note: we know the alias is found in the queryables if the values are adapted to literal strings.
+    # Expected calls:
+    # * "ecmwf_data_format" is of type literal string -> adapted to string.
+    # * "foo" is not found in the queryables -> pass it as list.
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?ecmwf_data_format=grib&date=2026-02-04&foo=boo",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "ecmwf_data_format": "grib", "date": "2026-02-04", "foo": ["boo"]},
+    )
+    mock_list_queryables.reset_mock()
+    # more filters by alias (alias as string, no alias)
+    # "dolorem" by field name; "ips" by alias; "bar" has no alias
+    # Note: again we expect the values to be adapted to strings
+    await app_client.request(
+        method="GET",
+        url="/collections/ABC_DEF/queryables?dolorem=val_1&ips=val_2&bar=val_3",
+        follow_redirects=True,
+    )
+    _assert_list_queryables_call(
+        mock_list_queryables.call_args_list,
+        {"collection": "ABC_DEF", "dolorem": "val_1", "ips": "val_2", "bar": "val_3"},
+    )
 
 
 async def test_default_in_collection_queryables(
