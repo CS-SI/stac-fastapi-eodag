@@ -132,6 +132,14 @@ def create_stac_item(
                 },
             }
 
+        if "zarr" in product.assets and asset_proxy_url:
+            assets["Zarr index"] = {
+                "title": "Download link",
+                "href": asset_proxy_url + "/zarr/index",
+                # TODO: download link is not always a ZIP archive
+                "type": mime_type,
+            }
+
     # filter properties we do not want to expose
     feature["properties"] = {k: v for k, v in properties.items() if not k.startswith("eodag:")}
     feature["properties"].pop("qs", None)
