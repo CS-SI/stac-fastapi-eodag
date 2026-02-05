@@ -51,6 +51,8 @@ logger = logging.getLogger(__name__)
 
 
 class ZarrFileEntry(TypedDict):
+    """Zarr file listing item."""
+
     path: str
     size: int
     url: str
