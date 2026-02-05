@@ -318,7 +318,7 @@ class FiltersClient(AsyncBaseFiltersClient):
                 continue
 
             # adapt the value
-            if base_type is Literal:
+            if base_type is (Literal, str):
                 if isinstance(eodag_params[eodag_key], list):
                     # convert list to single value
                     eodag_params[eodag_key] = eodag_params[eodag_key][0]
@@ -326,10 +326,6 @@ class FiltersClient(AsyncBaseFiltersClient):
                 if not isinstance(eodag_params[eodag_key], list):
                     # convert single value to list
                     eodag_params[eodag_key] = [eodag_params[eodag_key]]
-            elif base_type is str:
-                if isinstance(eodag_params[eodag_key], list):
-                    # convert list to single value
-                    eodag_params[eodag_key] = eodag_params[eodag_key][0]
             else:
                 raise NotImplementedError(f"Error for stac name {queryables_key}: type not supported: {param_args[0]}")
         return eodag_params
