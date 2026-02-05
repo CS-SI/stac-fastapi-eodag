@@ -158,7 +158,7 @@ class BaseDataDownloadClient:
                     headers["content-type"] = content_type
 
                 return StreamingResponse(
-                    content=self._read_file_chunks(open(str(file_full_path), "rb")),
+                    content=self._read_file_chunks_and_delete(open(str(file_full_path), "rb")),
                     headers=headers,
                 )
             try:
@@ -212,17 +212,6 @@ class BaseDataDownloadClient:
                 "content-disposition": f"attachment; filename={filename}",
             },
         )
-
-    def _read_file_chunks(self, opened_file: BufferedReader, chunk_size: int = 64 * 1024) -> Iterator[bytes]:
-        """Yield file chunks without deleting."""
-        try:
-            while True:
-                data = opened_file.read(chunk_size)
-                if not data:
-                    break
-                yield data
-        finally:
-            opened_file.close()
 
     def _read_file_chunks_and_delete(self, opened_file: BufferedReader, chunk_size: int = 64 * 1024) -> Iterator[bytes]:
         """Yield file chunks and delete file when finished."""
