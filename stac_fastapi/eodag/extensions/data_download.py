@@ -249,10 +249,10 @@ class BaseDataDownloadClient:
             for file_path in store_path.rglob("*"):
                 if file_path.is_file():
                     # Get relative path from store root
-                    rel_path = file_path.relative_to(store_path)
+                    rel_path = file_path.relative_to(store_path).as_posix()
                     files.append(
                         ZarrFileEntry(
-                            path=str(rel_path),
+                            path=rel_path,
                             size=file_path.stat().st_size,
                             url=f"/data/{federation_backend}/{collection_id}/{item_id}/zarr/{rel_path}",
                         )
