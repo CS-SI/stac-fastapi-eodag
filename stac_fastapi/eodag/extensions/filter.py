@@ -290,7 +290,7 @@ class FiltersClient(AsyncBaseFiltersClient):
             if isinstance(validation_alias, str):
                 aliases = [queryables_key, validation_alias]
             elif isinstance(validation_alias, AliasChoices):
-                # e.g. names == ['ecmwf_data_format', 'ecmwf:data_format', 'data_format']
+                # e.g. aliases == ['ecmwf_data_format', 'ecmwf:data_format', 'data_format']
                 if any(not isinstance(c, str) for c in validation_alias.choices):
                     # currently only choices of type string are used by EODAG
                     raise NotImplementedError(
@@ -318,7 +318,7 @@ class FiltersClient(AsyncBaseFiltersClient):
                 continue
 
             # adapt the value
-            if base_type is (Literal, str):
+            if base_type in (Literal, str):
                 if isinstance(eodag_params[eodag_key], list):
                     # convert list to single value
                     eodag_params[eodag_key] = eodag_params[eodag_key][0]
