@@ -73,15 +73,15 @@ async def test_zarr_index_listing(request_valid_raw, defaults, mock_search, mock
         f"data/peps/{collection}/{item_id}/zarr/index",
         search_result=SearchResult([product]),
     )
-    payload = response.json()
+    res = response.json()
 
-    assert payload["type"] == "zarr-file-index"
-    assert payload["item_id"] == item_id
-    assert payload["collection_id"] == collection
-    assert payload["backend"] == "peps"
-    assert payload["file_count"] == 2
-    assert [f["path"] for f in payload["files"]] == ["group/foo.txt", "root.txt"]
-    assert payload["files"][0]["url"] == f"/data/peps/{collection}/{item_id}/group/foo.txt"
+    assert res["type"] == "zarr-file-index"
+    assert res["item_id"] == item_id
+    assert res["collection_id"] == collection
+    assert res["backend"] == "peps"
+    assert res["file_count"] == 2
+    assert [f["path"] for f in res["files"]] == ["group/foo.txt", "root.txt"]
+    assert res["files"][0]["url"] == f"/data/peps/{collection}/{item_id}/zarr/group/foo.txt"
 
 
 async def test_zarr_file_download(request_valid_raw, defaults, mock_search, mock_download, tmp_dir):
