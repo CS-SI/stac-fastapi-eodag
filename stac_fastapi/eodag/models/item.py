@@ -136,8 +136,7 @@ def create_stac_item(
             assets["Zarr index"] = {
                 "title": "Download link",
                 "href": asset_proxy_url + "/zarr/index",
-                # TODO: download link is not always a ZIP archive
-                "type": mime_type,
+                "type": "application/json",
             }
 
     # filter properties we do not want to expose
