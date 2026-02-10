@@ -81,8 +81,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-loop = asyncio.get_event_loop()
-
 
 @attr.s
 class EodagCoreClient(CustomCoreClient):
@@ -166,7 +164,7 @@ class EodagCoreClient(CustomCoreClient):
 
         return Collection(**extended_collection)
 
-    def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
+    async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
 
         request.state.eodag_args = eodag_args
@@ -177,7 +175,7 @@ class EodagCoreClient(CustomCoreClient):
 
         # check if the collection exists
         if collection := eodag_args.get("collection"):
-            all_coll = request.app.state.dag.list_collections(fetch_providers=False)
+            all_coll = await asyncio.to_thread(request.app.state.dag.list_collections, fetch_providers=False)
             # only check the first collection (EODAG search only support a single collection)
             existing_coll = [coll for coll in all_coll if coll.id == collection]
             if not existing_coll:
@@ -191,19 +189,20 @@ class EodagCoreClient(CustomCoreClient):
             search_result = SearchResult([])
             for item_id in ids:
                 eodag_args["id"] = item_id
-                search_result.extend(request.app.state.dag.search(validate=validate, **eodag_args))
+                result = await asyncio.to_thread(request.app.state.dag.search, validate=validate, **eodag_args)
+                search_result.extend(result)
             search_result.number_matched = len(search_result)
         elif eodag_args.get("token") and eodag_args.get("provider"):
             # search with pagination
-            search_result = eodag_search_next_page(request.app.state.dag, eodag_args)
+            search_result = await asyncio.to_thread(eodag_search_next_page, request.app.state.dag, eodag_args)
         else:
             # search without ids or pagination
-            search_result = request.app.state.dag.search(validate=validate, **eodag_args)
+            search_result = await asyncio.to_thread(request.app.state.dag.search, validate=validate, **eodag_args)
 
         if search_result.errors and not len(search_result):
             raise ResponseSearchError(search_result.errors, self.stac_metadata_model)
 
-        request_json = loop.run_until_complete(request.json()) if request.method == "POST" else None
+        request_json = await request.json() if request.method == "POST" else None
 
         features: list[Item] = []
         extension_names = [type(ext).__name__ for ext in self.extensions]
@@ -268,7 +267,9 @@ class EodagCoreClient(CustomCoreClient):
             provider = parsed_query.get("federation:backends")
             provider = provider[0] if isinstance(provider, list) else provider
 
-        all_colls = request.app.state.dag.list_collections(provider=provider, fetch_providers=False)
+        all_colls = await asyncio.to_thread(
+            request.app.state.dag.list_collections, provider=provider, fetch_providers=False
+        )
 
         # datetime & free-text-search filters
         if any((q, datetime)):
@@ -279,8 +280,11 @@ class EodagCoreClient(CustomCoreClient):
             free_text = " AND ".join(q or [])
 
             try:
-                guessed_collections = request.app.state.dag.guess_collection(
-                    free_text=free_text, start_date=start, end_date=end
+                guessed_collections = await asyncio.to_thread(
+                    request.app.state.dag.guess_collection,
+                    free_text=free_text,
+                    start_date=start,
+                    end_date=end,
                 )
                 guessed_collections_ids = [coll.id for coll in guessed_collections]
             except EodagNoMatchingCollection:
@@ -368,8 +372,9 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The collection.
         :raises NotFoundError: If the collection does not exist.
         """
+        all_collections = await asyncio.to_thread(request.app.state.dag.list_collections, fetch_providers=False)
         collection = next(
-            (c for c in request.app.state.dag.list_collections(fetch_providers=False) if c.id == collection_id),
+            (c for c in all_collections if c.id == collection_id),
             None,
         )
         if collection is None:
@@ -424,7 +429,7 @@ class EodagCoreClient(CustomCoreClient):
         )
 
         search_request = self.post_request_model.model_validate(clean)
-        item_collection = self._search_base(search_request, request)
+        item_collection = await self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
             extensions=extension_names, extra_links=item_collection["links"]
@@ -432,7 +437,9 @@ class EodagCoreClient(CustomCoreClient):
         item_collection["links"] = links
         return item_collection
 
-    def post_search(self, search_request: BaseSearchPostRequest, request: Request, **kwargs: Any) -> ItemCollection:
+    async def post_search(
+        self, search_request: BaseSearchPostRequest, request: Request, **kwargs: Any
+    ) -> ItemCollection:
         """
         Handle POST search requests.
 
@@ -441,9 +448,9 @@ class EodagCoreClient(CustomCoreClient):
         :param kwargs: Additional keyword arguments.
         :returns: Found items.
         """
-        return self._search_base(search_request, request)
+        return await self._search_base(search_request, request)
 
-    def get_search(
+    async def get_search(
         self,
         request: Request,
         collections: Optional[list[str]] = None,
@@ -502,7 +509,7 @@ class EodagCoreClient(CustomCoreClient):
         except ValidationError as err:
             raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
-        return self._search_base(search_request, request)
+        return await self._search_base(search_request, request)
 
     async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:
         """
@@ -517,7 +524,7 @@ class EodagCoreClient(CustomCoreClient):
         """
 
         search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
-        item_collection = self._search_base(search_request, request)
+        item_collection = await self._search_base(search_request, request)
         if not item_collection["features"]:
             raise NotFoundError(f"Item {item_id} in Collection {collection_id} does not exist.")
 
