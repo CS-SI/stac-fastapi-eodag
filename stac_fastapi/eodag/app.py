@@ -29,7 +29,6 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware import Middleware
 from fastapi.responses import ORJSONResponse
 from stac_fastapi.api.app import StacApi
-from stac_fastapi.api.middleware import CORSMiddleware
 from stac_fastapi.api.models import (
     EmptyRequest,
     ItemCollectionUri,
@@ -48,6 +47,7 @@ from stac_fastapi.extensions.core.free_text import FreeTextConformanceClasses
 from stac_fastapi.extensions.core.pagination.token_pagination import TokenPaginationExtension
 from stac_fastapi.extensions.core.query import QueryConformanceClasses
 from stac_fastapi.extensions.core.sort import SortConformanceClasses
+from starlette.middleware.cors import CORSMiddleware
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
@@ -225,7 +225,14 @@ api = StacApi(
     items_get_request_model=item_collection_model,
     middlewares=[
         Middleware(BrotliMiddleware),
-        Middleware(CORSMiddleware),
+        Middleware(
+            CORSMiddleware,
+            # Set CORS defaults to those recommended by the STAC API spec
+            allow_origins=["*"],
+            allow_methods=["OPTIONS", "POST", "GET"],
+            allow_headers=["Content-Type"],
+            max_age=600,
+        ),
         Middleware(ProxyHeaderMiddleware),
     ],
 )
