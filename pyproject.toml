@@ -21,7 +21,7 @@ dependencies = [
     "stac-fastapi.types",
     "stac-pydantic==3.1.*",
     "brotli-asgi",
-    "starlette < 0.51.0",
+    "starlette",
     "typing_extensions",
     "shapely",
 ]
