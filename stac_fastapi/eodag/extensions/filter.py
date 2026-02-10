@@ -17,6 +17,7 @@
 # limitations under the License.
 """Get Queryables."""
 
+import asyncio
 from typing import Any, Optional, cast
 
 import attr
@@ -192,7 +193,7 @@ class FiltersClient(AsyncBaseFiltersClient):
         eodag_params = {self.stac_metadata_model.to_eodag(param): validated_params[param] for param in validated_params}
         # get queryables from eodag
         try:
-            eodag_queryables = request.app.state.dag.list_queryables(**eodag_params)
+            eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params)
         except UnsupportedCollection as err:
             raise NotFoundError(err) from err
 
