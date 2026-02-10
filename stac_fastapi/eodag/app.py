@@ -227,10 +227,11 @@ api = StacApi(
         Middleware(BrotliMiddleware),
         Middleware(
             CORSMiddleware,
+            # Set CORS defaults to those recommended by the STAC API spec
             allow_origins=["*"],
             allow_methods=["OPTIONS", "POST", "GET"],
             allow_headers=["Content-Type"],
-            max_age=600,        
+            max_age=600,
         ),
         Middleware(ProxyHeaderMiddleware),
     ],
