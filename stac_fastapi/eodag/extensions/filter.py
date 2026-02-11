@@ -174,7 +174,7 @@ class FiltersClient(AsyncBaseFiltersClient):
         under OGC CQL but it is allowed by the STAC API Filter Extension
         https://github.com/radiantearth/stac-api-spec/tree/master/fragments/filter#queryables
         """
-        eodag_params = self._get_eodag_params(request, collection_id)
+        eodag_params = await self._get_eodag_params(request, collection_id)
 
         # get queryables from eodag
         try:
@@ -238,7 +238,7 @@ class FiltersClient(AsyncBaseFiltersClient):
 
         return queryables
 
-    def _get_eodag_params(
+    async def _get_eodag_params(
         self,
         request: Request,
         collection_id: Optional[str] = None,
@@ -271,7 +271,7 @@ class FiltersClient(AsyncBaseFiltersClient):
         # adapt them to use list or primitive type according to the collection queryables
         eodag_params_pc = {k: eodag_params[k] for k in ["provider", "collection"] if k in eodag_params}
         try:
-            eodag_queryables = request.app.state.dag.list_queryables(**eodag_params_pc)
+            eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params_pc)
         except UnsupportedCollection as err:
             raise NotFoundError(err) from err
 
