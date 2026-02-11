@@ -321,7 +321,7 @@ class FiltersClient(AsyncBaseFiltersClient):
             if base_type in (Literal, str):
                 if isinstance(eodag_params[eodag_key], list):
                     # convert list to single value
-                    eodag_params[eodag_key] = eodag_params[eodag_key][0]
+                    eodag_params[eodag_key] = eodag_params[eodag_key][-1]
             elif base_type in (tuple, list):
                 if not isinstance(eodag_params[eodag_key], list):
                     # convert single value to list
