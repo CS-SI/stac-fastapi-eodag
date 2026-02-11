@@ -18,11 +18,11 @@
 """Get Queryables."""
 
 import asyncio
-from typing import Any, Optional, cast
+from typing import Any, Literal, Optional, cast, get_args, get_origin
 
 import attr
 from fastapi import Request
-from pydantic import BaseModel, ConfigDict, create_model
+from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, create_model
 from stac_fastapi.extensions.core.filter.client import AsyncBaseFiltersClient
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
@@ -174,23 +174,8 @@ class FiltersClient(AsyncBaseFiltersClient):
         under OGC CQL but it is allowed by the STAC API Filter Extension
         https://github.com/radiantearth/stac-api-spec/tree/master/fragments/filter#queryables
         """
-        params: dict[str, list[Any]] = {}
-        for k, v in request.query_params.multi_items():
-            params.setdefault(k, []).append(v)
+        eodag_params = await self._get_eodag_params(request, collection_id)
 
-        # parameter provider is deprecated
-        providers = params.pop("provider", [None])
-        federation_backends = params.pop("federation:backends", [None])
-
-        # validate params and transform to eodag params
-        validated_params_model = QueryablesGetParams.model_validate(
-            {
-                **{"provider": federation_backends[0] or providers[0], "collection": collection_id},
-                **params,
-            }
-        )
-        validated_params = validated_params_model.model_dump(exclude_none=True, by_alias=True)
-        eodag_params = {self.stac_metadata_model.to_eodag(param): validated_params[param] for param in validated_params}
         # get queryables from eodag
         try:
             eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params)
@@ -252,3 +237,95 @@ class FiltersClient(AsyncBaseFiltersClient):
                 properties[pk] = pv
 
         return queryables
+
+    async def _get_eodag_params(
+        self,
+        request: Request,
+        collection_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Return the EODAG parameters from the given HTTP Request.
+
+        :param request: The request object.
+        :param collection_id: The collection ID.
+        :return: The EODAG parameters.
+        """
+        params: dict[str, list[Any]] = {}
+        for k, v in request.query_params.multi_items():
+            params.setdefault(k, []).append(v)
+
+        # parameter provider is deprecated
+        providers = params.pop("provider", [None])
+        federation_backends = params.pop("federation:backends", [None])
+
+        # validate params and transform to eodag params
+        validated_params_model = QueryablesGetParams.model_validate(
+            {
+                **{"provider": federation_backends[0] or providers[0], "collection": collection_id},
+                **params,
+            }
+        )
+        validated_params = validated_params_model.model_dump(exclude_none=True, by_alias=True)
+        eodag_params = {self.stac_metadata_model.to_eodag(param): validated_params[param] for param in validated_params}
+
+        # the parameters in eodag_params are all lists:
+        # adapt them to use list or primitive type according to the collection queryables
+        eodag_params_pc = {k: eodag_params[k] for k in ["provider", "collection"] if k in eodag_params}
+        try:
+            eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params_pc)
+        except UnsupportedCollection as err:
+            raise NotFoundError(err) from err
+
+        for queryables_key, annotation in eodag_queryables.items():
+            if queryables_key in ("provider", "collection"):
+                continue
+            param_args = get_args(annotation)
+            base_type = get_origin(param_args[0])
+            if base_type is None:
+                base_type = param_args[0]
+            field_info = param_args[1]
+
+            # get the aliases of queryable_key
+            validation_alias = field_info.validation_alias
+            aliases: list[str]
+            if isinstance(validation_alias, str):
+                aliases = [queryables_key, validation_alias]
+            elif isinstance(validation_alias, AliasChoices):
+                # e.g. aliases == ['ecmwf_data_format', 'ecmwf:data_format', 'data_format']
+                if any(not isinstance(c, str) for c in validation_alias.choices):
+                    # currently only choices of type string are used by EODAG
+                    raise NotImplementedError(
+                        f"Error for stac name {queryables_key}: "
+                        "only AliasChoices of type string are handled to get field aliases"
+                    )
+                choices: list[str] = [str(c) for c in validation_alias.choices]
+                aliases = [queryables_key, *choices]
+            elif isinstance(validation_alias, AliasPath):
+                # currently AliasPath is not used by EODAG
+                raise NotImplementedError(
+                    f"Error for stac name {queryables_key}: AliasPath is not currently handled to get field aliases"
+                )
+            elif validation_alias is None:
+                aliases = [queryables_key]
+            else:
+                raise NotImplementedError(
+                    f"Error for stac name {queryables_key}: validation alias no supported: {validation_alias}"
+                )
+
+            # check if any of the aliases is in eodag_params
+            eodag_key = next((n for n in aliases if n in eodag_params.keys()), None)
+            if not eodag_key:
+                # queryable_key is not in eodag_params: skip
+                continue
+
+            # adapt the value
+            if base_type in (Literal, str):
+                if isinstance(eodag_params[eodag_key], list):
+                    # convert list to single value
+                    eodag_params[eodag_key] = eodag_params[eodag_key][-1]
+            elif base_type in (tuple, list):
+                if not isinstance(eodag_params[eodag_key], list):
+                    # convert single value to list
+                    eodag_params[eodag_key] = [eodag_params[eodag_key]]
+            else:
+                raise NotImplementedError(f"Error for stac name {queryables_key}: type not supported: {param_args[0]}")
+        return eodag_params
