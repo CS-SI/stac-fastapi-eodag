@@ -18,12 +18,13 @@
 """main conftest"""
 
 import os
+import typing
 import unittest.mock
 from dataclasses import dataclass, field
 from pathlib import Path
 from string import ascii_uppercase
 from tempfile import TemporaryDirectory
-from typing import Any, Iterator, Optional, Union
+from typing import Annotated, Any, Iterator, Optional, Union
 from urllib.parse import urljoin
 
 import pytest
@@ -43,6 +44,7 @@ from eodag.plugins.search.qssearch import StacSearch
 from eodag.utils import StreamResponse
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from pydantic import AliasChoices, Field
 
 from stac_fastapi.eodag.app import api, stac_metadata_model
 from stac_fastapi.eodag.config import get_settings
@@ -322,6 +324,174 @@ def mock_list_queryables(mocker, app):
     Mocks the `list_queryables` method of the `app.state.dag` object.
     """
     return mocker.patch.object(app.state.dag, "list_queryables")
+
+
+@pytest.fixture(scope="function")
+def mock_list_queryables_return_value(mock_list_queryables):
+    """
+    Mocks the return value of `list_queryables` method of the `app.state.dag` object.
+    """
+    return_value = {
+        "ecmwf_area": Annotated[
+            tuple[
+                Annotated[
+                    float,
+                    Field(
+                        default=None,
+                        description="West border of the bounding box",
+                        ge=-180,
+                        le=180,
+                    ),
+                ],
+                Annotated[
+                    float,
+                    Field(
+                        default=None,
+                        description="South border of the bounding box",
+                        ge=-90,
+                        le=90,
+                    ),
+                ],
+                Annotated[
+                    float,
+                    Field(
+                        default=None,
+                        description="East border of the bounding box",
+                        ge=-180,
+                        le=180,
+                    ),
+                ],
+                Annotated[
+                    float,
+                    Field(
+                        default=None,
+                        description="North border of the bounding box",
+                        ge=-90,
+                        le=90,
+                    ),
+                ],
+            ],
+            Field(
+                default=None,
+                title="Sub-region extraction",
+                description="Select a sub-region of the available area by"
+                " providing its limits on latitude and longitude",
+                validation_alias=AliasChoices("ecmwf:area", "area"),
+                serialization_alias="ecmwf:area",
+                alias_priority=2,
+            ),
+        ],
+        "ecmwf_data_format": typing.Annotated[
+            typing.Literal["grib", "netcdf_zip"],
+            Field(
+                ...,
+                title="Data format",
+                validation_alias=AliasChoices("ecmwf:data_format", "data_format"),
+                serialization_alias="ecmwf:data_format",
+                alias_priority=2,
+            ),
+            "json_schema_required",
+        ],
+        "ecmwf_date": typing.Annotated[
+            typing.Literal[
+                "2025-03-04",
+                "2025-03-05/2025-03-21",
+                "2025-03-22",
+                "2025-03-23/2025-04-20",
+                "2025-04-21",
+                "2025-04-22/2025-04-29",
+                "2025-04-30",
+                "2025-05-01/2025-06-01",
+                "2025-05-03",
+                "2025-05-04/2026-02-03",
+                "2025-06-02",
+                "2025-06-03/2025-08-09",
+                "2025-08-10",
+                "2025-08-11",
+                "2025-08-12/2025-12-06",
+                "2025-12-07",
+                "2025-12-08/2026-02-02",
+                "2026-02-03",
+                "2026-02-04",
+            ],
+            Field(
+                ...,
+                title="Date",
+                validation_alias=AliasChoices("ecmwf:date", "date"),
+                serialization_alias="ecmwf:date",
+                alias_priority=2,
+                description="date formatted like yyyy-mm-dd/yyyy-mm-dd",
+            ),
+            "json_schema_required",
+        ],
+        "ecmwf_variable": typing.Annotated[
+            list[
+                typing.Literal[
+                    "alder_pollen",
+                    "ammonia",
+                    "birch_pollen",
+                    "carbon_monoxide",
+                    "dust",
+                    "formaldehyde",
+                    "glyoxal",
+                    "grass_pollen",
+                    "mugwort_pollen",
+                ],
+            ],
+            Field(
+                ...,
+                title="Variable",
+                validation_alias=AliasChoices("ecmwf:variable", "variable"),
+                serialization_alias="ecmwf:variable",
+                alias_priority=2,
+            ),
+            "json_schema_required",
+        ],
+        "end": Annotated[
+            str,
+            Field(
+                default=None,
+                alias="end_datetime",
+                alias_priority=2,
+                description="Date/time as string in ISO 8601 format (e.g. '2024-06-10T12:00:00Z')",
+            ),
+        ],
+        "start": Annotated[
+            str,
+            Field(
+                default=None,
+                alias="start_datetime",
+                alias_priority=2,
+                description="Date/time as string in ISO 8601 format (e.g. '2024-06-10T12:00:00Z')",
+            ),
+        ],
+        "dolorem": Annotated[
+            str,
+            Field(
+                default=None,
+                alias="dol",
+                alias_priority=2,
+            ),
+        ],
+        "ipsum": Annotated[
+            str,
+            Field(
+                default=None,
+                alias="ips",
+                alias_priority=2,
+            ),
+        ],
+        "bar": Annotated[
+            str,
+            Field(
+                default=None,
+                alias_priority=2,
+            ),
+        ],
+    }
+
+    mock_list_queryables.return_value = return_value
+    return return_value
 
 
 @pytest.fixture(scope="function")
