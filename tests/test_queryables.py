@@ -183,7 +183,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, mock_lis
         {"collection": "ABC_DEF", "ecmwf:data_format": "grib"},
     )
     mock_list_queryables.reset_mock()
-    # queryables with filter of type literal string: use first value
+    # queryables with filter of type literal string: use last value
     await app_client.request(
         method="GET",
         url="/collections/ABC_DEF/queryables?ecmwf:data_format=grib&ecmwf:data_format=netcdf_zip",
@@ -191,7 +191,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, mock_lis
     )
     _assert_list_queryables_call(
         mock_list_queryables.call_args_list,
-        {"collection": "ABC_DEF", "ecmwf:data_format": "grib"},
+        {"collection": "ABC_DEF", "ecmwf:data_format": "netcdf_zip"},
     )
     mock_list_queryables.reset_mock()
     # queryables with filter of type literal string and no value is given
