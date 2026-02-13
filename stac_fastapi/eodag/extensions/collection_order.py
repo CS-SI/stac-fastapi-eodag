@@ -28,6 +28,7 @@ import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS
+from eodag.types.stac_metadata import CommonStacMetadata
 from fastapi import APIRouter, Depends, FastAPI, Path, Request
 from pydantic import BaseModel, ConfigDict, Field
 from stac_fastapi.api.errors import NotFoundError
@@ -39,7 +40,6 @@ from stac_fastapi.types.stac import Item
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.errors import ResponseSearchError
 from stac_fastapi.eodag.models.item import create_stac_item
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ class BaseCollectionOrderClient:
             )
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
-        return create_stac_item(product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names)
+        return create_stac_item(product, self.extension_is_enabled, request, extension_names)
 
 
 @attr.s

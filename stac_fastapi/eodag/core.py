@@ -45,6 +45,7 @@ from eodag import EOProduct, SearchResult
 from eodag.api.collection import Collection as EodagCollection
 from eodag.api.collection import CollectionsList
 from eodag.plugins.search.build_search_result import ECMWFSearch
+from eodag.types.stac_metadata import CommonStacMetadata
 from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
@@ -59,7 +60,6 @@ from stac_fastapi.eodag.models.links import (
     ItemCollectionLinks,
     PagingLinks,
 )
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 from stac_fastapi.eodag.utils import (
     check_poly_is_point,
     dt_range_to_eodag,
@@ -208,9 +208,7 @@ class EodagCoreClient(CustomCoreClient):
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         for product in search_result:
-            feature = create_stac_item(
-                product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names, request_json
-            )
+            feature = create_stac_item(product, self.extension_is_enabled, request, extension_names, request_json)
             features.append(feature)
 
         feature_collection = ItemCollection(
@@ -610,8 +608,8 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
             param_tuples.append(
                 (
                     sort_by_special_fields.get(
-                        model.to_eodag(dumped_param["field"]),
-                        model.to_eodag(dumped_param["field"]),
+                        model.from_stac(dumped_param["field"]),
+                        model.from_stac(dumped_param["field"]),
                     ),
                     dumped_param["direction"],
                 )
@@ -621,13 +619,13 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     eodag_query = {}
     if query_attr := getattr(search_request, "query", None):
         parsed_query = parse_query(query_attr)
-        eodag_query = {model.to_eodag(k): v for k, v in parsed_query.items()}
+        eodag_query = {model.from_stac(k): v for k, v in parsed_query.items()}
 
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
     eodag_filter = {}
     if f := getattr(search_request, "filter_expr", None):
         parsed_filter = parse_cql2(f)
-        eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
+        eodag_filter = {model.from_stac(k): v for k, v in parsed_filter.items()}
 
     # EODAG search support a single collection
     if search_request.collections:
