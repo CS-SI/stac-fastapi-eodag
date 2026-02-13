@@ -49,7 +49,7 @@ from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
-from stac_fastapi.eodag.constants import DEFAULT_ITEMS_PER_PAGE
+from stac_fastapi.eodag.constants import DEFAULT_LIMIT
 from stac_fastapi.eodag.cql_evaluate import EodagEvaluator
 from stac_fastapi.eodag.errors import NoMatchingCollection, ResponseSearchError
 from stac_fastapi.eodag.models.item import create_stac_item
@@ -577,67 +577,48 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     :param model: the model used to validate stac metadata
     :returns: a dictionary containing arguments for the eodag search
     """
-    base_args = (
-        {
-            "token": search_request.token,
-            "items_per_page": search_request.limit,
-            "raise_errors": False,
-            "count": get_settings().count,
-        }
-        if search_request.ids is None
-        else {}
-    )
-
-    if search_request.spatial_filter is not None:
-        base_args["geom"] = search_request.spatial_filter.wkt
-    # Also check datetime to bypass persistent dates between searches
-    # until https://github.com/stac-utils/stac-pydantic/pull/171 is merged
-    if search_request.datetime is not None and search_request.start_date is not None:
-        base_args["start"] = search_request.start_date.isoformat().replace("+00:00", "Z")
-    if search_request.datetime is not None and search_request.end_date is not None:
-        base_args["end"] = search_request.end_date.isoformat().replace("+00:00", "Z")
+    if search_request.ids is None:
+        base_args = search_request.model_dump()
+        base_args["raise_errors"] = False
+        base_args["count"] = get_settings().count
+    else:
+        base_args = {}
 
     # parse "sortby" search request attribute if it exists to make it work for an eodag search
     sort_by = {}
-    if sortby := getattr(search_request, "sortby", None):
-        sort_by_special_fields = {
-            "start": "start_datetime",
-            "end": "end_datetime",
-        }
+    if sortby := base_args.pop("sortby", None):
         param_tuples = []
         for param in sortby:
-            dumped_param = param.model_dump(mode="json")
             param_tuples.append(
                 (
-                    sort_by_special_fields.get(
-                        model.to_eodag(dumped_param["field"]),
-                        model.to_eodag(dumped_param["field"]),
-                    ),
-                    dumped_param["direction"],
+                    model.to_eodag(param["field"]),
+                    param["direction"],
                 )
             )
         sort_by["sort_by"] = param_tuples
 
     eodag_query = {}
-    if query_attr := getattr(search_request, "query", None):
+    if query_attr := base_args.pop("query", None):
         parsed_query = parse_query(query_attr)
         eodag_query = {model.to_eodag(k): v for k, v in parsed_query.items()}
 
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
     eodag_filter = {}
-    if f := getattr(search_request, "filter_expr", None):
+    base_args.pop("filter_lang", None)
+    if f := base_args.pop("filter_expr", None):
         parsed_filter = parse_cql2(f)
         eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
     # EODAG search support a single collection
-    if search_request.collections:
-        base_args["collection"] = search_request.collections[0]
+    if collections := base_args.pop("collections", search_request.collections):
+        base_args["collection"] = collections[0]
 
     if search_request.ids:
         base_args["ids"] = search_request.ids
 
     # merge all eodag search arguments
     base_args = base_args | sort_by | eodag_filter | eodag_query
+    base_args = {k: v for k, v in base_args.items() if v is not None}  # remove parameters with value None
 
     return base_args
 
@@ -763,7 +744,7 @@ def eodag_search_next_page(dag, eodag_args):
     next_page_token_key = getattr(search_plugin.config, "pagination", {}).get("next_page_token_key", "page")
     eodag_args.pop("count", None)
     search_result = SearchResult(
-        [EOProduct(provider, {"id": "_"})] * int(eodag_args.get("items_per_page", DEFAULT_ITEMS_PER_PAGE)),
+        [EOProduct(provider, {"id": "_"})] * int(eodag_args.get("limit", DEFAULT_LIMIT)),
         next_page_token=next_page_token,
         next_page_token_key=next_page_token_key,
         search_params=eodag_args,
