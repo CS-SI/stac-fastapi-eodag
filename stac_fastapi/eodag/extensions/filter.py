@@ -21,6 +21,7 @@ import asyncio
 from typing import Any, Literal, Optional, cast, get_args, get_origin
 
 import attr
+from eodag.types.stac_metadata import CommonStacMetadata
 from fastapi import Request
 from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, create_model
 from stac_fastapi.extensions.core.filter.client import AsyncBaseFiltersClient
@@ -30,7 +31,6 @@ from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.eodag_types.queryables import QueryablesGetParams
 from stac_fastapi.eodag.errors import UnsupportedCollection
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 COMMON_QUERYABLES_PROPERTIES = {
     "id": {
@@ -265,7 +265,9 @@ class FiltersClient(AsyncBaseFiltersClient):
             }
         )
         validated_params = validated_params_model.model_dump(exclude_none=True, by_alias=True)
-        eodag_params = {self.stac_metadata_model.to_eodag(param): validated_params[param] for param in validated_params}
+        eodag_params = {
+            self.stac_metadata_model.from_stac(param): validated_params[param] for param in validated_params
+        }
 
         # the parameters in eodag_params are all lists:
         # adapt them to use list or primitive type according to the collection queryables

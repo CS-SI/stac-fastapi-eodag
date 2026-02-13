@@ -17,157 +17,17 @@
 # limitations under the License.
 """property fields."""
 
-from collections.abc import Callable
-from datetime import datetime as dt
-from typing import Any, ClassVar, Optional, Union, cast
+from typing import Any, Optional, cast
 
 import attr
 from fastapi import Request
-from pydantic import (
-    AliasChoices,
-    AliasPath,
-    Field,
-    field_serializer,
-    model_validator,
-)
 from pydantic._internal._model_construction import ModelMetaclass
 from pydantic.fields import FieldInfo
-from stac_pydantic.item import ItemProperties
-from stac_pydantic.shared import Provider
-from typing_extensions import Self
 
+from eodag.types.stac_metadata import CommonStacMetadata
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
-
-
-class CommonStacMetadata(ItemProperties):
-    """Common STAC properties."""
-
-    # TODO: replace dt by stac_pydantic.shared.UtcDatetime.
-    # Requires timezone to be set in EODAG datetime properties
-    # Tested with EFAS FORECAST
-    datetime: Optional[dt] = Field(default=None, validation_alias="start_datetime")
-    start_datetime: Optional[dt] = Field(default=None)  # TODO do not set if start = end
-    end_datetime: Optional[dt] = Field(default=None)  # TODO do not set if start = end
-    created: Optional[dt] = Field(default=None)
-    updated: Optional[dt] = Field(default=None)
-    platform: Optional[str] = Field(default=None)
-    instruments: Optional[list[str]] = Field(default=None)
-    constellation: Optional[str] = Field(default=None)
-    providers: Optional[list[Provider]] = None
-    gsd: Optional[float] = Field(default=None, gt=0)
-    collection: Optional[str] = Field(default=None)
-
-    _conformance_classes: ClassVar[dict[str, str]]
-    get_conformance_classes: ClassVar[Callable[[Any], list[str]]]
-
-    @field_serializer("datetime", "start_datetime", "end_datetime", "created", "updated")
-    def format_datetime(self, value: dt):
-        """format datetime properties with milliseconds precision (3 decimal places)"""
-        milliseconds = value.microsecond // 1000
-        return value.strftime("%Y-%m-%dT%H:%M:%S") + f".{milliseconds:03d}Z"
-
-    @model_validator(mode="before")
-    @classmethod
-    def parse_instruments(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """
-        Convert instrument ``str`` to ``list``.
-        """
-        if instrument := values.get("instruments"):
-            values["instruments"] = (
-                ",".join(instrument.split()).split(",") if isinstance(instrument, str) else instrument
-            )
-            if None in values["instruments"]:
-                values["instruments"].remove(None)
-        return values
-
-    @model_validator(mode="before")
-    @classmethod
-    def parse_platform(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """
-        Convert platform ``list`` to ``str``.
-        TODO: This should be removed after the refactoring of cop_marine because an item should only have one platform
-        """
-        if platform := values.get("platform"):
-            values["platform"] = ",".join(platform) if isinstance(platform, list) else platform
-        return values
-
-    @model_validator(mode="before")
-    @classmethod
-    def convert_processing_level(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """Convert processing level to ``str`` if it is ``int`"""
-        if processing_level := values.get("processing:level"):
-            if isinstance(processing_level, int):
-                values["processing:level"] = f"L{processing_level}"
-        return values
-
-    @model_validator(mode="before")
-    @classmethod
-    def remove_id_property(cls, values: dict[str, Any]) -> dict[str, Any]:
-        """
-        Remove "id" property which is not STAC compliant if exists.
-        """
-        values.pop("id", None)
-        return values
-
-    @model_validator(mode="after")
-    def validate_datetime_or_start_end(self) -> Self:
-        """disable validation of datetime.
-
-        This model is used for properties conversion not validation.
-        """
-        return self
-
-    @model_validator(mode="after")
-    def validate_start_end(self) -> Self:
-        """disable validation of datetime.
-
-        This model is used for properties conversion not validation.
-        """
-        return self
-
-    @classmethod
-    def _create_to_eodag_map(cls) -> dict[str, Optional[Union[str, AliasChoices, AliasPath]]]:
-        """Create mapping to convert fields from STAC to EODAG"""
-        return {v.serialization_alias or k: v.validation_alias for k, v in cls.model_fields.items()}
-
-    @classmethod
-    def to_eodag(cls, field_name: str) -> str:
-        """Convert a STAC parameter to its matching EODAG name.
-
-        Note: ``ids`` STAC parameter is not recognized since we are dealing with item properties
-        """
-        field_dict: dict[str, Optional[Union[str, AliasChoices, AliasPath]]] = {
-            stac_name: eodag_name
-            for stac_name, eodag_name in cls._create_to_eodag_map().items()
-            if field_name == stac_name
-        }
-        if field_dict:
-            if field_dict[field_name] is None:
-                return field_name
-            if isinstance(field_dict[field_name], (AliasChoices, AliasPath)):
-                raise NotImplementedError(
-                    f"Error for stac name {field_name}: AliasChoices and AliasPath are not currently handled to"
-                    "convert stac names to eodag names"
-                )
-            return field_dict[field_name]  # type: ignore
-        return field_name
-
-    @classmethod
-    def to_stac(cls, field_name: str) -> str:
-        """Convert an EODAG parameter to its matching STAC name.
-
-        Note: ``ids`` STAC parameter is not recognized since we are dealing with item properties
-        """
-        field_dict: dict[str, Optional[Union[str, AliasChoices, AliasPath]]] = {
-            stac_name: eodag_name
-            for stac_name, eodag_name in cls._create_to_eodag_map().items()
-            if field_name == eodag_name
-        }
-        if field_dict:
-            return list(field_dict.keys())[0]
-        return field_name
 
 
 def create_stac_metadata_model(
