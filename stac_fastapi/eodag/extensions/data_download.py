@@ -19,18 +19,24 @@
 
 import glob
 import logging
+import mimetypes
 import os
+import re
+import tempfile
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, Union, cast
+from typing import Annotated, Iterator, Optional, TypedDict, Union, cast
+from urllib.parse import quote
+from zipfile import BadZipFile, ZipFile
 
 import attr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
 from eodag.utils.exceptions import EodagError
+from eodag.utils import StreamResponse
 from fastapi import APIRouter, FastAPI, Path, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
@@ -48,8 +54,138 @@ from stac_fastapi.eodag.errors import (
 logger = logging.getLogger(__name__)
 
 
+class ZarrFileEntry(TypedDict):
+    """Zarr file listing item."""
+
+    path: str
+    size: int
+    url: str
+
+
+class StreamFileEntry(TypedDict):
+    """Stream file listing item."""
+
+    path: str
+    size: Optional[int]
+    url: str
+
+
 class BaseDataDownloadClient:
     """Defines a pattern for implementing the data download extension."""
+
+    def _try_presign_asset(
+        self,
+        product: EOProduct,
+        asset_name: Optional[str],
+        auth: Optional[dict],
+    ) -> Optional[RedirectResponse]:
+        """Return a presigned URL redirect when available."""
+        if product.downloader_auth and asset_name and asset_name not in ["downloadLink", "zarr"]:
+            asset_values = product.assets[asset_name]
+            # return presigned url if available
+            try:
+                presigned_url = product.downloader_auth.presign_url(asset_values)
+                return RedirectResponse(presigned_url, status_code=302)
+            except NotImplementedError:
+                logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
+            except EodagError:
+                logger.info("Presigned url could not be fetched for %s", asset_name)
+        return None
+
+    def _handle_zarr(
+        self,
+        product: EOProduct,
+        stream: StreamResponse,
+        federation_backend: str,
+        collection_id: str,
+        item_id: str,
+        file_path: Optional[str],
+        asset_name: Optional[str],
+    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
+        """Handle Zarr store listing or file streaming."""
+        if file_path == "index":
+            stream_file_url_prefix = f"/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}"
+            stream_files = self._list_stream_files(
+                cast(Iterator[bytes], stream.content),
+                stream.headers,
+                stream.media_type,
+                stream_file_url_prefix,
+            )
+            return JSONResponse(
+                content={
+                    "type": "stream-file-index",
+                    "item_id": item_id,
+                    "collection_id": collection_id,
+                    "backend": federation_backend,
+                    "media_type": stream.media_type,
+                    "file_count": len(stream_files),
+                    "files": stream_files,
+                }
+            )
+        elif file_path:
+            filename = file_path.split("/")[-1]
+            guessed_content_type, _ = mimetypes.guess_type(filename)
+            content_type = (
+                guessed_content_type
+                or "application/octet-stream"
+            )
+
+            stream_content_type = (stream.media_type or stream.headers.get("content-type", "")).lower()
+            if "application/zip" in stream_content_type:
+                temp_zip_path: Optional[str] = None
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_file:
+                        temp_zip_path = temp_file.name
+                        for chunk in stream.content:
+                            if chunk:
+                                temp_file.write(chunk)
+
+                    with ZipFile(temp_zip_path) as zip_file:
+                        normalized_requested_path = file_path.strip("/")
+                        member_name = next(
+                            (
+                                name
+                                for name in zip_file.namelist()
+                                if name.strip("/") == normalized_requested_path
+                                or name.strip("/").endswith(f"/{normalized_requested_path}")
+                            ),
+                            None,
+                        )
+                        if not member_name:
+                            raise NotFoundError(f"File not found in zarr archive: {file_path}")
+
+                        extracted_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{filename}")
+                        extracted_temp_path = extracted_temp_file.name
+                        with extracted_temp_file:
+                            with zip_file.open(member_name) as source:
+                                while True:
+                                    chunk = source.read(64 * 1024)
+                                    if not chunk:
+                                        break
+                                    extracted_temp_file.write(chunk)
+                finally:
+                    if temp_zip_path and os.path.exists(temp_zip_path):
+                        os.remove(temp_zip_path)
+
+                headers = {"cache-control": "public, max-age=86400"}
+                if content_type.startswith("text/") or content_type in ["application/json", "application/xml"]:
+                    headers["content-type"] = content_type
+                else:
+                    headers["content-type"] = content_type
+                    headers["content-disposition"] = f"attachment; filename={filename}"
+
+                return StreamingResponse(
+                    content=self._read_file_chunks_and_delete(open(extracted_temp_path, "rb")),
+                    headers=headers,
+                    media_type=content_type,
+                )
+        # else:
+        #     asset_values = product.assets["zarr"]
+        #     presigned_url = product.downloader_auth.presign_url(asset_values)
+        #     return RedirectResponse(presigned_url, status_code=302)
+
+
+
 
     def _file_to_stream(
         self,
@@ -94,6 +230,56 @@ class BaseDataDownloadClient:
             yield data
         yield data
 
+    def _list_stream_files(
+        self,
+        content: Iterator[bytes],
+        headers: dict[str, str],
+        media_type: Optional[str],
+        file_url_prefix: str,
+    ) -> list[StreamFileEntry]:
+        """List files contained in a streamed response."""
+        normalized_media_type = (media_type or headers.get("content-type", "")).lower()
+        files: list[StreamFileEntry] = []
+
+        if "application/zip" in normalized_media_type:
+            temp_path: Optional[str] = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_file:
+                    temp_path = temp_file.name
+                    for chunk in content:
+                        if chunk:
+                            temp_file.write(chunk)
+
+                with ZipFile(temp_path) as zip_file:
+                    for info in zip_file.infolist():
+                        quoted_path = quote(info.filename.lstrip("/"), safe="/")
+                        files.append(
+                            StreamFileEntry(
+                                path=info.filename,
+                                size=info.file_size,
+                                url=f"{file_url_prefix}/{quoted_path}",
+                            )
+                        )
+                return files
+            except BadZipFile:
+                logger.warning("Could not inspect ZIP stream, falling back to headers")
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+
+    def get_data_with_file(
+        self,
+        federation_backend: str,
+        collection_id: str,
+        item_id: str,
+        asset_name: Optional[str],
+        request: Request,
+        file_path: str,
+    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
+        """Download data with file path (wrapper for get_data)."""
+        return self.get_data(federation_backend, collection_id, item_id, asset_name, request, file_path)
+
     def get_data(
         self,
         federation_backend: str,
@@ -101,7 +287,8 @@ class BaseDataDownloadClient:
         item_id: str,
         asset_name: Optional[str],
         request: Request,
-    ) -> Union[StreamingResponse, RedirectResponse]:
+        file_path: Optional[str] = None,
+    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
         """Download an asset"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
@@ -186,26 +373,50 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        if product.downloader_auth and asset_name and asset_name != "downloadLink":
-            asset_values = product.assets[asset_name]
-            # return presigned url if available
-            try:
-                presigned_url = product.downloader_auth.presign_url(asset_values)
-                return RedirectResponse(presigned_url, status_code=302)
-            except NotImplementedError:
-                logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
-            except EodagError:
-                logger.info("Presigned url could not be fetched for %s", asset_name)
+        presigned_response = self._try_presign_asset(product, asset_name, auth)
+        if presigned_response:
+            return presigned_response
+        
+        if asset_name == "zarr" and "/" not in file_path and file_path != "index":
+            # To modify
+            asset_values = product.assets["zarr"]
+            presigned_url = product.downloader_auth.presign_url(asset_values)
+            return RedirectResponse(presigned_url, status_code=302)
+        stream_asset = asset_name if asset_name != "downloadLink" else None
+        stream_asset_with_path = (
+            rf"{re.escape(asset_name)}/{re.escape(file_path)}"
+            if asset_name and file_path and file_path != "index" and asset_name != "downloadLink"
+            else None
+        )
 
         try:
-            s = product.downloader._stream_download_dict(
-                product,
-                auth=auth,
-                asset=asset_name if asset_name != "downloadLink" else None,
-                wait=-1,
-                timeout=-1,
+            try:
+                s = product.downloader._stream_download_dict(
+                    product,
+                    auth=auth,
+                    asset=stream_asset_with_path or stream_asset,
+                    wait=-1,
+                    timeout=-1,
+                )
+            except NotAvailableError:
+                if stream_asset_with_path and stream_asset:
+                    s = product.downloader._stream_download_dict(
+                        product,
+                        auth=auth,
+                        asset=stream_asset,
+                        wait=-1,
+                        timeout=-1,
+                    )
+                else:
+                    raise
+            if asset_name == "zarr":
+                return self._handle_zarr(product, s, federation_backend, collection_id, item_id, file_path, asset_name)
+            download_stream = StreamingResponse(
+                content=s.content,
+                headers=s.headers,
+                media_type=s.media_type,
+                status_code=s.status_code or 200,
             )
-            download_stream = StreamingResponse(s.content, headers=s.headers, media_type=s.media_type)
         except NotImplementedError:
             logger.warning(
                 "Download streaming not supported for %s: downloading locally then delete",
@@ -224,6 +435,17 @@ class DataDownloadUri(APIRequest):
     collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
     item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
     asset_name: Annotated[str, Path(description="Item ID")] = attr.ib()
+
+
+@attr.s
+class DataDownloadUriWithFile(APIRequest):
+    """Download data with file path."""
+
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
+    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
+    item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
+    asset_name: Annotated[str, Path(description="Asset name")] = attr.ib()
+    file_path: Annotated[str, Path(description="File path within zarr store")] = attr.ib()
 
 
 @attr.s
@@ -250,6 +472,7 @@ class DataDownload(ApiExtension):
         :returns: None
         """
         self.router.prefix = app.state.router_prefix
+        # Route for /data/{backend}/{collection}/{item}/{asset_name}
         self.router.add_api_route(
             name="Download data",
             path="/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}",
@@ -262,5 +485,20 @@ class DataDownload(ApiExtension):
                 }
             },
             endpoint=create_async_endpoint(self.client.get_data, DataDownloadUri),
+        )
+
+        # Route for /data/{backend}/{collection}/{item}/{asset_name}/{file_path}
+        self.router.add_api_route(
+            name="Download data with file path",
+            path="/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{file_path:path}",
+            methods=["GET"],
+            responses={
+                200: {
+                    "content": {
+                        "application/octet-stream": {},
+                    },
+                }
+            },
+            endpoint=create_async_endpoint(self.client.get_data_with_file, DataDownloadUriWithFile),
         )
         app.include_router(self.router, tags=["Data download"])
