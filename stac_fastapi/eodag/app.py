@@ -49,6 +49,8 @@ from stac_fastapi.extensions.core.query import QueryConformanceClasses
 from stac_fastapi.extensions.core.sort import SortConformanceClasses
 from starlette.middleware.cors import CORSMiddleware
 
+from eodag.types.stac_metadata import STAC_EXTENSIONS, create_stac_metadata_model
+from eodag.utils import deepcopy
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
@@ -61,23 +63,9 @@ from stac_fastapi.eodag.extensions.data_download import DataDownload
 from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
 from stac_fastapi.eodag.extensions.filter import FiltersClient
 from stac_fastapi.eodag.extensions.offset_pagination import OffsetPaginationExtension
-from stac_fastapi.eodag.extensions.stac import (
-    ElectroOpticalExtension,
-    FederationExtension,
-    LabelExtension,
-    OrderExtension,
-    ProcessingExtension,
-    ProductExtension,
-    SarExtension,
-    SatelliteExtension,
-    ScientificCitationExtension,
-    StorageExtension,
-    TimestampExtension,
-    ViewGeometryExtension,
-)
+from stac_fastapi.eodag.extensions.stac import FederationExtension
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.middlewares import ProxyHeaderMiddleware
-from stac_fastapi.eodag.models.stac_metadata import create_stac_metadata_model
 
 if TYPE_CHECKING:
     from typing import AsyncGenerator
@@ -86,23 +74,9 @@ init_logging()
 
 settings = get_settings()
 
-stac_metadata_model = create_stac_metadata_model(
-    extensions=[
-        SarExtension(),
-        SatelliteExtension(),
-        TimestampExtension(),
-        ProcessingExtension(),
-        ViewGeometryExtension(),
-        ElectroOpticalExtension(),
-        FederationExtension(),
-        ScientificCitationExtension(),
-        ProductExtension(),
-        StorageExtension(),
-        OrderExtension(),
-        EcmwfExtension(),
-        LabelExtension(),
-    ]
-)
+stac_extensions = deepcopy(STAC_EXTENSIONS)
+stac_extensions.extend([FederationExtension(), EcmwfExtension()])
+stac_metadata_model = create_stac_metadata_model(extensions=stac_extensions)
 
 # search extensions
 search_extensions_map = {

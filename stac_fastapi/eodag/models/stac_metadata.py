@@ -17,14 +17,13 @@
 # limitations under the License.
 """property fields."""
 
-from typing import Any, Optional, cast
+from typing import Any, Optional
 
 import attr
 from fastapi import Request
 from pydantic._internal._model_construction import ModelMetaclass
-from pydantic.fields import FieldInfo
 
-from eodag.types.stac_metadata import CommonStacMetadata
+from eodag.types.stac_metadata import CommonStacMetadata, _get_conformance_classes
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
@@ -73,27 +72,3 @@ def get_federation_backend_dict(request: Request, provider_name: str) -> dict[st
         "description": provider.title,
         "url": provider.url,
     }
-
-
-def _get_conformance_classes(self) -> list[str]:
-    """Extract list of conformance classes from set fields metadata"""
-    conformance_classes: set[str] = set()
-
-    model_fields_by_alias = {
-        field_info.serialization_alias: field_info
-        for name, field_info in self.model_fields.items()
-        if field_info.serialization_alias
-    }
-
-    for f in self.model_fields_set:
-        mf = model_fields_by_alias.get(f) or self.model_fields.get(f)
-        if not mf or not isinstance(mf, FieldInfo) or not mf.metadata:
-            continue
-        extension = next(
-            (cast(str, m["extension"]) for m in mf.metadata if isinstance(m, dict) and "extension" in m),
-            None,
-        )
-        if c := self._conformance_classes.get(extension, None):
-            conformance_classes.add(c)
-
-    return list(conformance_classes)
