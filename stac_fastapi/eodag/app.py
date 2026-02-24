@@ -63,7 +63,6 @@ from stac_fastapi.eodag.extensions.data_download import DataDownload
 from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
 from stac_fastapi.eodag.extensions.filter import FiltersClient
 from stac_fastapi.eodag.extensions.offset_pagination import OffsetPaginationExtension
-from stac_fastapi.eodag.extensions.stac import FederationExtension
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
 from stac_fastapi.eodag.middlewares import ProxyHeaderMiddleware
 
@@ -75,7 +74,7 @@ init_logging()
 settings = get_settings()
 
 stac_extensions = deepcopy(STAC_EXTENSIONS)
-stac_extensions.extend([FederationExtension(), EcmwfExtension()])
+stac_extensions.append(EcmwfExtension())
 stac_metadata_model = create_stac_metadata_model(extensions=stac_extensions)
 
 # search extensions

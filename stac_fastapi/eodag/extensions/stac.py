@@ -22,7 +22,6 @@ from typing import Any, Optional
 import attr
 from pydantic import (
     BaseModel,
-    Field,
 )
 
 
@@ -46,21 +45,3 @@ class BaseStacExtension:
                 if not v.serialization_alias:
                     v.serialization_alias = f"{self.field_name_prefix}:{k}"
                 v.metadata.insert(0, {"extension": self.__class__.__name__})
-
-
-class FederationFields(BaseModel):
-    """
-    https://github.com/Open-EO/openeo-api/tree/master/extensions/federation
-    """
-
-    backends: Optional[str] = Field(default=None, validation_alias="provider")
-
-
-@attr.s
-class FederationExtension(BaseStacExtension):
-    """STAC federation extension."""
-
-    FIELDS = FederationFields
-
-    schema_href: str = attr.ib(default="https://api.openeo.org/extensions/federation/0.1.0")
-    field_name_prefix: Optional[str] = attr.ib(default="federation")
