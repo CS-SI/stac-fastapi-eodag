@@ -149,15 +149,9 @@ def create_stac_item(
     product_dict = product.as_dict()
     # filter properties we do not want to expose
     feature["properties"] = {k: v for k, v in product_dict["properties"].items() if not k.startswith("eodag:")}
-    feature["properties"]["federation:backends"] = [product.provider]
-    feature["properties"]["storage:tier"] = product.properties.get("order:status")
     feature["properties"].pop("qs", None)
 
-    basic_extensions = [
-        "https://api.openeo.org/extensions/federation/0.1.0",
-        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
-    ]
-    feature["stac_extensions"] = product_dict["stac_extensions"] + basic_extensions
+    feature["stac_extensions"] = product_dict["stac_extensions"]
 
     if extension_names and product.provider not in auto_order_whitelist:
         if "CollectionOrderExtension" in extension_names and (
