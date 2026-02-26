@@ -192,7 +192,7 @@ class EodagCoreClient(CustomCoreClient):
                 result = await asyncio.to_thread(request.app.state.dag.search, validate=validate, **eodag_args)
                 search_result.extend(result)
             search_result.number_matched = len(search_result)
-        elif eodag_args.get("token") and eodag_args.get("provider"):
+        elif eodag_args.get("token") and eodag_args.get("federation:backends"):
             # search with pagination
             search_result = await asyncio.to_thread(eodag_search_next_page, request.app.state.dag, eodag_args)
         else:
@@ -754,7 +754,7 @@ def eodag_search_next_page(dag, eodag_args):
     """
     eodag_args = eodag_args.copy()
     next_page_token = eodag_args.pop("token", None)
-    provider = eodag_args.get("provider")
+    provider = eodag_args.get("federation:backends")
     if not next_page_token or not provider:
         raise ValueError("Missing required token and federation backend for next page search.")
     search_plugin = next(dag._plugins_manager.get_search_plugins(provider=provider))
