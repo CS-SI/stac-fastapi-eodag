@@ -49,8 +49,7 @@ from stac_fastapi.extensions.core.query import QueryConformanceClasses
 from stac_fastapi.extensions.core.sort import SortConformanceClasses
 from starlette.middleware.cors import CORSMiddleware
 
-from eodag.types.stac_metadata import STAC_EXTENSIONS, create_stac_metadata_model
-from eodag.utils import deepcopy
+from eodag.types.stac_metadata import create_stac_metadata_model
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
@@ -60,7 +59,6 @@ from stac_fastapi.eodag.extensions.collection_order import (
     CollectionOrderExtension,
 )
 from stac_fastapi.eodag.extensions.data_download import DataDownload
-from stac_fastapi.eodag.extensions.ecmwf import EcmwfExtension
 from stac_fastapi.eodag.extensions.filter import FiltersClient
 from stac_fastapi.eodag.extensions.offset_pagination import OffsetPaginationExtension
 from stac_fastapi.eodag.logs import RequestIDMiddleware, init_logging
@@ -73,9 +71,7 @@ init_logging()
 
 settings = get_settings()
 
-stac_extensions = deepcopy(STAC_EXTENSIONS)
-stac_extensions.append(EcmwfExtension())
-stac_metadata_model = create_stac_metadata_model(extensions=stac_extensions)
+stac_metadata_model = create_stac_metadata_model()
 
 # search extensions
 search_extensions_map = {

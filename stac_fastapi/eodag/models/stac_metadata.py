@@ -17,44 +17,9 @@
 # limitations under the License.
 """property fields."""
 
-from typing import Any, Optional
+from typing import Any
 
-import attr
 from fastapi import Request
-from pydantic._internal._model_construction import ModelMetaclass
-
-from eodag.types.stac_metadata import CommonStacMetadata, _get_conformance_classes
-from stac_fastapi.eodag.extensions.stac import (
-    BaseStacExtension,
-)
-
-
-def create_stac_metadata_model(
-    extensions: Optional[list[BaseStacExtension]] = None,
-    base_model: type[CommonStacMetadata] = CommonStacMetadata,
-) -> type[CommonStacMetadata]:
-    """Create a pydantic model to validate item properties."""
-    extension_models: list[ModelMetaclass] = []
-
-    extensions = extensions or []
-
-    # Check extensions for additional parameters to include
-    for extension in extensions:
-        if extension_model := extension.FIELDS:
-            extension_models.append(extension_model)
-
-    models = [base_model] + extension_models
-
-    model = attr.make_class(
-        "StacMetadata",
-        attrs={},
-        bases=tuple(models),
-        class_body={
-            "_conformance_classes": {e.__class__.__name__: e.schema_href for e in extensions},
-            "get_conformance_classes": _get_conformance_classes,
-        },
-    )
-    return model
 
 
 def get_federation_backend_dict(request: Request, provider_name: str) -> dict[str, Any]:

@@ -264,6 +264,7 @@ def mock_search_result():
                         "sar:instrument_mode": None,
                         "quicklook": None,
                         "order:status": OFFLINE_STATUS,
+                        "storage:tier": OFFLINE_STATUS,
                     },
                     "id": "578f1768-e66e-5b86-9363-b19f8931cc7c",
                     "type": "Feature",
