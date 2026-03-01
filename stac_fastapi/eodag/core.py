@@ -89,9 +89,10 @@ class EodagCoreClient(CustomCoreClient):
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
-    def _get_collection(self, collection: EodagCollection, request: Request) -> Collection:
+    def _get_collection(
+        self, collection: EodagCollection, request: Request, collections_providers: dict[str, set]
+    ) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
-
         # extend collection with external stac collection if any
         extended_collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(collection.id, {})))
         extended_collection["type"] = "Collection"
@@ -100,8 +101,7 @@ class EodagCoreClient(CustomCoreClient):
         constellation = [c for c in (collection.constellation or "").split(",") if c]
         processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
         instruments = collection.instruments or []
-
-        federation_backends = request.app.state.dag.providers.filter(collection._id).names
+        federation_backends = collections_providers.get(collection._id, set())
 
         summaries: dict[str, Any] = {
             "platform": platform_value,
@@ -294,7 +294,16 @@ class EodagCoreClient(CustomCoreClient):
         else:
             collections = all_colls
 
-        formatted_collections = [self._get_collection(coll, request) for coll in collections]
+        providers = request.app.state.dag.providers
+        collections_providers: dict[str, set] = {}
+        for p_name, p in providers.items():
+            if getattr(p.config, "products", None):
+                for coll in p.config.products:
+                    if coll not in collections_providers:
+                        collections_providers[coll] = set()
+                    collections_providers[coll].add(p_name)
+
+        formatted_collections = [self._get_collection(coll, request, collections_providers) for coll in collections]
 
         # bbox filter
         if bbox:
@@ -371,7 +380,13 @@ class EodagCoreClient(CustomCoreClient):
         if collection is None:
             raise NotFoundError(f"Collection {collection_id} does not exist.")
 
-        return self._get_collection(collection, request)
+        providers = request.app.state.dag.providers
+        collection_providers: dict[str, set] = {collection._id: set()}
+        for p_name, p in providers.items():
+            if getattr(p.config, "products", None) and collection._id in p.config.products:
+                collection_providers[collection._id].add(p_name)
+
+        return self._get_collection(collection, request, collection_providers)
 
     async def item_collection(
         self,
@@ -406,8 +421,6 @@ class EodagCoreClient(CustomCoreClient):
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
         """
-        # If collection does not exist, NotFoundError wil be raised
-        await self.get_collection(collection_id, request=request)
 
         base_args = {"collections": [collection_id], "bbox": bbox, "datetime": datetime, "limit": limit, "token": token}
 
@@ -509,8 +522,6 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The item.
         :raises NotFoundError: If the item does not exist.
         """
-        # If collection does not exist, NotFoundError wil be raised
-        await self.get_collection(collection_id, request=request)
 
         search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
         item_collection = await self._search_base(search_request, request)

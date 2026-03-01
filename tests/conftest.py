@@ -124,7 +124,16 @@ def app() -> Iterator[FastAPI]:
                 )
             ),
             "creodias": Provider(
-                ProviderConfig.from_mapping({"name": "creodias", "search": {"type": "ODataV4Search"}})
+                ProviderConfig.from_mapping(
+                    {
+                        "name": "creodias",
+                        "search": {"type": "ODataV4Search"},
+                        "products": {
+                            "S2_MSI_L2A": {"_collection": "SENTINEL-2"},
+                            "S1_SAR_GRD": {"_collection": "SENTINEL-1"},
+                        },
+                    }
+                )
             ),
         }
     )
