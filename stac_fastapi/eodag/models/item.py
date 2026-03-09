@@ -174,6 +174,7 @@ def create_stac_item(
 
     feature["links"] = ItemLinks(
         collection_id=collection,
+        collection_title=collection_obj.title if collection_obj else collection,
         item_id=quoted_id,
         retrieve_body=retrieve_body,
         request=request,

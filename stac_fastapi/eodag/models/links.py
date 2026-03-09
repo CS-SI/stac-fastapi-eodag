@@ -256,6 +256,7 @@ class CollectionLinksBase(BaseLinks):
     """Create inferred links specific to collections."""
 
     collection_id: str = attr.ib()
+    collection_title: str = attr.ib()
 
     def collection_link(self, rel: str = Relations.collection.value) -> dict[str, str]:
         """Create a link to a collection."""
@@ -263,7 +264,7 @@ class CollectionLinksBase(BaseLinks):
             "rel": rel,
             "type": MimeTypes.json.value,
             "href": self.resolve(f"collections/{self.collection_id}"),
-            "title": f"{self.collection_id}",
+            "title": f"{self.collection_title}",
         }
 
 

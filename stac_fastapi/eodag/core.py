@@ -159,6 +159,7 @@ class EodagCoreClient(CustomCoreClient):
         extended_coll_links = extended_collection.get("links", [])
         extended_collection["links"] = CollectionLinks(
             collection_id=extended_collection["id"],
+            collection_title=extended_collection["title"],
             request=request,
         ).get_links(extensions=extension_names, extra_links=extra_links + extended_coll_links)
 
@@ -405,7 +406,7 @@ class EodagCoreClient(CustomCoreClient):
         :raises NotFoundError: If the collection does not exist.
         """
         # If collection does not exist, NotFoundError wil be raised
-        await self.get_collection(collection_id, request=request)
+        collection = await self.get_collection(collection_id, request=request)
 
         base_args = {"collections": [collection_id], "bbox": bbox, "datetime": datetime, "limit": limit, "token": token}
 
@@ -416,9 +417,9 @@ class EodagCoreClient(CustomCoreClient):
         search_request = self.post_request_model.model_validate(clean)
         item_collection = await self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
-        links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
-            extensions=extension_names, extra_links=item_collection["links"]
-        )
+        links = ItemCollectionLinks(
+            collection_id=collection_id, collection_title=collection["title"], request=request
+        ).get_links(extensions=extension_names, extra_links=item_collection["links"])
         item_collection["links"] = links
         return item_collection
 
@@ -754,7 +755,7 @@ def eodag_search_next_page(dag, eodag_args):
     """
     eodag_args = eodag_args.copy()
     next_page_token = eodag_args.pop("token", None)
-    provider = eodag_args.get("federation:backends")
+    provider = eodag_args.pop("federation:backends")
     if not next_page_token or not provider:
         raise ValueError("Missing required token and federation backend for next page search.")
     search_plugin = next(dag._plugins_manager.get_search_plugins(provider=provider))
