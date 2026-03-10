@@ -87,7 +87,7 @@ class EodagCoreClient(CustomCoreClient):
     """"""
 
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
-    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
+    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
     def _get_collection(
         self, collection: EodagCollection, request: Request, collections_providers: dict[str, set]
@@ -582,7 +582,7 @@ class EodagCoreClient(CustomCoreClient):
         return clean
 
 
-def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[CommonStacMetadata]) -> dict[str, Any]:
+def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[BaseModel]) -> dict[str, Any]:
     """Prepare arguments for an eodag search based on a search request
 
     :param search_request: the search request
