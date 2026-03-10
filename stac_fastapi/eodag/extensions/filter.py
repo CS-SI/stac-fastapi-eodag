@@ -157,7 +157,7 @@ COMMON_QUERYABLES_PROPERTIES = {
 class FiltersClient(AsyncBaseFiltersClient):
     """Defines a pattern for implementing the STAC filter extension."""
 
-    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
+    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
     async def get_queryables(
         self,

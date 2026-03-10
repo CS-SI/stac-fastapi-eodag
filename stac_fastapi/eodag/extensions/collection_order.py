@@ -62,7 +62,7 @@ class CollectionOrderBody(BaseModel):
 class BaseCollectionOrderClient:
     """Defines a pattern for implementing the collection order extension."""
 
-    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
+    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
     extensions: list[ApiExtension] = attr.ib(default=[])
 
     def extension_is_enabled(self, extension: str) -> bool:
