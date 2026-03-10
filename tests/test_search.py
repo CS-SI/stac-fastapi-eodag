@@ -149,11 +149,11 @@ async def test_items_response(request_valid, defaults):
         == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
     expected_extensions = [
-        "https://stac-extensions.github.io/sat/v1.0.0/schema.json",
-        "https://stac-extensions.github.io/product/v0.1.0/schema.json",
+        "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
+        "https://stac-extensions.github.io/product/v1.0.0/schema.json",
         "https://api.openeo.org/extensions/federation/0.1.0",
-        "https://stac-extensions.github.io/eo/v1.0.0/schema.json",
-        "https://stac-extensions.github.io/storage/v1.0.0/schema.json",
+        "https://stac-extensions.github.io/eo/v2.0.0/schema.json",
+        "https://stac-extensions.github.io/storage/v2.0.0/schema.json",
     ]
     for ext in expected_extensions:
         assert ext in res[0]["stac_extensions"]
@@ -563,7 +563,7 @@ async def test_assets_alt_url_blacklist(
             "POST",
             "search",
             {"collections": ["{defaults.collection}"], "query": {"federation:backends": {"eq": "peps"}}},
-            {"provider": "peps"},
+            {"federation:backends": "peps"},
         ),
         # POST with no provider specified
         ("POST", "search", {"collections": ["{defaults.collection}"]}, {}),
@@ -572,7 +572,7 @@ async def test_assets_alt_url_blacklist(
             "GET",
             'search?collections={defaults.collection}&query={{"federation:backends":{{"eq":"peps"}} }}',
             None,
-            {"provider": "peps"},
+            {"federation:backends": "peps"},
         ),
         # GET with no provider specified
         ("GET", "search?collections={defaults.collection}", None, {}),
@@ -831,7 +831,7 @@ async def test_pagination_with_federation_backend(request_valid, defaults, metho
             "collection": defaults.collection,
             "token": None,
             "items_per_page": 10,
-            "provider": "test_provider",
+            "federation:backends": "test_provider",
             "raise_errors": False,
             "count": False,
             "validate": True,
@@ -956,7 +956,7 @@ async def test_next_page_token_key(app_client, defaults, mocker, pagination_conf
         "items_per_page": 10,
         "raise_errors": False,
         "token": "test_token",
-        "provider": "test_provider",
+        "federation:backends": "test_provider",
     }
 
     eodag_search_next_page(dag=mock_dag, eodag_args=eodag_args)
