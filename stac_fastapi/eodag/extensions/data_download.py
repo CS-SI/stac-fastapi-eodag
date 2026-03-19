@@ -18,6 +18,7 @@
 """Data-download extension."""
 
 import glob
+from itertools import product
 import logging
 import mimetypes
 import os
@@ -36,6 +37,7 @@ from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, ge
 from eodag.utils.exceptions import EodagError
 from eodag.utils import StreamResponse
 from fastapi import APIRouter, FastAPI, Path, Request
+import requests
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
@@ -373,6 +375,24 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
+        zarr_asset_name = next(
+                (name for name in product.assets if name.endswith(".zarr")), None
+            )
+        if zarr_asset_name == asset_name and "DT_CLIMATE_ADAPTATION" in collection_id:
+            asset_values = product.assets[zarr_asset_name]
+            base_url = asset_values["href"]
+            target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
+            
+            username = "anonymous"
+            r = requests.get(target_url, auth=(username, auth.refresh_token), stream=True)
+
+            return StreamingResponse(
+                r.iter_content(chunk_size=1024*1024),  
+                status_code=r.status_code,
+                media_type=r.headers.get("Content-Type", "application/octet-stream"),
+                headers={k: v for k, v in r.headers.items() if k.lower() not in ["content-encoding", "transfer-encoding"]}
+            )
+        
         presigned_response = self._try_presign_asset(product, asset_name, auth)
         if presigned_response:
             return presigned_response

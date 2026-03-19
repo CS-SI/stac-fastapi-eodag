@@ -147,7 +147,7 @@ def create_stac_item(
                         "type": mime_type,
                     },
                 }
-        if "zarr" in product.assets and asset_proxy_url:
+        if any("zarr" in key for key in product.assets) and asset_proxy_url:
             feature["assets"]["Zarr index"] = {
                 "title": "Zarr store index",
                 "href": asset_proxy_url + "/zarr/index",
