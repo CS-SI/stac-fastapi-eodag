@@ -19,6 +19,7 @@
 
 import glob
 from itertools import product
+import json
 import logging
 import mimetypes
 import os
@@ -31,6 +32,7 @@ from urllib.parse import quote
 from zipfile import BadZipFile, ZipFile
 
 import attr
+import zarr
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
@@ -97,97 +99,110 @@ class BaseDataDownloadClient:
     def _handle_zarr(
         self,
         product: EOProduct,
-        stream: StreamResponse,
+        base_url: str,
         federation_backend: str,
         collection_id: str,
         item_id: str,
         file_path: Optional[str],
         asset_name: Optional[str],
+        auth: Optional[dict] = None,
     ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
         """Handle Zarr store listing or file streaming."""
-        if file_path == "index":
-            stream_file_url_prefix = f"/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}"
-            stream_files = self._list_stream_files(
-                cast(Iterator[bytes], stream.content),
-                stream.headers,
-                stream.media_type,
-                stream_file_url_prefix,
+        # List all files in the zarr store
+        try:
+            stream_files = self._list_zarr_files_from_metadata(
+                base_url, auth, federation_backend, collection_id, item_id, asset_name
             )
+            
             return JSONResponse(
                 content={
                     "type": "stream-file-index",
                     "item_id": item_id,
                     "collection_id": collection_id,
                     "backend": federation_backend,
-                    "media_type": stream.media_type,
                     "file_count": len(stream_files),
                     "files": stream_files,
                 }
             )
-        elif file_path:
-            filename = file_path.split("/")[-1]
-            guessed_content_type, _ = mimetypes.guess_type(filename)
-            content_type = (
-                guessed_content_type
-                or "application/octet-stream"
+        except Exception as e:
+            logger.error(f"Failed to list zarr files: {e}")
+            raise NotFoundError(f"Failed to list zarr store files: {e}") from e
+       
+
+    def _list_zarr_files_from_metadata(
+        self,
+        base_url: str,
+        auth: Optional[dict],
+        federation_backend: str,
+        collection_id: str,
+        item_id: str,
+        asset_name: str,
+    ) -> list[StreamFileEntry]:
+        """List all files from zarr store by parsing .zmetadata."""
+        import fsspec
+        import base64
+        
+        files: list[StreamFileEntry] = []
+        
+        try:
+            # Build headers for authentication if auth is provided
+            headers = {}
+            # if auth and isinstance(auth, dict) and "refresh_token" in auth:
+            auth_str = f"anonymous:{auth.refresh_token}"
+            headers["Authorization"] = "Basic " + base64.b64encode(auth_str.encode("utf-8")).decode("utf-8")
+            # Get mapper with fsspec
+            mapper = fsspec.get_mapper(
+                base_url,
+                client_kwargs={
+                    "headers": headers,
+                    "trust_env": False
+                }
             )
-
-            stream_content_type = (stream.media_type or stream.headers.get("content-type", "")).lower()
-            if "application/zip" in stream_content_type:
-                temp_zip_path: Optional[str] = None
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_file:
-                        temp_zip_path = temp_file.name
-                        for chunk in stream.content:
-                            if chunk:
-                                temp_file.write(chunk)
-
-                    with ZipFile(temp_zip_path) as zip_file:
-                        normalized_requested_path = file_path.strip("/")
-                        member_name = next(
-                            (
-                                name
-                                for name in zip_file.namelist()
-                                if name.strip("/") == normalized_requested_path
-                                or name.strip("/").endswith(f"/{normalized_requested_path}")
-                            ),
-                            None,
+            
+            # Read .zmetadata
+            if ".zmetadata" in mapper:
+                meta = json.loads(mapper[".zmetadata"])
+                logger.debug(f"Found {len(meta['metadata'])} entries in .zmetadata")
+                key = meta["metadata"].keys()
+                # Add .zmetadata file itself to the listing to allow clients to read it and get metadata for all files in the store
+                quoted_path = quote(".zmetadata", safe="/")
+                files.append(
+                        StreamFileEntry(
+                            path=quoted_path,
+                            url=f"{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
                         )
-                        if not member_name:
-                            raise NotFoundError(f"File not found in zarr archive: {file_path}")
+                    )
+            else:  # try zarr v3 metadata file
+                """TO DO
+                .zmetadata is present for zarr v2, but not for v3, we should support both.
+                For Zarr v3, there is no .zmetata but zarr.json file instead, we can try to read it and parse the metadata from it to list files in the store.
+                for exemple:
+                elif "zarr.json" in mapper:
+                meta = json.loads(mapper["zarr.json"])
+                logger.debug(f"Found {len(meta['metadata'])} entries in zarr.json")
+                key = meta["metadata"].keys()
+                """
 
-                        extracted_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=f"_{filename}")
-                        extracted_temp_path = extracted_temp_file.name
-                        with extracted_temp_file:
-                            with zip_file.open(member_name) as source:
-                                while True:
-                                    chunk = source.read(64 * 1024)
-                                    if not chunk:
-                                        break
-                                    extracted_temp_file.write(chunk)
-                finally:
-                    if temp_zip_path and os.path.exists(temp_zip_path):
-                        os.remove(temp_zip_path)
-
-                headers = {"cache-control": "public, max-age=86400"}
-                if content_type.startswith("text/") or content_type in ["application/json", "application/xml"]:
-                    headers["content-type"] = content_type
-                else:
-                    headers["content-type"] = content_type
-                    headers["content-disposition"] = f"attachment; filename={filename}"
-
-                return StreamingResponse(
-                    content=self._read_file_chunks_and_delete(open(extracted_temp_path, "rb")),
-                    headers=headers,
-                    media_type=content_type,
-                )
-        # else:
-        #     asset_values = product.assets["zarr"]
-        #     presigned_url = product.downloader_auth.presign_url(asset_values)
-        #     return RedirectResponse(presigned_url, status_code=302)
-
-
-
+                
+            # Iterate through all files in the metadata
+            for file_path in key:
+                try:
+                    quoted_path = quote(file_path, safe="/")
+                    files.append(
+                        StreamFileEntry(
+                            path=file_path,
+                            url=f"{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
+                        )
+                    )
+                except Exception as e:
+                    logger.debug(f"Could not get metadata for {file_path}: {e}")
+            
+            logger.debug(f"Listed {len(files)} zarr files")
+            return files
+            
+        except Exception as e:
+            logger.error(f"Failed to list zarr files from metadata: {e}")
+            raise
 
     def _file_to_stream(
         self,
@@ -231,44 +246,6 @@ class BaseDataDownloadClient:
                 break
             yield data
         yield data
-
-    def _list_stream_files(
-        self,
-        content: Iterator[bytes],
-        headers: dict[str, str],
-        media_type: Optional[str],
-        file_url_prefix: str,
-    ) -> list[StreamFileEntry]:
-        """List files contained in a streamed response."""
-        normalized_media_type = (media_type or headers.get("content-type", "")).lower()
-        files: list[StreamFileEntry] = []
-
-        if "application/zip" in normalized_media_type:
-            temp_path: Optional[str] = None
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as temp_file:
-                    temp_path = temp_file.name
-                    for chunk in content:
-                        if chunk:
-                            temp_file.write(chunk)
-
-                with ZipFile(temp_path) as zip_file:
-                    for info in zip_file.infolist():
-                        quoted_path = quote(info.filename.lstrip("/"), safe="/")
-                        files.append(
-                            StreamFileEntry(
-                                path=info.filename,
-                                size=info.file_size,
-                                url=f"{file_url_prefix}/{quoted_path}",
-                            )
-                        )
-                return files
-            except BadZipFile:
-                logger.warning("Could not inspect ZIP stream, falling back to headers")
-            finally:
-                if temp_path and os.path.exists(temp_path):
-                    os.remove(temp_path)
-
 
     def get_data_with_file(
         self,
@@ -378,53 +355,65 @@ class BaseDataDownloadClient:
         zarr_asset_name = next(
                 (name for name in product.assets if name.endswith(".zarr")), None
             )
-        if zarr_asset_name == asset_name and "DT_CLIMATE_ADAPTATION" in collection_id:
+        if zarr_asset_name: 
             asset_values = product.assets[zarr_asset_name]
-            base_url = asset_values["href"]
-            target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
             
-            r = requests.get(target_url, auth=auth, stream=True)
+            base_url = asset_values["href"]
+            if file_path == "index":
+                logger.debug(f"Listing zarr files for: {base_url}, auth available: {auth is not None}")
+                return self._handle_zarr(product, base_url, federation_backend, collection_id, item_id, file_path, asset_name, auth)
+            
+            if asset_name == "zarr" and file_path != "index":
+                # request data/{backend}/{collection}/{item}/zarr/{file_path} to stream a specific file in the zarr store
+                base_url = base_url + "/" + file_path.lstrip("/")
+                
+                r = requests.get(
+                    base_url, 
+                    auth=auth, 
+                    stream=True
+                )
+                data = r.json() 
+                return JSONResponse(
+                    content=data)
+                
+            if zarr_asset_name == asset_name:
+                target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
+                
+                r = requests.get(
+                    target_url, 
+                    auth=auth, 
+                    stream=True
+                )
 
-            return StreamingResponse(
-                r.iter_content(chunk_size=1024*1024),  
-                status_code=r.status_code,
-                media_type=r.headers.get("Content-Type", "application/octet-stream"),
-                headers={k: v for k, v in r.headers.items() if k.lower() not in ["content-encoding", "transfer-encoding"]}
-            )
-        
+                return StreamingResponse(
+                    r.iter_content(chunk_size=1024*1024),  
+                    status_code=r.status_code,
+                    media_type=r.headers.get("Content-Type", "application/octet-stream"),
+                    headers={k: v for k, v in r.headers.items() if k.lower() not in ["content-encoding", "transfer-encoding"]}
+                )
+            
         presigned_response = self._try_presign_asset(product, asset_name, auth)
         if presigned_response:
             return presigned_response
         
-        stream_asset = asset_name if asset_name != "downloadLink" else None
-        stream_asset_with_path = (
-            rf"{re.escape(asset_name)}/{re.escape(file_path)}"
-            if asset_name and file_path and file_path != "index" and asset_name != "downloadLink"
-            else None
-        )
+        # stream_asset = asset_name if asset_name != "downloadLink" else None
+        # stream_asset_with_path = (
+        #     rf"{re.escape(asset_name)}/{re.escape(file_path)}"
+        #     if asset_name and file_path and file_path != "index" and asset_name != "downloadLink"
+        #     else None
+        # )
 
         try:
-            try:
-                s = product.downloader._stream_download_dict(
-                    product,
-                    auth=auth,
-                    asset=stream_asset_with_path or stream_asset,
-                    wait=-1,
-                    timeout=-1,
-                )
-            except NotAvailableError:
-                if stream_asset_with_path and stream_asset:
-                    s = product.downloader._stream_download_dict(
-                        product,
-                        auth=auth,
-                        asset=stream_asset,
-                        wait=-1,
-                        timeout=-1,
-                    )
-                else:
-                    raise
-            if asset_name == "zarr":
-                return self._handle_zarr(product, s, federation_backend, collection_id, item_id, file_path, asset_name)
+            s = product.downloader._stream_download_dict(
+                product,
+                auth=auth,
+                asset=asset_name if asset_name != "downloadLink" else None, 
+                wait=-1,
+                timeout=-1,
+            )
+            # asset=stream_asset_with_path or stream_asset,
+            # if file_path == "index":
+            #     return self._handle_zarr(product, s, federation_backend, collection_id, item_id, file_path, asset_name)
             download_stream = StreamingResponse(
                 content=s.content,
                 headers=s.headers,
