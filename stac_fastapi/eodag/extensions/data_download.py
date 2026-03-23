@@ -383,8 +383,7 @@ class BaseDataDownloadClient:
             base_url = asset_values["href"]
             target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
             
-            username = "anonymous"
-            r = requests.get(target_url, auth=(username, auth.refresh_token), stream=True)
+            r = requests.get(target_url, auth=auth, stream=True)
 
             return StreamingResponse(
                 r.iter_content(chunk_size=1024*1024),  
