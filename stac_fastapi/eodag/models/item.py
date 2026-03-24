@@ -126,7 +126,7 @@ def create_stac_item(
                     feature["assets"][k]["alternate"] = {"origin": origin}
 
         # TODO: remove downloadLink asset after EODAG assets rework
-        if download_link := product.properties.get("eodag:download_link"):
+        if download_link := product.properties.get("eodag:download_link") and not any("zarr" in key for key in product.assets):
             origin_href = download_link
             if asset_proxy_url:
                 download_link = asset_proxy_url + "/downloadLink"
