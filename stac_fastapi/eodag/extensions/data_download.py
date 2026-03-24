@@ -70,6 +70,14 @@ class StreamFileEntry(TypedDict):
 class BaseDataDownloadClient:
     """Defines a pattern for implementing the data download extension."""
 
+    @staticmethod
+    def _get_auth_headers(auth: object) -> dict[str, str]:
+        """Return headers exposed by an auth object when available."""
+        get_auth_headers = getattr(auth, "get_auth_headers", None)
+        if callable(get_auth_headers):
+            return cast(dict[str, str], get_auth_headers())
+        return {}
+
     def _try_presign_asset(
         self,
         product: EOProduct,
@@ -155,18 +163,13 @@ class BaseDataDownloadClient:
         asset_name: str,
     ) -> list[StreamFileEntry]:
         """List all files from zarr store by parsing .zmetadata."""
-        import base64
-
         import fsspec
 
         files: list[StreamFileEntry] = []
 
         try:
             # Build headers for authentication if auth is provided
-            headers = {}
-            # if auth and isinstance(auth, dict) and "refresh_token" in auth:
-            auth_str = f"anonymous:{auth.refresh_token}"
-            headers["Authorization"] = "Basic " + base64.b64encode(auth_str.encode("utf-8")).decode("utf-8")
+            headers = self._get_auth_headers(auth) if auth is not None else {}
             # Get mapper with fsspec
             mapper = fsspec.get_mapper(base_url, client_kwargs={"headers": headers, "trust_env": False})
 
