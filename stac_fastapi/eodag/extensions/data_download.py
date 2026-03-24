@@ -93,6 +93,7 @@ class BaseDataDownloadClient:
         self,
         product: EOProduct,
         zarr_asset_name: str,
+        url: str,
         federation_backend: str,
         collection_id: str,
         item_id: str,
@@ -105,7 +106,7 @@ class BaseDataDownloadClient:
         if file_path == "index":
             try:
                 stream_files = self._list_zarr_files_from_metadata(
-                    base_url, auth, federation_backend, collection_id, item_id, asset_name
+                    base_url, url, auth, federation_backend, collection_id, item_id, asset_name
                 )
 
                 return JSONResponse(
@@ -146,6 +147,7 @@ class BaseDataDownloadClient:
     def _list_zarr_files_from_metadata(
         self,
         base_url: str,
+        url: str,
         auth: Optional[dict],
         federation_backend: str,
         collection_id: str,
@@ -179,7 +181,7 @@ class BaseDataDownloadClient:
                 files.append(
                     StreamFileEntry(
                         path=quoted_path,
-                        url=f"{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
+                        url=f"{url}/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
                     )
                 )
             else:  # try zarr v3 metadata file
@@ -201,7 +203,7 @@ class BaseDataDownloadClient:
                     files.append(
                         StreamFileEntry(
                             path=file_path,
-                            url=f"{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
+                            url=f"{url}/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
                         )
                     )
                 except Exception as e:
@@ -364,8 +366,9 @@ class BaseDataDownloadClient:
 
         zarr_asset_name = next((name for name in product.assets if name.endswith(".zarr")), None)
         if zarr_asset_name:
+            url = request.base_url._url + "data"
             return self._handle_zarr(
-                product, zarr_asset_name, federation_backend, collection_id, item_id, file_path, asset_name, auth
+                product, zarr_asset_name, url, federation_backend, collection_id, item_id, file_path, asset_name, auth
             )
 
         presigned_response = self._try_presign_asset(product, asset_name, auth)
