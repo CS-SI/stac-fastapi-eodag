@@ -25,16 +25,16 @@ from typing import TYPE_CHECKING
 from stac_pydantic.collection import Extent, SpatialExtent, TimeInterval
 
 from eodag import EODataAccessGateway
-from eodag.api.collection import CollectionsList
+from eodag.api.collection import CollectionsDict, CollectionsList
+from eodag.utils import update_nested_dict
 from eodag.utils.exceptions import (
     RequestError,
     TimeOutError,
 )
 from eodag.utils.requests import fetch_json
-from stac_fastapi.eodag.config import get_settings
 
 if TYPE_CHECKING:
-    from typing import Any, Union
+    from typing import Any
 
     from fastapi import FastAPI
 
@@ -72,53 +72,18 @@ def fetch_external_stac_collections(
 
 def init_dag(app: FastAPI) -> None:
     """Init EODataAccessGateway server instance, pre-running all time consuming tasks"""
-    settings = get_settings()
-
     dag = EODataAccessGateway()
 
     ext_stac_collections = fetch_external_stac_collections(
-        dag.list_collections(fetch_providers=settings.fetch_providers)
+        dag.list_collections()
     )
 
-    app.state.ext_stac_collections = ext_stac_collections
-
     # update eodag collections config form external stac collections
-    for c, c_f in dag.collections_config.items():
-        for key in (c, getattr(c_f, "alias", None)):
-            if key is None:
-                continue
-            ext_col = ext_stac_collections.get(key)
-            if not ext_col:
-                continue
+    for c in dag.list_collections():
+        if ext_coll := ext_stac_collections.get(c.id):
+            update_nested_dict(ext_coll, c.model_dump())
 
-            platform: Union[str, list[str]] = ext_col.get("summaries", {}).get("platform")
-            constellation: Union[str, list[str]] = ext_col.get("summaries", {}).get("constellation")
-            instruments: Union[str, list[str]] = ext_col.get("summaries", {}).get("instruments")
-            processing_level: Union[str, list[str]] = ext_col.get("summaries", {}).get("processing:level")
-            if isinstance(platform, list):
-                platform = ",".join(platform)
-            if isinstance(constellation, list):
-                constellation = ",".join(constellation)
-            if isinstance(processing_level, list):
-                processing_level = ",".join(processing_level)
-            ext_extent = ext_col["extent"]
-            temporal_ext = TimeInterval(**ext_extent.get("temporal", [[None, None]]))
-            spatial_ext = SpatialExtent(**ext_extent.get("spatial", {"bbox": [[-180.0, -90.0, 180.0, 90.0]]}))
-
-            update_fields: dict[str, Any] = {
-                "title": c_f.title or ext_col.get("title"),
-                "description": c_f.description or ext_col["description"],
-                "keywords": ext_col.get("keywords"),
-                "instruments": c_f.instruments or instruments,
-                "platform": c_f.platform or platform,
-                "constellation": c_f.constellation or constellation,
-                "processing_level": c_f.processing_level or processing_level,
-                "license": ext_col["license"],
-                "extent": Extent(temporal=temporal_ext, spatial=spatial_ext),
-            }
-            clean = {k: v for k, v in update_fields.items() if v is not None}
-            for field, value in clean.items():
-                setattr(c_f, field, value)
+    dag.db.upsert_collections(CollectionsDict.from_configs(ext_stac_collections))
 
     # pre-build search plugins
     for provider in dag.providers:
