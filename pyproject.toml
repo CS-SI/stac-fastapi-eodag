@@ -15,6 +15,7 @@ dependencies = [
     "orjson",
     "pydantic",
     "pydantic_core",
+    "cql2",
     "pygeofilter",
     "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions",
@@ -25,7 +26,7 @@ dependencies = [
     "typing_extensions",
     "shapely",
     "fsspec",
-    "aiohttp"
+    "aiohttp",
 
 ]
 
@@ -68,7 +69,13 @@ explicit_package_bases = true
 exclude = ["tests", ".venv"]
 
 [[tool.mypy.overrides]]
-module = ["geojson", "pygeofilter", "pygeofilter.*", "stac_fastapi", "stac_fastapi.*"]
+module = [
+    "geojson",
+    "pygeofilter",
+    "pygeofilter.*",
+    "stac_fastapi",
+    "stac_fastapi.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

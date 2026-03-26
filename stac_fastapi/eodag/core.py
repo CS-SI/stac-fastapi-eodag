@@ -26,13 +26,12 @@ from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import unquote_plus
 
 import attr
+import cql2
 import orjson
+import pygeofilter
 from fastapi import HTTPException
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError
-from pygeofilter.backends.cql2_json import to_cql2
-from pygeofilter.parsers.cql2_json import parse as parse_json
-from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.rfc3339 import str_to_interval
@@ -88,79 +87,6 @@ class EodagCoreClient(CustomCoreClient):
 
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
-
-    def _get_collection(
-        self, collection: EodagCollection, request: Request
-    ) -> Collection:
-        """Convert a EODAG produt type to a STAC collection."""
-        # extend collection with external stac collection if any
-        extended_collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(collection.id, {})))
-        extended_collection["type"] = "Collection"
-
-        platform_value = [p for p in (collection.platform or "").split(",") if p]
-        constellation = [c for c in (collection.constellation or "").split(",") if c]
-        processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
-        instruments = collection.instruments or []
-
-        summaries: dict[str, Any] = {
-            "platform": platform_value,
-            "constellation": constellation,
-            "processing:level": processing_level,
-            "instruments": instruments,
-        }
-        extended_collection["summaries"] = {
-            **(getattr(collection, "summaries", {}) or {}),
-            **{k: v for k, v in summaries.items() if v},
-        }
-
-        extended_collection["extent"] = {
-            "spatial": extended_collection.get("extent", {}).get("spatial")
-            or collection.extent.spatial.to_dict()
-            or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
-            "temporal": extended_collection.get("extent", {}).get("temporal")
-            or collection.extent.temporal.to_dict()
-            or {"interval": [[None, None]]},
-        }
-
-        for key in ["license", "description", "title"]:
-            if value := getattr(collection, key):
-                extended_collection[key] = value
-
-        keywords = collection.keywords or []
-        keywords = keywords.split(",") if isinstance(keywords, str) else keywords
-        try:
-            extended_collection["keywords"] = list(set(keywords + extended_collection.get("keywords", [])))
-        except TypeError as e:
-            logger.warning("Could not merge keywords from external collection for %s: %s", collection.id, str(e))
-
-        extended_collection["id"] = collection.id
-
-        # keep only federation backends which allow order mechanism
-        # to create "retrieve" collection links from them
-        def has_ecmwf_search_plugin(federation_backends, request):
-            for fb in federation_backends:
-                search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
-                if any(isinstance(plugin, ECMWFSearch) for plugin in search_plugins):
-                    return True
-            return False
-
-        extension_names = [type(ext).__name__ for ext in self.extensions]
-        if self.extension_is_enabled("CollectionOrderExtension") and not has_ecmwf_search_plugin(
-            federation_backends, request
-        ):
-            extension_names.remove("CollectionOrderExtension")
-
-        if collection.links:
-            extra_links = [link.model_dump() for link in collection.links.root]
-        else:
-            extra_links = []
-        extended_coll_links = extended_collection.get("links", [])
-        extended_collection["links"] = CollectionLinks(
-            collection_id=extended_collection["id"],
-            request=request,
-        ).get_links(extensions=extension_names, extra_links=extra_links + extended_coll_links)
-
-        return Collection(**extended_collection)
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
@@ -239,7 +165,8 @@ class EodagCoreClient(CustomCoreClient):
         q: Optional[list[str]] = None,
         sortby: Optional[list[str]] = None,
         filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = "cql2-text",
+        filter_lang: Optional[str] = None,
+        **kwargs: Any,
     ) -> Collections:
         """
         Get all collections from EODAG.
@@ -266,10 +193,11 @@ class EodagCoreClient(CustomCoreClient):
         cql2_json = None
         if filter_expr:
             if filter_lang == "cql2-text":
-                filter_expr = to_cql2(parse_cql2_text(filter_expr))
-                filter_lang = "cql2-json"
-
-            cql2_json = str2json("filter_expr", filter_expr)
+                cql2_json = cql2.parse_text(filter_expr).to_json()
+            elif filter_lang == "cql2-json":
+                cql2_json = str2json("filter_expr", filter_expr)
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported filter_lang {filter_lang}")
 
         collections = cast(
             CollectionsList,
@@ -278,10 +206,10 @@ class EodagCoreClient(CustomCoreClient):
                 geometry=bbox,
                 datetime=datetime,
                 limit=limit,
-                q=q,
+                q=" ".join(q) if q else None,
                 cql2_json=cql2_json,
-                sortby=sortby
-            )
+                sortby=sortby,
+            ),
         )
 
         number_matched = collections.number_matched
@@ -341,7 +269,6 @@ class EodagCoreClient(CustomCoreClient):
         :raises NotFoundError: If the collection does not exist.
         """
         collection = await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id)
-
 
         return self._get_collection(collection, request)
 
@@ -501,7 +428,7 @@ class EodagCoreClient(CustomCoreClient):
         """Clean up search arguments to match format expected by pgstac"""
         if filter_expr:
             if filter_lang == "cql2-text":
-                filter_expr = to_cql2(parse_cql2_text(filter_expr))
+                filter_expr = cql2.parse_text(filter_expr).to_json()
                 filter_lang = "cql2-json"
 
             base_args["filter"] = str2json("filter_expr", filter_expr)
@@ -521,12 +448,10 @@ class EodagCoreClient(CustomCoreClient):
             for sort in sortby:
                 sortparts = re.match(r"^([+-]?)(.*)$", sort)
                 if sortparts:
-                    sort_param.append(
-                        {
-                            "field": sortparts.group(2).strip(),
-                            "direction": "desc" if sortparts.group(1) == "-" else "asc",
-                        }
-                    )
+                    sort_param.append({
+                        "field": sortparts.group(2).strip(),
+                        "direction": "desc" if sortparts.group(1) == "-" else "asc",
+                    })
             base_args["sortby"] = sort_param
 
         # Remove None values from dict
@@ -575,15 +500,13 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         param_tuples = []
         for param in sortby:
             dumped_param = param.model_dump(mode="json")
-            param_tuples.append(
-                (
-                    sort_by_special_fields.get(
-                        model.to_eodag(dumped_param["field"]),
-                        model.to_eodag(dumped_param["field"]),
-                    ),
-                    dumped_param["direction"],
-                )
-            )
+            param_tuples.append((
+                sort_by_special_fields.get(
+                    model.to_eodag(dumped_param["field"]),
+                    model.to_eodag(dumped_param["field"]),
+                ),
+                dumped_param["direction"],
+            ))
         sort_by["sort_by"] = param_tuples
 
     eodag_query = {}
@@ -690,7 +613,7 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
 
     errors: list[InitErrorDetails] = []
     try:
-        parsing_result = EodagEvaluator().evaluate(parse_json(filter_))  # type: ignore
+        parsing_result = EodagEvaluator().evaluate(pygeofilter.parse(filter_))  # type: ignore
     except (ValueError, NotImplementedError) as e:
         add_error(str(e))
         raise ValidationError.from_exception_data(title="stac-fastapi-eodag", line_errors=errors) from e
