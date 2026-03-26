@@ -22,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Optional, cast
 from urllib.parse import unquote_plus
 
 import attr
@@ -35,7 +35,6 @@ from pygeofilter.parsers.cql2_json import parse as parse_json
 from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
-from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
 from stac_pydantic.links import Relations
@@ -45,8 +44,6 @@ from eodag import EOProduct, SearchResult
 from eodag.api.collection import Collection as EodagCollection
 from eodag.api.collection import CollectionsList
 from eodag.plugins.search.build_search_result import ECMWFSearch
-from eodag.utils import deepcopy, get_geometry_from_various
-from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_LIMIT
@@ -61,15 +58,13 @@ from stac_fastapi.eodag.models.links import (
 )
 from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 from stac_fastapi.eodag.utils import (
-    check_poly_is_point,
-    dt_range_to_eodag,
     format_datetime_range,
     is_dict_str_any,
     str2json,
 )
 
 if TYPE_CHECKING:
-    from typing import Optional, Union
+    from typing import Union
 
     from fastapi import Request
     from pydantic import BaseModel
@@ -93,52 +88,11 @@ class EodagCoreClient(CustomCoreClient):
         self, collection: EodagCollection, request: Request, collections_providers: dict[str, set]
     ) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
-        # extend collection with external stac collection if any
-        extended_collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(collection.id, {})))
-        extended_collection["type"] = "Collection"
-
-        platform_value = [p for p in (collection.platform or "").split(",") if p]
-        constellation = [c for c in (collection.constellation or "").split(",") if c]
-        processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
-        instruments = collection.instruments or []
-        federation_backends = collections_providers.get(collection._id, set())
-
-        summaries: dict[str, Any] = {
-            "platform": platform_value,
-            "constellation": constellation,
-            "processing:level": processing_level,
-            "instruments": instruments,
-            "federation:backends": federation_backends,
-        }
-        extended_collection["summaries"] = {
-            **(getattr(collection, "summaries", {}) or {}),
-            **{k: v for k, v in summaries.items() if v},
-        }
-
-        extended_collection["extent"] = {
-            "spatial": extended_collection.get("extent", {}).get("spatial")
-            or collection.extent.spatial.to_dict()
-            or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
-            "temporal": extended_collection.get("extent", {}).get("temporal")
-            or collection.extent.temporal.to_dict()
-            or {"interval": [[None, None]]},
-        }
-
-        for key in ["license", "description", "title"]:
-            if value := getattr(collection, key):
-                extended_collection[key] = value
-
-        keywords = collection.keywords or []
-        keywords = keywords.split(",") if isinstance(keywords, str) else keywords
-        try:
-            extended_collection["keywords"] = list(set(keywords + extended_collection.get("keywords", [])))
-        except TypeError as e:
-            logger.warning("Could not merge keywords from external collection for %s: %s", collection.id, str(e))
-
-        extended_collection["id"] = collection.id
 
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
+        # TODO: this needs to be changed: we cannot request the search plugins for each collection, it is too costly.
+        # TODO: We should find a way to know which federation backends support the order mechanism without requesting the plugins manager
         def has_ecmwf_search_plugin(federation_backends, request):
             for fb in federation_backends:
                 search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
@@ -147,22 +101,22 @@ class EodagCoreClient(CustomCoreClient):
             return False
 
         extension_names = [type(ext).__name__ for ext in self.extensions]
+
+        federation_backends = set(
+            request.app.state.dag.db.get_federation_backends(collection=collection._id, enabled=True)
+        )
         if self.extension_is_enabled("CollectionOrderExtension") and not has_ecmwf_search_plugin(
             federation_backends, request
         ):
             extension_names.remove("CollectionOrderExtension")
 
-        if collection.links:
-            extra_links = [link.model_dump() for link in collection.links.root]
-        else:
-            extra_links = []
-        extended_coll_links = extended_collection.get("links", [])
-        extended_collection["links"] = CollectionLinks(
-            collection_id=extended_collection["id"],
+        coll_with_links = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
+        coll_with_links["links"] = CollectionLinks(
+            collection_id=collection.id,
             request=request,
-        ).get_links(extensions=extension_names, extra_links=extra_links + extended_coll_links)
+        ).get_links(extensions=extension_names, extra_links=coll_with_links["links"])
 
-        return Collection(**extended_collection)
+        return Collection(**coll_with_links)
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
@@ -175,7 +129,7 @@ class EodagCoreClient(CustomCoreClient):
 
         # check if the collection exists
         if collection := eodag_args.get("collection"):
-            all_coll = await asyncio.to_thread(request.app.state.dag.list_collections, fetch_providers=False)
+            all_coll = await asyncio.to_thread(request.app.state.dag.list_collections)
             # only check the first collection (EODAG search only support a single collection)
             existing_coll = [coll for coll in all_coll if coll.id == collection]
             if not existing_coll:
@@ -236,9 +190,12 @@ class EodagCoreClient(CustomCoreClient):
         bbox: Optional[list[NumType]] = None,
         datetime: Optional[str] = None,
         limit: Optional[int] = 10,
+        # Extensions
         offset: Optional[int] = 0,
         q: Optional[list[str]] = None,
-        query: Optional[str] = None,
+        sortby: Optional[list[str]] = None,
+        filter_expr: Optional[str] = None,
+        filter_lang: Optional[str] = "cql2-text",
     ) -> Collections:
         """
         Get all collections from EODAG.
@@ -249,7 +206,10 @@ class EodagCoreClient(CustomCoreClient):
         :param limit: Maximum number of collections to return.
         :param offset: Starting position from which to return collections.
         :param q: Query string to filter the collections.
-        :param query: Query string to filter collections.
+        :param query: Query string to filter the search.
+        :param sortby: List of fields to sort the results by.
+        :param filter_expr: CQL filter to apply to the search.
+        :param filter_lang: Language of the filter.
         :returns: All collections.
         :raises HTTPException: If the unsupported bbox parameter is provided.
         """
@@ -259,68 +219,28 @@ class EodagCoreClient(CustomCoreClient):
         prev_link: Optional[dict[str, Any]] = None
         first_link: Optional[dict[str, Any]] = None
 
-        # get provider filter
-        provider = None
-        if query:
-            query_attr = orjson.loads(unquote_plus(query))
-            parsed_query = parse_query(query_attr)
-            provider = parsed_query.get("federation:backends")
-            provider = provider[0] if isinstance(provider, list) else provider
+        cql2_json = None
+        if filter_expr:
+            if filter_lang == "cql2-text":
+                filter_expr = to_cql2(parse_cql2_text(filter_expr))
+                filter_lang = "cql2-json"
 
-        all_colls = await asyncio.to_thread(
-            request.app.state.dag.list_collections, provider=provider, fetch_providers=False
+            cql2_json = str2json("filter_expr", filter_expr)
+
+        collections = cast(
+            CollectionsList,
+            await asyncio.to_thread(
+                request.app.state.dag.list_collections,
+                geometry=bbox,
+                datetime=datetime,
+                limit=limit,
+                q=q,
+                cql2_json=cql2_json,
+                sortby=sortby
+            )
         )
 
-        # datetime & free-text-search filters
-        if any((q, datetime)):
-            start, end = dt_range_to_eodag(str_to_interval(datetime))
-
-            # q is always a list, per stac-api free_text extension definiton
-            # Expanding with AND as default.
-            free_text = " AND ".join(q or [])
-
-            try:
-                guessed_collections = await asyncio.to_thread(
-                    request.app.state.dag.guess_collection,
-                    free_text=free_text,
-                    start_date=start,
-                    end_date=end,
-                )
-                guessed_collections_ids = [coll.id for coll in guessed_collections]
-            except EodagNoMatchingCollection:
-                collections = CollectionsList([])
-            else:
-                collections = CollectionsList([coll for coll in all_colls if coll.id in guessed_collections_ids])
-        else:
-            collections = all_colls
-
-        providers = request.app.state.dag.providers
-        collections_providers: dict[str, set] = {}
-        for p_name, p in providers.items():
-            if getattr(p.config, "products", None):
-                for coll in p.config.products:
-                    if coll not in collections_providers:
-                        collections_providers[coll] = set()
-                    collections_providers[coll].add(p_name)
-
-        formatted_collections = [self._get_collection(coll, request, collections_providers) for coll in collections]
-
-        # bbox filter
-        if bbox:
-            bbox_geom = get_geometry_from_various(geometry=bbox)
-
-            default_extent = [[-180.0, -90.0, 180.0, 90.0]]
-            formatted_collections = [
-                c
-                for c in formatted_collections
-                if check_poly_is_point(
-                    get_geometry_from_various(  # type: ignore
-                        geometry=c.get("extent", {}).get("spatial", {}).get("bbox", default_extent)[0]
-                    )
-                ).intersection(bbox_geom)
-            ]
-
-        total = len(formatted_collections)
+        number_matched = cast(int, collections.number_matched)
 
         links = [
             {
@@ -335,15 +255,20 @@ class EodagCoreClient(CustomCoreClient):
             limit = limit if limit is not None else 10
             offset = offset if offset is not None else 0
 
-            formatted_collections = formatted_collections[offset : offset + limit]
+            collections = collections[offset : offset + limit]
+            # info about number matched was lost during the slice, then restore it
+            # TODO: find a way to not lose it during the slice
+            collections.number_matched = number_matched
 
-            if offset + limit < total:
+            if offset + limit < collections.number_matched:
                 next_link = {"body": {"limit": limit, "offset": offset + limit}}
 
             if offset > 0:
                 prev_link = {"body": {"limit": limit, "offset": max(0, offset - limit)}}
 
             first_link = {"body": {"limit": limit, "offset": 0}}
+
+        formatted_collections = [self._get_collection(coll, request) for coll in collections]
 
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
@@ -356,8 +281,8 @@ class EodagCoreClient(CustomCoreClient):
         return Collections(
             collections=formatted_collections,
             links=links,
-            numberMatched=total,
-            numberReturned=len(formatted_collections),
+            numberMatched=collections.number_matched,
+            numberReturned=len(collections),
         )
 
     async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
@@ -372,11 +297,8 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The collection.
         :raises NotFoundError: If the collection does not exist.
         """
-        all_collections = await asyncio.to_thread(request.app.state.dag.list_collections, fetch_providers=False)
-        collection = next(
-            (c for c in all_collections if c.id == collection_id),
-            None,
-        )
+        collection = cast(Optional[EodagCollection], await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id))
+
         if collection is None:
             raise NotFoundError(f"Collection {collection_id} does not exist.")
 
