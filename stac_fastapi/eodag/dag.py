@@ -52,7 +52,7 @@ def fetch_external_stac_collections(
     ext_stac_collections: dict[str, dict[str, Any]] = {}
 
     for collection in collections:
-        file_path = getattr(collection, "stacCollection", None)
+        file_path = getattr(collection, "eodag_stac_collection", None)
         if not file_path:
             continue
         logger.info(f"Fetching external STAC collection for {collection.id}")
@@ -74,16 +74,14 @@ def init_dag(app: FastAPI) -> None:
     """Init EODataAccessGateway server instance, pre-running all time consuming tasks"""
     dag = EODataAccessGateway()
 
-    ext_stac_collections = fetch_external_stac_collections(
-        dag.list_collections()
-    )
+    ext_stac_collections = fetch_external_stac_collections(dag.list_collections())
 
     # update eodag collections config form external stac collections
     for c in dag.list_collections():
         if ext_coll := ext_stac_collections.get(c.id):
             update_nested_dict(ext_coll, c.model_dump())
 
-    dag.db.upsert_collections(CollectionsDict.from_configs(ext_stac_collections))
+    dag.db.upsert_collections(ext_stac_collections)
 
     # pre-build search plugins
     for provider in dag.providers:

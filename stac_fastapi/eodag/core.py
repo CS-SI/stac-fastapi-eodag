@@ -208,8 +208,8 @@ class EodagCoreClient(CustomCoreClient):
                 limit=limit,
                 q=" ".join(q) if q else None,
                 cql2_json=cql2_json,
-                sortby=sortby,
-            ),
+                sortby=sortby
+            )
         )
 
         number_matched = collections.number_matched
