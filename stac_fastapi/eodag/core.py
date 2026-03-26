@@ -271,15 +271,20 @@ class EodagCoreClient(CustomCoreClient):
 
             cql2_json = str2json("filter_expr", filter_expr)
 
-        collections = await asyncio.to_thread(
-            request.app.state.dag.list_collections,
-            geometry=bbox,
-            datetime=datetime,
-            limit=limit,
-            q=q,
-            cql2_json=cql2_json,
-            sortby=sortby
+        collections = cast(
+            CollectionsList,
+            await asyncio.to_thread(
+                request.app.state.dag.list_collections,
+                geometry=bbox,
+                datetime=datetime,
+                limit=limit,
+                q=q,
+                cql2_json=cql2_json,
+                sortby=sortby
+            )
         )
+
+        number_matched = collections.number_matched
 
         # formatted_collections = [self._get_collection(coll, request) for coll in collections]
         links = [
@@ -296,6 +301,9 @@ class EodagCoreClient(CustomCoreClient):
             offset = offset if offset is not None else 0
 
             collections = collections[offset : offset + limit]
+            # info about number matched was lost during the slice, then restore it
+            # TODO: find a way to not lose it during the slice
+            collections.number_matched = number_matched
 
             if offset + limit < (collections.number_matched or len(collections)):
                 next_link = {"body": {"limit": limit, "offset": offset + limit}}
