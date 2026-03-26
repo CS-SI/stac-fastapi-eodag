@@ -49,6 +49,7 @@ from pydantic import AliasChoices, Field
 from stac_fastapi.eodag.app import api, stac_metadata_model
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.dag import init_dag
+from stac_fastapi.eodag.extensions.data_download import BaseDataDownloadClient
 from tests import TEST_RESOURCES_PATH
 
 
@@ -525,6 +526,38 @@ def mock_http_base_stream_download(mocker):
     Mocks the `stream_download` method of the `Download` plugin.
     """
     return mocker.patch.object(HTTPDownload, "stream_download")
+
+
+@pytest.fixture(scope="function")
+def mock_base_data_download_get_data(mocker):
+    """
+    Mocks the `get_data` method of the data download client.
+    """
+    return mocker.patch.object(BaseDataDownloadClient, "get_data")
+
+
+@pytest.fixture(scope="function")
+def mock_list_zarr_files_from_metadata(mocker):
+    """
+    Mocks the `_list_zarr_files_from_metadata` method of the data download client.
+    """
+    return mocker.patch.object(BaseDataDownloadClient, "_list_zarr_files_from_metadata")
+
+
+@pytest.fixture(scope="function")
+def mock_data_download_requests_get(mocker):
+    """
+    Mocks the `requests.get` call used by the data download extension.
+    """
+    return mocker.patch("stac_fastapi.eodag.extensions.data_download.requests.get")
+
+
+@pytest.fixture(scope="function")
+def mock_item_get_settings(mocker):
+    """
+    Mocks the `get_settings` function used by STAC item creation.
+    """
+    return mocker.patch("stac_fastapi.eodag.models.item.get_settings")
 
 
 @pytest.fixture(scope="function")

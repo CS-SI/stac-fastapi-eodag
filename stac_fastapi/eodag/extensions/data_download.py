@@ -51,14 +51,6 @@ from stac_fastapi.eodag.errors import (
 logger = logging.getLogger(__name__)
 
 
-class ZarrFileEntry(TypedDict):
-    """Zarr file listing item."""
-
-    path: str
-    size: int
-    url: str
-
-
 class StreamFileEntry(TypedDict):
     """Stream file listing item."""
 
@@ -108,7 +100,7 @@ class BaseDataDownloadClient:
         file_path: Optional[str],
         asset_name: Optional[str],
         auth: Optional[dict] = None,
-    ):
+    ) -> Union[JSONResponse, StreamingResponse]:
         asset_values = product.assets[zarr_asset_name]
         base_url = asset_values["href"]
         if file_path == "index":
