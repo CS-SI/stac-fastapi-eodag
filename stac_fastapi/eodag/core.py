@@ -88,15 +88,15 @@ class EodagCoreClient(CustomCoreClient):
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
-    def _get_collection(
-        self, collection: EodagCollection, request: Request
-    ) -> Collection:
+    def _get_collection(self, collection: EodagCollection, request: Request) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
 
         extended_collection = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
 
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
+        # TODO: this needs to be changed: we cannot request the search plugins for each collection, it is too costly.
+        # TODO: We should find a way to know which federation backends support the order mechanism without requesting the plugins manager
         def has_ecmwf_search_plugin(federation_backends, request):
             for fb in federation_backends:
                 search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
@@ -106,7 +106,9 @@ class EodagCoreClient(CustomCoreClient):
 
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
-        federation_backends = set(request.app.state.dag.db.get_federation_backends(collection=collection._id))
+        federation_backends = set(
+            request.app.state.dag.db.get_federation_backends(collection=collection._id, enabled=True)
+        )
         if self.extension_is_enabled("CollectionOrderExtension") and not has_ecmwf_search_plugin(
             federation_backends, request
         ):
@@ -239,8 +241,8 @@ class EodagCoreClient(CustomCoreClient):
                 limit=limit,
                 q=" ".join(q) if q else None,
                 cql2_json=cql2_json,
-                sortby=sortby
-            )
+                sortby=sortby,
+            ),
         )
 
         number_matched = cast(int, collections.number_matched)

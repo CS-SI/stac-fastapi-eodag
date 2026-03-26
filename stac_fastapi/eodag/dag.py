@@ -80,11 +80,11 @@ def init_dag(app: FastAPI) -> None:
     collections = {}
     for c in dag.list_collections():
         if ext_coll := ext_stac_collections.get(c.id):
-            collection = c.model_dump()
-            update_nested_dict(collection, ext_coll)
+            collection = ext_coll
             collection["id"] = c._id
-            collections[c.id] = collection
-    dag.db.upsert_collections(collections)
+            collection["alias"] = c.id
+            collections[c._id] = collection
+    dag.db.upsert_collections(CollectionsDict.from_configs(collections))
 
     # pre-build search plugins
     for provider in dag.providers:
