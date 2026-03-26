@@ -25,7 +25,8 @@ dependencies = [
     "typing_extensions",
     "shapely",
     "fsspec",
-    "aiohttp"
+    "aiohttp",
+    "requests"
 
 ]
 
