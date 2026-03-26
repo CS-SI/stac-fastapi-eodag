@@ -88,6 +88,37 @@ class EodagCoreClient(CustomCoreClient):
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
+    def _get_collection(
+        self, collection: EodagCollection, request: Request
+    ) -> Collection:
+        """Convert a EODAG produt type to a STAC collection."""
+
+        extended_collection = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
+
+        # keep only federation backends which allow order mechanism
+        # to create "retrieve" collection links from them
+        def has_ecmwf_search_plugin(federation_backends, request):
+            for fb in federation_backends:
+                search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
+                if any(isinstance(plugin, ECMWFSearch) for plugin in search_plugins):
+                    return True
+            return False
+
+        extension_names = [type(ext).__name__ for ext in self.extensions]
+
+        federation_backends = set(request.app.state.dag.db.get_federation_backends(collection=collection._id))
+        if self.extension_is_enabled("CollectionOrderExtension") and not has_ecmwf_search_plugin(
+            federation_backends, request
+        ):
+            extension_names.remove("CollectionOrderExtension")
+
+        extended_collection["links"] = CollectionLinks(
+            collection_id=collection.id,
+            request=request,
+        ).get_links(extensions=extension_names, extra_links=extended_collection["links"])
+
+        return Collection(**extended_collection)
+
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
 
@@ -212,9 +243,8 @@ class EodagCoreClient(CustomCoreClient):
             )
         )
 
-        number_matched = collections.number_matched
+        number_matched = cast(int, collections.number_matched)
 
-        # formatted_collections = [self._get_collection(coll, request) for coll in collections]
         links = [
             {
                 "rel": Relations.root,
@@ -233,13 +263,15 @@ class EodagCoreClient(CustomCoreClient):
             # TODO: find a way to not lose it during the slice
             collections.number_matched = number_matched
 
-            if offset + limit < (collections.number_matched or len(collections)):
+            if offset + limit < collections.number_matched:
                 next_link = {"body": {"limit": limit, "offset": offset + limit}}
 
             if offset > 0:
                 prev_link = {"body": {"limit": limit, "offset": max(0, offset - limit)}}
 
             first_link = {"body": {"limit": limit, "offset": 0}}
+
+        formatted_collections = [self._get_collection(coll, request) for coll in collections]
 
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
@@ -250,7 +282,7 @@ class EodagCoreClient(CustomCoreClient):
         links.extend(paging_links)
 
         return Collections(
-            collections=collections.data,
+            collections=formatted_collections,
             links=links,
             numberMatched=collections.number_matched,
             numberReturned=len(collections),
@@ -268,7 +300,10 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The collection.
         :raises NotFoundError: If the collection does not exist.
         """
-        collection = await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id)
+        collection = cast(Optional[EodagCollection], await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id))
+
+        if collection is None:
+            raise NotFoundError(f"Collection {collection_id} does not exist.")
 
         return self._get_collection(collection, request)
 
