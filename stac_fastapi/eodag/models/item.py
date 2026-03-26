@@ -70,16 +70,13 @@ def create_stac_item(
 
     settings: Settings = get_settings()
 
-    collection_obj = request.app.state.dag.collections_config.get(product.collection)
-    collection = collection_obj.id if collection_obj else product.collection
-
     feature = Item(
         type="Feature",
         assets={},
         id=product.properties["id"],
         geometry=product.geometry.__geo_interface__,
         bbox=product.geometry.bounds,
-        collection=collection,
+        collection=product.collection,
         stac_version=STAC_API_VERSION,
     )
 
@@ -91,7 +88,7 @@ def create_stac_item(
 
     quoted_id = quote(feature["id"])
     asset_proxy_url = (
-        (download_base_url + f"data/{product.provider}/{collection}/{quoted_id}")
+        (download_base_url + f"data/{product.provider}/{product.collection}/{quoted_id}")
         if extension_is_enabled("DataDownload")
         else None
     )
@@ -158,12 +155,10 @@ def create_stac_item(
                 "type": "application/json",
             }
 
-    feature_model = model.model_validate(
-        {
-            **product.properties,
-            **{"federation:backends": [product.provider], "storage:tier": product.properties.get("order:status")},
-        }
-    )
+    feature_model = model.model_validate({
+        **product.properties,
+        **{"federation:backends": [product.provider], "storage:tier": product.properties.get("order:status")},
+    })
     stac_extensions.update(feature_model.get_conformance_classes())
 
     # filter properties we do not want to expose
@@ -194,7 +189,7 @@ def create_stac_item(
             retrieve_body["federation:backends"] = [provider]
 
     feature["links"] = ItemLinks(
-        collection_id=collection,
+        collection_id=product.collection,
         item_id=quoted_id,
         retrieve_body=retrieve_body,
         request=request,

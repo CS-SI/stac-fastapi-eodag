@@ -130,7 +130,7 @@ class EodagCoreClient(CustomCoreClient):
 
         # check if the collection exists
         if collection := eodag_args.get("collection"):
-            all_coll = await asyncio.to_thread(request.app.state.dag.list_collections, fetch_providers=False)
+            all_coll = await asyncio.to_thread(request.app.state.dag.list_collections)
             # only check the first collection (EODAG search only support a single collection)
             existing_coll = [coll for coll in all_coll if coll.id == collection]
             if not existing_coll:
@@ -300,7 +300,7 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The collection.
         :raises NotFoundError: If the collection does not exist.
         """
-        collection = cast(Optional[EodagCollection], await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id))
+        collection = await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id)
 
         if collection is None:
             raise NotFoundError(f"Collection {collection_id} does not exist.")

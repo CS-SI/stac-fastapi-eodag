@@ -77,11 +77,14 @@ def init_dag(app: FastAPI) -> None:
     ext_stac_collections = fetch_external_stac_collections(dag.list_collections())
 
     # update eodag collections config form external stac collections
+    collections = {}
     for c in dag.list_collections():
         if ext_coll := ext_stac_collections.get(c.id):
-            update_nested_dict(ext_coll, c.model_dump())
-
-    dag.db.upsert_collections(ext_stac_collections)
+            collection = c.model_dump()
+            update_nested_dict(collection, ext_coll)
+            collection["id"] = c._id
+            collections[c.id] = collection
+    dag.db.upsert_collections(collections)
 
     # pre-build search plugins
     for provider in dag.providers:
