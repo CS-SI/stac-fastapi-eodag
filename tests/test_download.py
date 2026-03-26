@@ -30,10 +30,10 @@ from stac_fastapi.eodag.config import get_settings
 
 
 async def test_download_item_from_collection_stream(
-    request_valid_raw, defaults, mock_base_stream_download_dict, mock_base_authenticate, stream_response
+    request_valid_raw, defaults, mock_base_stream_download, mock_base_authenticate, stream_response
 ):
     """Download through eodag server catalog should return a valid response"""
-    mock_base_stream_download_dict.return_value = stream_response
+    mock_base_stream_download.return_value = stream_response
 
     resp = await request_valid_raw(f"data/peps/{defaults.collection}/foo/downloadLink")
     assert resp.content == b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -42,14 +42,14 @@ async def test_download_item_from_collection_stream(
 
 
 async def test_download_item_from_collection_no_stream(
-    request_valid_raw, defaults, mock_download, mock_base_stream_download_dict, mock_base_authenticate, tmp_dir
+    request_valid_raw, defaults, mock_download, mock_base_stream_download, mock_base_authenticate, tmp_dir
 ):
     """Download through eodag server catalog should return a valid response even if streaming is not available"""
     # download should be performed locally then deleted if streaming is not available
     expected_file = tmp_dir / "foo.tar"
     expected_file.touch()
     mock_download.return_value = expected_file
-    mock_base_stream_download_dict.side_effect = NotImplementedError()
+    mock_base_stream_download.side_effect = NotImplementedError()
 
     await request_valid_raw(f"data/peps/{defaults.collection}/foo/downloadLink")
     mock_download.assert_called_once()
@@ -63,7 +63,7 @@ async def test_download_auto_order_whitelist(
     mock_order,
     mock_search,
     defaults,
-    mock_http_base_stream_download_dict,
+    mock_http_base_stream_download,
     stream_response,
 ):
     """Test that the order method is called when downloading a product
@@ -98,7 +98,7 @@ async def test_download_auto_order_whitelist(
     product.register_downloader(downloader=downloader, authenticator=None)
 
     mock_search.return_value = SearchResult([product])
-    mock_http_base_stream_download_dict.return_value = stream_response
+    mock_http_base_stream_download.return_value = stream_response
 
     await request_valid_raw(url, search_result=SearchResult([product]))
 

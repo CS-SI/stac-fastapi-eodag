@@ -198,7 +198,7 @@ class BaseDataDownloadClient:
                 logger.info("Presigned url could not be fetched for %s", asset_name)
 
         try:
-            s = product.downloader._stream_download_dict(
+            s = product.downloader.stream_download(
                 product,
                 auth=auth,
                 asset=asset_name if asset_name != "downloadLink" else None,

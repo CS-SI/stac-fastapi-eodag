@@ -511,19 +511,19 @@ def mock_download(mocker, app):
 
 
 @pytest.fixture(scope="function")
-def mock_base_stream_download_dict(mocker):
+def mock_base_stream_download(mocker):
     """
-    Mocks the `_stream_download_dict` method of the `Download` plugin.
+    Mocks the `stream_download` method of the `Download` plugin.
     """
-    return mocker.patch.object(Download, "_stream_download_dict")
+    return mocker.patch.object(Download, "stream_download")
 
 
 @pytest.fixture(scope="function")
-def mock_http_base_stream_download_dict(mocker):
+def mock_http_base_stream_download(mocker):
     """
-    Mocks the `_stream_download_dict` method of the `Download` plugin.
+    Mocks the `stream_download` method of the `Download` plugin.
     """
-    return mocker.patch.object(HTTPDownload, "_stream_download_dict")
+    return mocker.patch.object(HTTPDownload, "stream_download")
 
 
 @pytest.fixture(scope="function")
