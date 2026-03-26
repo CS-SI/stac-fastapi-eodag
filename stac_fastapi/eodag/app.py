@@ -83,7 +83,6 @@ search_extensions_map = {
 
 # collection_search extensions
 cs_extensions_map = {
-    "query": QueryExtension(conformance_classes=[QueryConformanceClasses.COLLECTIONS]),
     "offset-pagination": OffsetPaginationExtension(),
     "collection-search": CollectionSearchExtension(),
     "free-text": FreeTextExtension(conformance_classes=[FreeTextConformanceClasses.COLLECTIONS]),
