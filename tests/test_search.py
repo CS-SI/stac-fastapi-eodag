@@ -79,7 +79,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
             validate=True,
         ),
     )
-    assert response["numberMatched"] is None
+    assert "numberMatched" not in response
 
     # Reset search mock, set "number_matched" attribute of the search results mock for a counting search
     # and set count to True
@@ -509,7 +509,6 @@ async def test_ids_post_search(request_valid, defaults):
 async def test_search_response_contains_pagination_info(request_valid, defaults):
     """Responses to valid search requests must return a geojson with pagination info in properties"""
     response = await request_valid(f"search?collections={defaults.collection}")
-    assert "numberMatched" in response
     assert "numberReturned" in response
 
 
