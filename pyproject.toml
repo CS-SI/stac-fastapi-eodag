@@ -24,6 +24,10 @@ dependencies = [
     "starlette",
     "typing_extensions",
     "shapely",
+    "fsspec",
+    "aiohttp",
+    "requests"
+
 ]
 
 [project.urls]
