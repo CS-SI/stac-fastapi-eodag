@@ -26,6 +26,7 @@ from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.stac import Item
 from stac_pydantic.api.version import STAC_API_VERSION
+from stac_pydantic.links import Link, Links
 from stac_pydantic.shared import Asset
 
 from eodag.api.product._product import EOProduct
@@ -182,11 +183,12 @@ def create_stac_item(
         if provider := eodag_args.get("provider", None):
             retrieve_body["federation:backends"] = [provider]
 
+    extra_links = Links(root=[Link(**link) for link in feature.get("links", [])])
     feature["links"] = ItemLinks(
         collection_id=product.collection,
         item_id=quoted_id,
         retrieve_body=retrieve_body,
         request=request,
-    ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)
+    ).get_links(extensions=extension_names, extra_links=extra_links, request_json=request_json)
 
     return feature

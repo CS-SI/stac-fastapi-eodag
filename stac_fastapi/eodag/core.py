@@ -37,7 +37,7 @@ from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
-from stac_pydantic.links import Relations
+from stac_pydantic.links import Link, Links, Relations
 from stac_pydantic.shared import MimeTypes
 
 from eodag import EOProduct, SearchResult
@@ -84,10 +84,8 @@ class EodagCoreClient(CustomCoreClient):
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
     stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
 
-    def _get_collection(
-        self, collection: EodagCollection, request: Request, collections_providers: dict[str, set]
-    ) -> Collection:
-        """Convert a EODAG produt type to a STAC collection."""
+    def _format_collection(self, collection: EodagCollection, request: Request) -> Collection:
+        """Convert a EODAG STAC collection to a STAC collection for API."""
 
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
@@ -110,13 +108,17 @@ class EodagCoreClient(CustomCoreClient):
         ):
             extension_names.remove("CollectionOrderExtension")
 
-        coll_with_links = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
-        coll_with_links["links"] = CollectionLinks(
+        # add API-required links
+        all_coll_links = CollectionLinks(
             collection_id=collection.id,
             request=request,
-        ).get_links(extensions=extension_names, extra_links=coll_with_links["links"])
+        ).get_links(extensions=extension_names, extra_links=collection.links)
 
-        return Collection(**coll_with_links)
+        collection.links = Links(root=[Link(**coll_link) for coll_link in all_coll_links])
+
+        # remove eodag-specific fields
+        coll_dict = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
+        return Collection(**coll_dict)
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
@@ -236,7 +238,7 @@ class EodagCoreClient(CustomCoreClient):
                 limit=limit,
                 q=q,
                 cql2_json=cql2_json,
-                sortby=sortby
+                sortby=sortby,
             )
         )
 
@@ -268,7 +270,8 @@ class EodagCoreClient(CustomCoreClient):
 
             first_link = {"body": {"limit": limit, "offset": 0}}
 
-        formatted_collections = [self._get_collection(coll, request) for coll in collections]
+        # format collections
+        formatted_collections = [self._format_collection(coll, request) for coll in collections]
 
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
@@ -302,13 +305,7 @@ class EodagCoreClient(CustomCoreClient):
         if collection is None:
             raise NotFoundError(f"Collection {collection_id} does not exist.")
 
-        providers = request.app.state.dag.providers
-        collection_providers: dict[str, set] = {collection._id: set()}
-        for p_name, p in providers.items():
-            if getattr(p.config, "products", None) and collection._id in p.config.products:
-                collection_providers[collection._id].add(p_name)
-
-        return self._get_collection(collection, request, collection_providers)
+        return self._format_collection(collection, request)
 
     async def item_collection(
         self,
@@ -351,10 +348,11 @@ class EodagCoreClient(CustomCoreClient):
         )
 
         search_request = self.post_request_model.model_validate(clean)
-        item_collection = await self._search_base(search_request, request)
+        item_collection = cast(ItemCollection, await self._search_base(search_request, request))
         extension_names = [type(ext).__name__ for ext in self.extensions]
+        extra_links = Links(root=[Link(**link) for link in item_collection.get("links", [])])
         links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
-            extensions=extension_names, extra_links=item_collection["links"]
+            extensions=extension_names, extra_links=extra_links
         )
         item_collection["links"] = links
         return item_collection
