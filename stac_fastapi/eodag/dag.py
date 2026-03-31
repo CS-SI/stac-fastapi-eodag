@@ -73,9 +73,7 @@ def init_dag(app: FastAPI) -> None:
     """Init EODataAccessGateway server instance, pre-running all time consuming tasks"""
     dag = EODataAccessGateway()
 
-    ext_stac_collections = fetch_external_stac_collections(
-        dag.list_collections()
-    )
+    ext_stac_collections = fetch_external_stac_collections(dag.list_collections())
 
     # update eodag collections config from external stac collections
     collections = {}
