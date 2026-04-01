@@ -18,16 +18,14 @@
 """Data-download extension."""
 
 import glob
-import json
 import logging
 import os
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, TypedDict, Union, cast
+from typing import Annotated, Iterator, Optional, Union, cast
 from urllib.parse import quote
 
 import attr
-import requests
 from eodag.api.core import EODataAccessGateway
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
@@ -51,24 +49,8 @@ from stac_fastapi.eodag.errors import (
 logger = logging.getLogger(__name__)
 
 
-class StreamFileEntry(TypedDict):
-    """Stream file listing item."""
-
-    path: str
-    size: Optional[int]
-    url: str
-
-
 class BaseDataDownloadClient:
     """Defines a pattern for implementing the data download extension."""
-
-    @staticmethod
-    def _get_auth_headers(auth: object) -> dict[str, str]:
-        """Return headers exposed by an auth object when available."""
-        get_auth_headers = getattr(auth, "get_auth_headers", None)
-        if callable(get_auth_headers):
-            return cast(dict[str, str], get_auth_headers())
-        return {}
 
     def _try_presign_asset(
         self,
@@ -105,9 +87,17 @@ class BaseDataDownloadClient:
         base_url = asset_values["href"]
         if file_path == "index":
             try:
-                stream_files = self._list_zarr_files_from_metadata(
-                    base_url, url, auth, federation_backend, collection_id, item_id, asset_name
-                )
+                paths = product.list_zarr_files_from_metadata(base_url, auth)
+
+                files = [
+                    {
+                        "path": path,
+                        "url": (
+                            f"{url}/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quote(path, safe='/')}"
+                        ),
+                    }
+                    for path in paths
+                ]
 
                 return JSONResponse(
                     content={
@@ -115,8 +105,8 @@ class BaseDataDownloadClient:
                         "item_id": item_id,
                         "collection_id": collection_id,
                         "backend": federation_backend,
-                        "file_count": len(stream_files),
-                        "files": stream_files,
+                        "file_count": len(files),
+                        "files": files,
                     }
                 )
             except Exception as e:
@@ -127,13 +117,13 @@ class BaseDataDownloadClient:
             # to stream a specific file in the zarr store
             base_url = base_url + "/" + file_path.lstrip("/")
 
-            r = requests.get(base_url, auth=auth, stream=True)
+            r = product.request_asset(url=base_url, auth=auth)
             data = r.json()
             return JSONResponse(content=data)
         if zarr_asset_name == asset_name:
             target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
 
-            r = requests.get(target_url, auth=auth, stream=True)
+            r = product.request_asset(url=target_url, auth=auth)
 
             return StreamingResponse(
                 r.iter_content(chunk_size=1024 * 1024),
@@ -143,73 +133,6 @@ class BaseDataDownloadClient:
                     k: v for k, v in r.headers.items() if k.lower() not in ["content-encoding", "transfer-encoding"]
                 },
             )
-
-    def _list_zarr_files_from_metadata(
-        self,
-        base_url: str,
-        url: str,
-        auth: Optional[dict],
-        federation_backend: str,
-        collection_id: str,
-        item_id: str,
-        asset_name: str,
-    ) -> list[StreamFileEntry]:
-        """List all files from zarr store by parsing .zmetadata."""
-        import fsspec
-
-        files: list[StreamFileEntry] = []
-
-        try:
-            # Build headers for authentication if auth is provided
-            headers = self._get_auth_headers(auth) if auth is not None else {}
-            # Get mapper with fsspec
-            mapper = fsspec.get_mapper(base_url, client_kwargs={"headers": headers, "trust_env": False})
-
-            # Read .zmetadata
-            if ".zmetadata" in mapper:
-                meta = json.loads(mapper[".zmetadata"])
-                logger.debug(f"Found {len(meta['metadata'])} entries in .zmetadata")
-                key = meta["metadata"].keys()
-                # Add .zmetadata file itself to the listing to allow clients to read it and
-                # get metadata for all files in the store
-                quoted_path = quote(".zmetadata", safe="/")
-                files.append(
-                    StreamFileEntry(
-                        path=quoted_path,
-                        url=f"{url}/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
-                    )
-                )
-            else:  # try zarr v3 metadata file
-                """TO DO
-                .zmetadata is present for zarr v2, but not for v3, we should support both.
-                For Zarr v3, there is no .zmetata but zarr.json file instead,
-                we can try to read it and parse the metadata from it to list files in the store.
-                for exemple:
-                elif "zarr.json" in mapper:
-                meta = json.loads(mapper["zarr.json"])
-                logger.debug(f"Found {len(meta['metadata'])} entries in zarr.json")
-                key = meta["metadata"].keys()
-                """
-
-            # Iterate through all files in the metadata
-            for file_path in key:
-                try:
-                    quoted_path = quote(file_path, safe="/")
-                    files.append(
-                        StreamFileEntry(
-                            path=file_path,
-                            url=f"{url}/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{quoted_path}",
-                        )
-                    )
-                except Exception as e:
-                    logger.debug(f"Could not get metadata for {file_path}: {e}")
-
-            logger.debug(f"Listed {len(files)} zarr files")
-            return files
-
-        except Exception as e:
-            logger.error(f"Failed to list zarr files from metadata: {e}")
-            raise
 
     def _file_to_stream(
         self,
@@ -314,7 +237,11 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+        try:
+            auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise NotAvailableError("Token not ready, authentication failed. Please try again later.") from e
 
         if product.downloader is None:
             logger.error("No downloader available for %s", product)
@@ -369,10 +296,6 @@ class BaseDataDownloadClient:
         presigned_response = self._try_presign_asset(product, asset_name, auth)
         if presigned_response:
             return presigned_response
-
-        # Handle zarr store - return file listing or individual file
-        if asset_name == "zarr":
-            return self._handle_zarr(dag, product, federation_backend, collection_id, item_id, file_path)
 
         try:
             s = product.downloader.stream_download(
