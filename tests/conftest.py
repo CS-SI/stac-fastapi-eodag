@@ -538,17 +538,17 @@ def mock_base_data_download_get_data(mocker):
 @pytest.fixture(scope="function")
 def mock_list_zarr_files_from_metadata(mocker):
     """
-    Mocks the `_list_zarr_files_from_metadata` method of the data download client.
+    Mocks the `list_zarr_files_from_metadata` method of EOProduct.
     """
-    return mocker.patch.object(BaseDataDownloadClient, "_list_zarr_files_from_metadata")
+    return mocker.patch("eodag.api.product._product.EOProduct.list_zarr_files_from_metadata")
 
 
 @pytest.fixture(scope="function")
 def mock_data_download_requests_get(mocker):
     """
-    Mocks the `requests.get` call used by the data download extension.
+    Mocks the `requests.get` call used by EOProduct.request_asset.
     """
-    return mocker.patch("stac_fastapi.eodag.extensions.data_download.requests.get")
+    return mocker.patch("eodag.api.product._product.requests.get")
 
 
 @pytest.fixture(scope="function")

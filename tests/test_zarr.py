@@ -144,12 +144,7 @@ async def test_zarr_index_listing(
     assert res["files"][1]["url"] == f"/data/peps/{collection}/{item_id}/example.zarr/group/foo.txt"
     mock_list_zarr_files_from_metadata.assert_called_once_with(
         "https://data/peps/example.zarr",
-        "http://testserver/data",
         None,
-        "peps",
-        collection,
-        item_id,
-        "example.zarr",
     )
 
 
