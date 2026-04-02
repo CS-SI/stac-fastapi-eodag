@@ -137,7 +137,7 @@ providers: ""
 ## doc: https://eodag.readthedocs.io/en/stable/getting_started_guide/configure.html
 ## ref: https://github.com/CS-SI/eodag/blob/master/eodag/resources/user_conf_template.yml
 config:
-  # peps:
+  # cop_dataspace:
   #   priority: # Lower value means lower priority (Default: 1)
   #   search:  # Search parameters configuration
   #   download:

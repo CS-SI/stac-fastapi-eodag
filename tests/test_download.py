@@ -35,7 +35,7 @@ async def test_download_item_from_collection_stream(
     """Download through eodag server catalog should return a valid response"""
     mock_base_stream_download.return_value = stream_response
 
-    resp = await request_valid_raw(f"data/peps/{defaults.collection}/foo/downloadLink")
+    resp = await request_valid_raw(f"data/cop_dataspace/{defaults.collection}/foo/downloadLink")
     assert resp.content == b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     assert resp.headers["content-disposition"] == 'attachment; filename="alphabet.txt"'
     assert resp.headers["content-type"] == "text/plain"
@@ -51,7 +51,7 @@ async def test_download_item_from_collection_no_stream(
     mock_download.return_value = expected_file
     mock_base_stream_download.side_effect = NotImplementedError()
 
-    await request_valid_raw(f"data/peps/{defaults.collection}/foo/downloadLink")
+    await request_valid_raw(f"data/cop_dataspace/{defaults.collection}/foo/downloadLink")
     mock_download.assert_called_once()
     # downloaded file should have been immediatly deleted from the server
     assert not os.path.exists(expected_file), f"File {expected_file} should have been deleted"
@@ -69,12 +69,12 @@ async def test_download_auto_order_whitelist(
     """Test that the order method is called when downloading a product
     from a federation backend included in the auto_order_whitelist.
 
-    This test simulates downloading a product from a federated backend ('peps')
+    This test simulates downloading a product from a federated backend ('cop_dataspace')
     and checks that the order function is triggered when the backend is present
     in the auto_order_whitelist configuration.
     """
-    federation_backend = "peps"
-    # update the auto_order_whitelist setting to include "peps"
+    federation_backend = "cop_dataspace"
+    # update the auto_order_whitelist setting to include "cop_dataspace"
     auto_order_whitelist = get_settings().auto_order_whitelist
     get_settings().auto_order_whitelist = [federation_backend]
 
