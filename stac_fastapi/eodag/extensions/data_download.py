@@ -87,7 +87,7 @@ class BaseDataDownloadClient:
         base_url = asset_values["href"]
         if file_path == "index":
             try:
-                paths = product.list_zarr_files_from_metadata(base_url, auth)
+                paths = product.list_zarr_files_from_metadata(base_url)
 
                 files = [
                     {
@@ -117,13 +117,13 @@ class BaseDataDownloadClient:
             # to stream a specific file in the zarr store
             base_url = base_url + "/" + file_path.lstrip("/")
 
-            r = product.request_asset(url=base_url, auth=auth)
+            r = product.request_asset(url=base_url)
             data = r.json()
             return JSONResponse(content=data)
         if zarr_asset_name == asset_name:
             target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
 
-            r = product.request_asset(url=target_url, auth=auth)
+            r = product.request_asset(url=target_url)
 
             return StreamingResponse(
                 r.iter_content(chunk_size=1024 * 1024),
