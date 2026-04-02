@@ -508,7 +508,7 @@ async def test_search_response_contains_pagination_info(request_valid, defaults)
     [
         (None, None, [False, False, False, False]),
         (True, None, [True, True, True, True]),
-        (True, "https://dataspace.copernicus.eu", [False, False, True, False]),
+        (True, "https://catalogue.dataspace.copernicus.eu", [False, False, True, False]),
     ],
     ids=[
         "no alt links by default",
@@ -528,7 +528,7 @@ async def test_assets_alt_url_blacklist(
     """Search through eodag server must not have alternate link if in blacklist"""
 
     search_result = mock_search_result
-    search_result[0].assets.update({"asset1": {"href": "https://dataspace.copernicus.eu"}})
+    search_result[0].assets.update({"asset1": {"href": "https://catalogue.dataspace.copernicus.eu"}})
     search_result[1].assets.update({"asset1": {"href": "https://somewhere.fr"}})
     # make assets of the second product available for this test
     search_result[1].properties["order:status"] = ONLINE_STATUS
