@@ -61,7 +61,7 @@ def test_items_response_includes_zarr_index_asset(defaults, mock_search_result, 
     """create_stac_item should include a Zarr index asset when a Zarr asset is present."""
     search_result = mock_search_result
     product = search_result[0]
-    product.assets.update({"example.zarr": {"href": "https://data/peps/example.zarr"}})
+    product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
     request = mock.Mock()
     request.app.state.dag.collections_config = {}
     mock_item_get_settings.return_value = mock.Mock(
@@ -83,12 +83,12 @@ def test_items_response_includes_zarr_index_asset(defaults, mock_search_result, 
     assert "download_link" not in item["assets"]
     assert (
         item["assets"]["example.zarr"]["href"]
-        == f"http://testserver/data/peps/{item['collection']}/{item['id']}/example.zarr"
+        == f"http://testserver/data/cop_dataspace/{item['collection']}/{item['id']}/example.zarr"
     )
     assert "Zarr index" in item["assets"]
     assert (
         item["assets"]["Zarr index"]["href"]
-        == f"http://testserver/data/peps/{item['collection']}/{item['id']}/zarr/index"
+        == f"http://testserver/data/cop_dataspace/{item['collection']}/{item['id']}/zarr/index"
     )
 
 
@@ -101,7 +101,7 @@ async def test_zarr_index_listing(
     item_id = "dummy_id"
     client = BaseDataDownloadClient()
     product = EOProduct(
-        "peps",
+        "cop_dataspace",
         dict(
             geometry="POINT (0 0)",
             title="dummy_product",
@@ -109,10 +109,10 @@ async def test_zarr_index_listing(
         ),
         collection=collection,
     )
-    product.assets.update({"example.zarr": {"href": "https://data/peps/example.zarr"}})
+    product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
     config = PluginConfig()
     config.priority = 0
-    downloader = HTTPDownload("peps", config)
+    downloader = HTTPDownload("cop_dataspace", config)
     product.register_downloader(downloader=downloader, authenticator=None)
 
     dag = mock.Mock()
@@ -121,12 +121,12 @@ async def test_zarr_index_listing(
     request.app.state.dag = dag
     request.base_url._url = "http://testserver/"
     mock_list_zarr_files_from_metadata.return_value = [
-        {"path": ".zmetadata", "size": None, "url": f"/data/peps/{collection}/{item_id}/example.zarr/.zmetadata"},
-        {"path": "group/foo.txt", "size": None, "url": f"/data/peps/{collection}/{item_id}/example.zarr/group/foo.txt"},
+        {"path": ".zmetadata", "size": None, "url": f"/data/cop_dataspace/{collection}/{item_id}/example.zarr/.zmetadata"},
+        {"path": "group/foo.txt", "size": None, "url": f"/data/cop_dataspace/{collection}/{item_id}/example.zarr/group/foo.txt"},
     ]
 
     response = client.get_data(
-        "peps",
+        "cop_dataspace",
         collection,
         item_id,
         "example.zarr",
@@ -138,12 +138,12 @@ async def test_zarr_index_listing(
     assert res["type"] == "stream-file-index"
     assert res["item_id"] == item_id
     assert res["collection_id"] == collection
-    assert res["backend"] == "peps"
+    assert res["backend"] == "cop_dataspace"
     assert res["file_count"] == 2
     assert [f["path"] for f in res["files"]] == [".zmetadata", "group/foo.txt"]
-    assert res["files"][1]["url"] == f"/data/peps/{collection}/{item_id}/example.zarr/group/foo.txt"
+    assert res["files"][1]["url"] == f"/data/cop_dataspace/{collection}/{item_id}/example.zarr/group/foo.txt"
     mock_list_zarr_files_from_metadata.assert_called_once_with(
-        "https://data/peps/example.zarr",
+        "https://data/cop_dataspace/example.zarr",
         None,
     )
 
@@ -157,7 +157,7 @@ async def test_zarr_file_display(
     item_id = "dummy_id"
     client = BaseDataDownloadClient()
     product = EOProduct(
-        "peps",
+        "cop_dataspace",
         dict(
             geometry="POINT (0 0)",
             title="dummy_product",
@@ -165,10 +165,10 @@ async def test_zarr_file_display(
         ),
         collection=collection,
     )
-    product.assets.update({"example.zarr": {"href": "https://data/peps/example.zarr"}})
+    product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
     config = PluginConfig()
     config.priority = 0
-    downloader = HTTPDownload("peps", config)
+    downloader = HTTPDownload("cop_dataspace", config)
     product.register_downloader(downloader=downloader, authenticator=None)
 
     dag = mock.Mock()
@@ -183,7 +183,7 @@ async def test_zarr_file_display(
     mock_data_download_requests_get.return_value.iter_content.return_value = iter([b"hello"])
 
     response = client.get_data_with_file(
-        "peps",
+        "cop_dataspace",
         collection,
         item_id,
         "example.zarr",
@@ -194,7 +194,7 @@ async def test_zarr_file_display(
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
     mock_data_download_requests_get.assert_called_once_with(
-        "https://data/peps/example.zarr/group/foo.txt",
+        "https://data/cop_dataspace/example.zarr/group/foo.txt",
         auth=None,
         stream=True,
     )
