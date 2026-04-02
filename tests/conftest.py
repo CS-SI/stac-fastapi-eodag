@@ -224,7 +224,7 @@ def mock_search_result():
                         ],
                         "type": "Polygon",
                     },
-                    "assets": {"asset1": {"title": "asset1", "href": "https://dataspace.copernicus.eu"}},
+                    "assets": {"asset1": {"title": "asset1", "href": "https://catalogue.dataspace.copernicus.eu"}},
                 },
                 {
                     "properties": {
