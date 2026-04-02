@@ -121,8 +121,8 @@ async def test_zarr_index_listing(
     request.app.state.dag = dag
     request.base_url._url = "http://testserver/"
     mock_list_zarr_files_from_metadata.return_value = [
-        {"path": ".zmetadata", "size": None, "url": f"/data/cop_dataspace/{collection}/{item_id}/example.zarr/.zmetadata"},
-        {"path": "group/foo.txt", "size": None, "url": f"/data/cop_dataspace/{collection}/{item_id}/example.zarr/group/foo.txt"},
+        ".zmetadata",
+        "group/foo.txt",
     ]
 
     response = client.get_data(
@@ -141,11 +141,11 @@ async def test_zarr_index_listing(
     assert res["backend"] == "cop_dataspace"
     assert res["file_count"] == 2
     assert [f["path"] for f in res["files"]] == [".zmetadata", "group/foo.txt"]
-    assert res["files"][1]["url"] == f"/data/cop_dataspace/{collection}/{item_id}/example.zarr/group/foo.txt"
-    mock_list_zarr_files_from_metadata.assert_called_once_with(
-        "https://data/cop_dataspace/example.zarr",
-        None,
+    assert (
+        res["files"][1]["url"]
+        == f"http://testserver/data/cop_dataspace/{collection}/{item_id}/example.zarr/group/foo.txt"
     )
+    mock_list_zarr_files_from_metadata.assert_called_once_with("https://data/cop_dataspace/example.zarr")
 
 
 async def test_zarr_file_display(
@@ -195,6 +195,6 @@ async def test_zarr_file_display(
     assert response.headers["content-type"].startswith("text/plain")
     mock_data_download_requests_get.assert_called_once_with(
         "https://data/cop_dataspace/example.zarr/group/foo.txt",
-        auth=None,
+        headers={},
         stream=True,
     )
