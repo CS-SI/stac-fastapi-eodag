@@ -177,7 +177,7 @@ def mock_search_result():
                         "keywords": [],
                         "product:type": "OCN",
                         "eodag:download_link": (
-                            "https://dataspace.copernicus.eu/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7b/download"
+                            "https://catalogue.dataspace.copernicus.eu/odata/v1/Products(578f1768-e66e-5b86-9363-b19f8931cc7b)/$value"
                         ),
                         "eodag:provider": "cop_dataspace",
                         "collection": "S1_SAR_OCN",
