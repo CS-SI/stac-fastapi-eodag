@@ -30,7 +30,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
     errors = [
         ("usgs", Exception("Generic exception", "Details of the error")),
         ("theia", TimeOutError("Timeout message")),
-        ("peps", req_err),
+        ("cop_dataspace", req_err),
         ("creodias", AuthenticationError("Authentication message")),
         (
             "creodias_s3",
@@ -58,7 +58,7 @@ async def test_search_no_results_with_errors(app, app_client, mocker):
                 "status_code": 504,
             },
             {
-                "provider": "peps",
+                "provider": "cop_dataspace",
                 "error": "RequestError",
                 "message": "Request error message with status code",
                 "status_code": 400,

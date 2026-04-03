@@ -113,11 +113,11 @@ def app() -> Iterator[FastAPI]:
     """
     providers_dict = ProvidersDict(
         {
-            "peps": Provider(
+            "cop_dataspace": Provider(
                 ProviderConfig.from_mapping(
                     {
-                        "name": "peps",
-                        "url": "https://peps.cnes.fr",
+                        "name": "cop_dataspace",
+                        "url": "https://dataspace.copernicus.eu",
                         "search": {"type": "QueryStringSearch"},
                         "products": {"S2_MSI_L1C": {"_collection": "SENTINEL-2"}},
                     }
@@ -177,9 +177,9 @@ def mock_search_result():
                         "keywords": [],
                         "product:type": "OCN",
                         "eodag:download_link": (
-                            "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7b/download"
+                            "https://catalogue.dataspace.copernicus.eu/odata/v1/Products(578f1768-e66e-5b86-9363-b19f8931cc7b)/$value"
                         ),
-                        "eodag:provider": "peps",
+                        "eodag:provider": "cop_dataspace",
                         "collection": "S1_SAR_OCN",
                         "platform": "S1A",
                         "eo:cloud_cover": 0,
@@ -208,7 +208,7 @@ def mock_search_result():
                         "sar:instrument_mode": None,
                         "quicklook": None,
                         "order:status": ONLINE_STATUS,
-                        "peps:providerProperty": "foo",
+                        "cop_dataspace:providerProperty": "foo",
                     },
                     "id": "578f1768-e66e-5b86-9363-b19f8931cc7b",
                     "type": "Feature",
@@ -224,7 +224,7 @@ def mock_search_result():
                         ],
                         "type": "Polygon",
                     },
-                    "assets": {"asset1": {"title": "asset1", "href": "https://peps.cnes.fr"}},
+                    "assets": {"asset1": {"title": "asset1", "href": "https://catalogue.dataspace.copernicus.eu"}},
                 },
                 {
                     "properties": {
@@ -234,9 +234,9 @@ def mock_search_result():
                         "keywords": [],
                         "product:type": "OCN",
                         "eodag:download_link": (
-                            "https://peps.cnes.fr/resto/collections/S1/578f1768-e66e-5b86-9363-b19f8931cc7c/download"
+                            "https://catalogue.dataspace.copernicus.eu/odata/v1/Products(578f1768-e66e-5b86-9363-b19f8931cc7c)/$value"
                         ),
-                        "eodag:provider": "peps",
+                        "eodag:provider": "cop_dataspace",
                         "collection": "S1_SAR_OCN",
                         "platform": "S1A",
                         "eo:cloud_cover": 0,
@@ -288,8 +288,8 @@ def mock_search_result():
     config = PluginConfig()
     config.priority = 0
     for p in search_result:
-        p.downloader = Download("peps", config)
-        p.downloader_auth = Authentication("peps", config)
+        p.downloader = Download("cop_dataspace", config)
+        p.downloader_auth = Authentication("cop_dataspace", config)
     search_result.number_matched = None
     return search_result
 

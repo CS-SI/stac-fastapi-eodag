@@ -137,18 +137,6 @@ providers: ""
 ## doc: https://eodag.readthedocs.io/en/stable/getting_started_guide/configure.html
 ## ref: https://github.com/CS-SI/eodag/blob/master/eodag/resources/user_conf_template.yml
 config:
-  # peps:
-  #   priority: # Lower value means lower priority (Default: 1)
-  #   search:  # Search parameters configuration
-  #   download:
-  #       extract:  # whether to extract the downloaded products, only applies to archived products (true or false, Default: true).
-  #       outputs_prefix: # where to store downloaded products, as an absolute file path (Default: local temporary directory)
-  #       dl_url_params:  # additional parameters to pass over to the download url as an url parameter
-  #       delete_archive: # whether to delete the downloaded archives (true or false, Default: true).
-  #   auth:
-  #       credentials:
-  #           username:
-  #           password:
   # cop_cds:
   #     priority: # Lower value means lower priority (Default: 0)
   #     api:

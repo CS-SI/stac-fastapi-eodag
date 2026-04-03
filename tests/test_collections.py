@@ -99,9 +99,9 @@ async def test_search_collections_query(app_client, mock_list_collections):
     collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
     collection2 = Collection(id="S2_MSI_L2A")
     mock_list_collections.return_value = CollectionsList([collection1, collection2])
-    r = await app_client.get('/collections?query={"federation:backends":{"eq":"peps"}}')
+    r = await app_client.get('/collections?query={"federation:backends":{"eq":"cop_dataspace"}}')
 
-    mock_list_collections.assert_called_once_with(provider="peps", fetch_providers=False)
+    mock_list_collections.assert_called_once_with(provider="cop_dataspace", fetch_providers=False)
     assert r.status_code == 200
     assert ["S2_MSI_L1C", "S2_MSI_L2A"] == [col["id"] for col in r.json().get("collections", [])]
 

@@ -122,7 +122,7 @@ async def test_items_response(request_valid, defaults):
         "geometry",
         "properties",
     }
-    assert first_props["federation:backends"] == ["peps"]
+    assert first_props["federation:backends"] == ["cop_dataspace"]
     assert first_props["datetime"] == "2018-02-15T23:53:22.871Z"
     assert first_props["start_datetime"] == "2018-02-15T23:53:22.871Z"
     assert first_props["end_datetime"] == "2018-02-16T00:12:14.035Z"
@@ -136,14 +136,14 @@ async def test_items_response(request_valid, defaults):
     assert "asset1" in res[0]["assets"]
     assert (
         res[0]["assets"]["asset1"]["href"]
-        == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
+        == f"http://testserver/data/cop_dataspace/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
     assert res[1]["properties"]["order:status"] == "orderable"
     assert "assets" in res[0]
     assert "asset1" in res[0]["assets"]
     assert (
         res[0]["assets"]["asset1"]["href"]
-        == f"http://testserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
+        == f"http://testserver/data/cop_dataspace/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
     expected_extensions = [
         "https://stac-extensions.github.io/sat/v1.0.0/schema.json",
@@ -155,9 +155,9 @@ async def test_items_response(request_valid, defaults):
     for ext in expected_extensions:
         assert ext in res[0]["stac_extensions"]
 
-    # check order status and storage tier properties of the "OFFLINE" item when peps is whitelisted
+    # check order status and storage tier properties of the "OFFLINE" item when cop_dataspace is whitelisted
     auto_order_whitelist = get_settings().auto_order_whitelist
-    get_settings().auto_order_whitelist = ["peps"]
+    get_settings().auto_order_whitelist = ["cop_dataspace"]
 
     resp_json = await request_valid(
         f"search?collections={defaults.collection}",
@@ -197,7 +197,7 @@ async def test_assets_with_different_download_base_url(request_valid, defaults):
     assert "asset1" in res[0]["assets"]
     assert (
         res[0]["assets"]["asset1"]["href"]
-        == f"http://otherserver/data/peps/{res[0]['collection']}/{res[0]['id']}/asset1"
+        == f"http://otherserver/data/cop_dataspace/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
 
 
@@ -508,7 +508,7 @@ async def test_search_response_contains_pagination_info(request_valid, defaults)
     [
         (None, None, [False, False, False, False]),
         (True, None, [True, True, True, True]),
-        (True, "https://peps.cnes.fr", [False, False, True, False]),
+        (True, "https://catalogue.dataspace.copernicus.eu", [False, False, True, False]),
     ],
     ids=[
         "no alt links by default",
@@ -528,7 +528,7 @@ async def test_assets_alt_url_blacklist(
     """Search through eodag server must not have alternate link if in blacklist"""
 
     search_result = mock_search_result
-    search_result[0].assets.update({"asset1": {"href": "https://peps.cnes.fr"}})
+    search_result[0].assets.update({"asset1": {"href": "https://catalogue.dataspace.copernicus.eu"}})
     search_result[1].assets.update({"asset1": {"href": "https://somewhere.fr"}})
     # make assets of the second product available for this test
     search_result[1].properties["order:status"] = ONLINE_STATUS
@@ -552,17 +552,17 @@ async def test_assets_alt_url_blacklist(
         (
             "POST",
             "search",
-            {"collections": ["{defaults.collection}"], "query": {"federation:backends": {"eq": "peps"}}},
-            {"provider": "peps"},
+            {"collections": ["{defaults.collection}"], "query": {"federation:backends": {"eq": "cop_dataspace"}}},
+            {"provider": "cop_dataspace"},
         ),
         # POST with no provider specified
         ("POST", "search", {"collections": ["{defaults.collection}"]}, {}),
         # GET with provider specified
         (
             "GET",
-            'search?collections={defaults.collection}&query={{"federation:backends":{{"eq":"peps"}} }}',
+            'search?collections={defaults.collection}&query={{"federation:backends":{{"eq":"cop_dataspace"}} }}',
             None,
-            {"provider": "peps"},
+            {"provider": "cop_dataspace"},
         ),
         # GET with no provider specified
         ("GET", "search?collections={defaults.collection}", None, {}),
@@ -684,7 +684,7 @@ async def test_pagination_basic(request_valid, defaults, method, has_next_token,
     # Create search result based on whether next token should be present
     if has_next_token:
         search_result = SearchResult(
-            [EOProduct("peps", {"id": "_", "collection": "_"})] * 10, next_page_token=next_token
+            [EOProduct("cop_dataspace", {"id": "_", "collection": "_"})] * 10, next_page_token=next_token
         )
     else:
         search_result = SearchResult([])
@@ -740,7 +740,9 @@ async def test_pagination_with_token(request_valid, defaults, method):
     next_token = "next_token_456"
 
     # Create a mock search result for the next page
-    search_result = SearchResult([EOProduct("peps", {"id": "_", "collection": "_"})] * 10, next_page_token=next_token)
+    search_result = SearchResult(
+        [EOProduct("cop_dataspace", {"id": "_", "collection": "_"})] * 10, next_page_token=next_token
+    )
 
     # Set up request parameters based on method
     if method == "GET":
