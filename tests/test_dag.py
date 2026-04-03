@@ -122,7 +122,7 @@ def fixture_mock_fetch_external_stac_collections(mocker: MockerFixture) -> Magic
         "test-product": {
             "id": "test-product",
             "title": "Mocked Title",
-            "description": "Mocked Description",
+            "description": "Not Available",
             "license": "Mocked License",
             "summaries": {
                 "platform": ["Mocked Platform"],
@@ -191,7 +191,7 @@ def fixture_mock_dag() -> MagicMock:
             {
                 "id": "test-product",
                 "title": "Mocked Title",
-                "description": "Mocked Description",
+                "description": "Not Available",
                 "keywords": ["keyword1", "keyword2"],
                 "instruments": ["Mocked Instrument"],
                 "platform": "Mocked Platform",
@@ -226,7 +226,7 @@ def fixture_mock_dag() -> MagicMock:
             {
                 "id": "test-product",
                 "title": "Existing Title",
-                "description": "Mocked Description",
+                "description": "Not Available",
                 "keywords": ["keyword1", "keyword2"],
                 "instruments": ["Existing Instrument"],
                 "platform": "Mocked Platform",

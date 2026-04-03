@@ -23,10 +23,10 @@ from unittest.mock import ANY
 async def test_landing_page(request_valid):
     """Test the root route."""
     response = await request_valid("/")
-    assert response["federation"]["peps"] == {
-        "title": "peps",
+    assert response["federation"]["cop_dataspace"] == {
+        "title": "cop_dataspace",
         "description": ANY,
-        "url": "https://peps.cnes.fr",
+        "url": "https://dataspace.copernicus.eu",
     }
     assert len(response["federation"]) > 1
     assert "https://api.openeo.org/extensions/federation/0.1.0" in response["stac_extensions"]
