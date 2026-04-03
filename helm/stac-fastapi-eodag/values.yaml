@@ -137,6 +137,13 @@ providers: ""
 ## doc: https://eodag.readthedocs.io/en/stable/getting_started_guide/configure.html
 ## ref: https://github.com/CS-SI/eodag/blob/master/eodag/resources/user_conf_template.yml
 config:
+  # cop_cds:
+  #     priority: # Lower value means lower priority (Default: 0)
+  #     api:
+  #         outputs_prefix:
+  #         credentials:
+  #             username:
+  #             password:
   # cop_dataspace:
   #     priority: # Lower value means lower priority (Default: 0)
   #     search:   # Search parameters configuration
