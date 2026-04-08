@@ -8,13 +8,14 @@ license = { file = "LICENSE" }
 requires-python = ">= 3.9"
 dependencies = [
     "attr",
-    "eodag[all-providers] @ git+https://github.com/CS-SI/eodag.git@develop",
+    "eodag[all-providers] @ git+https://github.com/CS-SI/eodag.git@db-for-collections-storage",
     "fastapi",
     "geojson",
     "geojson-pydantic",
     "orjson",
     "pydantic",
     "pydantic_core",
+    "cql2",
     "pygeofilter",
     "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions",
@@ -65,7 +66,13 @@ explicit_package_bases = true
 exclude = ["tests", ".venv"]
 
 [[tool.mypy.overrides]]
-module = ["geojson", "pygeofilter", "pygeofilter.*", "stac_fastapi", "stac_fastapi.*"]
+module = [
+    "geojson",
+    "pygeofilter",
+    "pygeofilter.*",
+    "stac_fastapi",
+    "stac_fastapi.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

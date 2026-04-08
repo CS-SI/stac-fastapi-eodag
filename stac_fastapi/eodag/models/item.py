@@ -26,6 +26,7 @@ from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.stac import Item
 from stac_pydantic.api.version import STAC_API_VERSION
+from stac_pydantic.links import Link, Links
 from stac_pydantic.shared import Asset
 
 from eodag.api.product._product import EOProduct
@@ -70,16 +71,13 @@ def create_stac_item(
 
     settings: Settings = get_settings()
 
-    collection_obj = request.app.state.dag.collections_config.get(product.collection)
-    collection = collection_obj.id if collection_obj else product.collection
-
     feature = Item(
         type="Feature",
         assets={},
         id=product.properties["id"],
         geometry=product.geometry.__geo_interface__,
         bbox=product.geometry.bounds,
-        collection=collection,
+        collection=product.collection,
         stac_version=STAC_API_VERSION,
     )
 
@@ -91,7 +89,7 @@ def create_stac_item(
 
     quoted_id = quote(feature["id"])
     asset_proxy_url = (
-        (download_base_url + f"data/{product.provider}/{collection}/{quoted_id}")
+        (download_base_url + f"data/{product.provider}/{product.collection}/{quoted_id}")
         if extension_is_enabled("DataDownload")
         else None
     )
@@ -185,11 +183,12 @@ def create_stac_item(
         if provider := eodag_args.get("provider", None):
             retrieve_body["federation:backends"] = [provider]
 
+    extra_links = Links(root=[Link(**link) for link in feature.get("links", [])])
     feature["links"] = ItemLinks(
-        collection_id=collection,
+        collection_id=product.collection,
         item_id=quoted_id,
         retrieve_body=retrieve_body,
         request=request,
-    ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)
+    ).get_links(extensions=extension_names, extra_links=extra_links, request_json=request_json)
 
     return feature
