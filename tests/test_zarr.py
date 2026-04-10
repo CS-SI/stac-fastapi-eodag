@@ -17,7 +17,6 @@
 # limitations under the License.
 """Zarr tests."""
 
-import json
 from unittest import mock
 
 from eodag import SearchResult
@@ -57,8 +56,8 @@ def test_get_data_with_file_delegates_to_get_data(mock_base_data_download_get_da
     )
 
 
-def test_items_response_includes_zarr_index_asset(defaults, mock_search_result, mock_item_get_settings):
-    """create_stac_item should include a Zarr index asset when a Zarr asset is present."""
+def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_item_get_settings):
+    """create_stac_item should include a Zarr asset when present."""
     search_result = mock_search_result
     product = search_result[0]
     product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
@@ -85,67 +84,6 @@ def test_items_response_includes_zarr_index_asset(defaults, mock_search_result, 
         item["assets"]["example.zarr"]["href"]
         == f"http://testserver/data/cop_dataspace/{item['collection']}/{item['id']}/example.zarr"
     )
-    assert "Zarr index" in item["assets"]
-    assert (
-        item["assets"]["Zarr index"]["href"]
-        == f"http://testserver/data/cop_dataspace/{item['collection']}/{item['id']}/zarr/index"
-    )
-
-
-async def test_zarr_index_listing(
-    defaults,
-    mock_list_zarr_files_from_metadata,
-):
-    """get_data should return the streamed file index for a .zarr asset."""
-    collection = defaults.collection
-    item_id = "dummy_id"
-    client = BaseDataDownloadClient()
-    product = EOProduct(
-        "cop_dataspace",
-        dict(
-            geometry="POINT (0 0)",
-            title="dummy_product",
-            id=item_id,
-        ),
-        collection=collection,
-    )
-    product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
-    config = PluginConfig()
-    config.priority = 0
-    downloader = HTTPDownload("cop_dataspace", config)
-    product.register_downloader(downloader=downloader, authenticator=None)
-
-    dag = mock.Mock()
-    dag.search.return_value = SearchResult([product])
-    request = mock.Mock()
-    request.app.state.dag = dag
-    request.base_url._url = "http://testserver/"
-    mock_list_zarr_files_from_metadata.return_value = [
-        ".zmetadata",
-        "group/foo.txt",
-    ]
-
-    response = client.get_data(
-        "cop_dataspace",
-        collection,
-        item_id,
-        "example.zarr",
-        request,
-        "index",
-    )
-    res = json.loads(response.body)
-
-    assert res["type"] == "stream-file-index"
-    assert res["item_id"] == item_id
-    assert res["collection_id"] == collection
-    assert res["backend"] == "cop_dataspace"
-    assert res["file_count"] == 2
-    assert [f["path"] for f in res["files"]] == [".zmetadata", "group/foo.txt"]
-    assert (
-        res["files"][1]["url"]
-        == f"http://testserver/data/cop_dataspace/{collection}/{item_id}/example.zarr/group/foo.txt"
-    )
-    mock_list_zarr_files_from_metadata.assert_called_once_with("https://data/cop_dataspace/example.zarr")
 
 
 async def test_zarr_file_display(
