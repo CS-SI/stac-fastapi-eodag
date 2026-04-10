@@ -146,12 +146,6 @@ def create_stac_item(
                         "type": mime_type,
                     },
                 }
-        if any("zarr" in key for key in product.assets) and asset_proxy_url:
-            feature["assets"]["Zarr index"] = {
-                "title": "Zarr store index",
-                "href": asset_proxy_url + "/zarr/index",
-                "type": "application/json",
-            }
 
     product_dict = product.as_dict()
     # filter properties we do not want to expose
