@@ -536,14 +536,6 @@ def mock_base_data_download_get_data(mocker):
 
 
 @pytest.fixture(scope="function")
-def mock_list_zarr_files_from_metadata(mocker):
-    """
-    Mocks the `list_zarr_files_from_metadata` method of EOProduct.
-    """
-    return mocker.patch("eodag.api.product._product.EOProduct.list_zarr_files_from_metadata")
-
-
-@pytest.fixture(scope="function")
 def mock_data_download_requests_get(mocker):
     """
     Mocks the `requests.get` call used by EOProduct.request_asset.
