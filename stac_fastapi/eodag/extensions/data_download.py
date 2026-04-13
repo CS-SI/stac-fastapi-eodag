@@ -222,7 +222,9 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        zarr_asset_name = next((name for name in product.assets if (name.endswith("zarr") and asset_name!="downloadLink")), None)
+        zarr_asset_name = next(
+            (name for name in product.assets if (name.endswith("zarr") and asset_name != "downloadLink")), None
+        )
         if zarr_asset_name:
             asset_values = product.assets[zarr_asset_name]
             base_url = asset_values["href"]
