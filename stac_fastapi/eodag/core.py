@@ -125,7 +125,7 @@ class EodagCoreClient(CustomCoreClient):
         }
 
         for key in ["license", "description", "title"]:
-            if value := getattr(collection, key):
+            if key not in extended_collection and (value := getattr(collection, key)):
                 extended_collection[key] = value
 
         keywords = collection.keywords or []
