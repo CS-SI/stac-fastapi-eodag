@@ -216,6 +216,29 @@ async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_r
     assert asset["href"].endswith("asset%2Astar")
 
 
+async def test_downloadlink_excluded_when_parquet_asset(request_valid, defaults, mock_search_result):
+    """downloadLink should not be included when product has parquet assets"""
+    search_result = mock_search_result
+
+    # Add a parquet asset to the first product
+    search_result[0].assets.update(
+        {"data.parquet": {"title": "Parquet data", "href": "https://somewhere.fr/data.parquet"}}
+    )
+
+    # Make sure second product is ONLINE to have assets
+    search_result[1].properties["order:status"] = ONLINE_STATUS
+
+    resp_json = await request_valid(f"search?collections={defaults.collection}", search_result=search_result)
+    res = resp_json["features"]
+
+    # First product has parquet asset, so no downloadLink should be created
+    assert "downloadLink" not in res[0]["assets"], "downloadLink should not be present when parquet asset exists"
+    assert "data.parquet" in res[0]["assets"], "parquet asset should be present"
+
+    # Second product has no parquet asset and is ONLINE, so downloadLink should be present
+    assert "downloadLink" in res[1]["assets"], "downloadLink should be present when no parquet assets"
+
+
 async def test_not_found(request_not_found):
     """A request to eodag server with a not supported product type must return a 404 HTTP error code"""
     await request_not_found("search?collections=ZZZ&bbox=0,43,1,44")
