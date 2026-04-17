@@ -17,9 +17,10 @@
 # limitations under the License.
 """property fields."""
 
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Request
+from eodag.api.provider import Provider as EodagProvider
 
 
 def get_federation_backend_dict(request: Request, provider_name: str) -> dict[str, Any]:
@@ -29,11 +30,11 @@ def get_federation_backend_dict(request: Request, provider_name: str) -> dict[st
     :param provider_name: provider name
     :return: Federation backend dictionary
     """
-    provider = next(
-        p for p in request.app.state.dag.providers.values() if provider_name in [p.name, getattr(p, "group", None)]
+    provider: EodagProvider = next(
+        cast(EodagProvider, p) for p in request.app.state.dag.providers.values() if provider_name in [p.name, p.metadata.get("group", None)]
     )
     return {
-        "title": provider.group or provider.name,
-        "description": provider.title,
-        "url": provider.url,
+        "title": provider.metadata.get("group", None) or provider.name,
+        "description": provider.metadata.get("description", None),
+        "url": provider.metadata.get("url", None),
     }
