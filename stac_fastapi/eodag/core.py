@@ -234,6 +234,9 @@ class EodagCoreClient(CustomCoreClient):
             else:
                 raise HTTPException(status_code=400, detail=f"Unsupported filter_lang {filter_lang}")
 
+        if not self.extension_is_enabled("OffsetPaginationExtension"):
+            limit = None
+
         collections = cast(
             CollectionsList,
             await asyncio.to_thread(
