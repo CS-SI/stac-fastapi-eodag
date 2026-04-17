@@ -40,7 +40,7 @@ from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.search import BaseSearchPostRequest
 from stac_fastapi.types.stac import Collection, Collections, Item, ItemCollection
-from stac_pydantic.links import Link, Links, Relations
+from stac_pydantic.links import Relations
 from stac_pydantic.shared import MimeTypes
 
 from eodag import EOProduct, SearchResult
@@ -95,7 +95,8 @@ class EodagCoreClient(CustomCoreClient):
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
         # TODO: this needs to be changed: we cannot request the search plugins for each collection, it is too costly.
-        # TODO: We should find a way to know which federation backends support the order mechanism without requesting the plugins manager
+        # TODO: We should find a way to know which federation backends support
+        # the order mechanism without requesting the plugins manager
         def has_ecmwf_search_plugin(federation_backends, request):
             for fb in federation_backends:
                 search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
@@ -113,16 +114,15 @@ class EodagCoreClient(CustomCoreClient):
         ):
             extension_names.remove("CollectionOrderExtension")
 
+        coll_dict = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
         # add API-required links
         all_coll_links = CollectionLinks(
             collection_id=collection.id,
             request=request,
-        ).get_links(extensions=extension_names, extra_links=collection.links)
-
-        collection.links = Links(root=[Link(**coll_link) for coll_link in all_coll_links])
+        ).get_links(extensions=extension_names, extra_links=coll_dict["links"])
 
         # remove eodag-specific fields
-        coll_dict = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
+        coll_dict["links"] = all_coll_links
         return Collection(**coll_dict)
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
@@ -305,7 +305,9 @@ class EodagCoreClient(CustomCoreClient):
         :returns: The collection.
         :raises NotFoundError: If the collection does not exist.
         """
-        collection = cast(Optional[EodagCollection], await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id))
+        collection = cast(
+            Optional[EodagCollection], await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id)
+        )
 
         if collection is None:
             raise NotFoundError(f"Collection {collection_id} does not exist.")
@@ -357,9 +359,10 @@ class EodagCoreClient(CustomCoreClient):
         search_request = self.post_request_model.model_validate(clean)
         item_collection = cast(ItemCollection, await self._search_base(search_request, request))
         extension_names = [type(ext).__name__ for ext in self.extensions]
-        links = ItemCollectionLinks(
-            collection_id=collection_id, collection_title=collection["title"], request=request
-        ).get_links(extensions=extension_names, extra_links=item_collection["links"])
+        extra_links = item_collection.get("links", [])
+        links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
+            extensions=extension_names, extra_links=extra_links
+        )
         item_collection["links"] = links
         return item_collection
 
@@ -494,10 +497,12 @@ class EodagCoreClient(CustomCoreClient):
             for sort in sortby:
                 sortparts = re.match(r"^([+-]?)(.*)$", sort)
                 if sortparts:
-                    sort_param.append({
-                        "field": sortparts.group(2).strip(),
-                        "direction": "desc" if sortparts.group(1) == "-" else "asc",
-                    })
+                    sort_param.append(
+                        {
+                            "field": sortparts.group(2).strip(),
+                            "direction": "desc" if sortparts.group(1) == "-" else "asc",
+                        }
+                    )
             base_args["sortby"] = sort_param
 
         # Remove None values from dict
