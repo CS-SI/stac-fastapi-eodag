@@ -115,6 +115,10 @@ class EodagCoreClient(CustomCoreClient):
             extension_names.remove("CollectionOrderExtension")
 
         coll_dict = collection.model_dump(mode="json", exclude={"alias", "eodag_stac_collection"})
+        for link in coll_dict["links"]:
+            if link.get("label:assets") is None:
+                link.pop("label:assets")
+
         # add API-required links
         all_coll_links = CollectionLinks(
             collection_id=collection.id,
