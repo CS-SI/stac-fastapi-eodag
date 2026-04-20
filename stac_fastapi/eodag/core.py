@@ -28,10 +28,10 @@ from urllib.parse import unquote_plus
 import attr
 import cql2
 import orjson
-import pygeofilter
 from fastapi import HTTPException
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError
+from pygeofilter.parsers.cql2_json import parse as parse_json
 from stac_fastapi.api.models import create_post_request_model
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
@@ -481,10 +481,11 @@ class EodagCoreClient(CustomCoreClient):
         """Clean up search arguments to match format expected by pgstac"""
         if filter_expr:
             if filter_lang == "cql2-text":
-                filter_expr = cql2.parse_text(filter_expr).to_json()
-                filter_lang = "cql2-json"
-
-            base_args["filter"] = str2json("filter_expr", filter_expr)
+                base_args["filter"] = cql2.parse_text(filter_expr).to_json()
+            elif filter_lang == "cql2-json":
+                base_args["filter"] = str2json("filter_expr", filter_expr)
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported filter_lang {filter_lang}")
             base_args["filter_lang"] = "cql2-json"
 
         if datetime:
@@ -501,10 +502,12 @@ class EodagCoreClient(CustomCoreClient):
             for sort in sortby:
                 sortparts = re.match(r"^([+-]?)(.*)$", sort)
                 if sortparts:
-                    sort_param.append({
-                        "field": sortparts.group(2).strip(),
-                        "direction": "desc" if sortparts.group(1) == "-" else "asc",
-                    })
+                    sort_param.append(
+                        {
+                            "field": sortparts.group(2).strip(),
+                            "direction": "desc" if sortparts.group(1) == "-" else "asc",
+                        }
+                    )
             base_args["sortby"] = sort_param
 
         # Remove None values from dict
@@ -649,7 +652,7 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
 
     errors: list[InitErrorDetails] = []
     try:
-        parsing_result = EodagEvaluator().evaluate(pygeofilter.parse(filter_))  # type: ignore
+        parsing_result = EodagEvaluator().evaluate(parse_json(filter_))  # type: ignore
     except (ValueError, NotImplementedError) as e:
         add_error(str(e))
         raise ValidationError.from_exception_data(title="stac-fastapi-eodag", line_errors=errors) from e
