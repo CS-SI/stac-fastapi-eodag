@@ -30,7 +30,6 @@ from fastapi.middleware import Middleware
 from fastapi.responses import ORJSONResponse
 from stac_fastapi.api.app import StacApi
 from stac_fastapi.api.models import (
-    EmptyRequest,
     ItemCollectionUri,
     create_get_request_model,
     create_post_request_model,

@@ -118,6 +118,11 @@ class EodagCoreClient(CustomCoreClient):
         for link in coll_dict["links"]:
             if link.get("label:assets") is None:
                 link.pop("label:assets")
+        assets = coll_dict.get("assets")
+        if isinstance(assets, dict):
+            for asset in assets.values():
+                if asset.get("description") is None:
+                    asset.pop("description", None)
 
         # add API-required links
         all_coll_links = CollectionLinks(

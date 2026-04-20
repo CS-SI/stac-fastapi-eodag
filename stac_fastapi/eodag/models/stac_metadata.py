@@ -31,7 +31,9 @@ def get_federation_backend_dict(request: Request, provider_name: str) -> dict[st
     :return: Federation backend dictionary
     """
     provider: EodagProvider = next(
-        cast(EodagProvider, p) for p in request.app.state.dag.providers.values() if provider_name in [p.name, p.metadata.get("group", None)]
+        cast(EodagProvider, p)
+        for p in request.app.state.dag.providers.values()
+        if provider_name in [p.name, p.metadata.get("group", None)]
     )
     return {
         "title": provider.metadata.get("group", None) or provider.name,
