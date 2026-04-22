@@ -166,7 +166,7 @@ class EodagCoreClient(CustomCoreClient):
         return Collection(**extended_collection)
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
-        eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+        eodag_args = prepare_search_base_args(search_request=search_request)
 
         request.state.eodag_args = eodag_args
 
@@ -582,7 +582,7 @@ class EodagCoreClient(CustomCoreClient):
         return clean
 
 
-def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[BaseModel]) -> dict[str, Any]:
+def prepare_search_base_args(search_request: BaseSearchPostRequest) -> dict[str, Any]:
     """Prepare arguments for an eodag search based on a search request
 
     :param search_request: the search request
@@ -603,7 +603,7 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         for param in sortby:
             param_tuples.append(
                 (
-                    model.from_stac(param["field"]),
+                    CommonStacMetadata.from_stac(param["field"]),
                     param["direction"],
                 )
             )
@@ -612,14 +612,14 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
     eodag_query = {}
     if query_attr := base_args.pop("query", None):
         parsed_query = parse_query(query_attr)
-        eodag_query = {model.from_stac(k): v for k, v in parsed_query.items()}
+        eodag_query = {CommonStacMetadata.from_stac(k): v for k, v in parsed_query.items()}
 
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
     eodag_filter = {}
     base_args.pop("filter_lang", None)
     if f := base_args.pop("filter_expr", None):
         parsed_filter = parse_cql2(f)
-        eodag_filter = {model.from_stac(k): v for k, v in parsed_filter.items()}
+        eodag_filter = {CommonStacMetadata.from_stac(k): v for k, v in parsed_filter.items()}
 
     # EODAG search support a single collection
     if collections := base_args.pop("collections", search_request.collections):

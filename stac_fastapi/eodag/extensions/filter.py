@@ -280,7 +280,7 @@ class FiltersClient(AsyncBaseFiltersClient):
         eodag_params: dict[str, Any] = {}
         for param in validated_params:
             try:
-                eodag_param = self.stac_metadata_model.from_stac(param)
+                eodag_param = CommonStacMetadata.from_stac(param)
             except NotImplementedError:
                 logger.warning("param %s could not be mapped to eodag param", param)
                 eodag_param = param
