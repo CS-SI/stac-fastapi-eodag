@@ -33,6 +33,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.backends.cql2_json import to_cql2
 from pygeofilter.parsers.cql2_json import parse as parse_json
 from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
+from stac_fastapi.api.models import create_post_request_model
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.rfc3339 import str_to_interval
@@ -448,6 +449,10 @@ class EodagCoreClient(CustomCoreClient):
         :param kwargs: Additional keyword arguments.
         :returns: Found items.
         """
+        search_post_model = create_post_request_model(self.extensions)
+        request_json = await request.json()
+        search_post_model.model_validate(request_json, extra="forbid")
+
         return await self._search_base(search_request, request)
 
     async def get_search(
