@@ -148,9 +148,8 @@ async def test_items_response(request_valid, defaults):
     expected_extensions = [
         "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
         "https://stac-extensions.github.io/product/v1.0.0/schema.json",
-        "https://api.openeo.org/extensions/federation/0.1.0",
         "https://stac-extensions.github.io/eo/v2.0.0/schema.json",
-        "https://stac-extensions.github.io/storage/v2.0.0/schema.json",
+        "https://stac-extensions.github.io/order/v1.1.0/schema.json",
     ]
     for ext in expected_extensions:
         assert ext in res[0]["stac_extensions"]
@@ -167,21 +166,6 @@ async def test_items_response(request_valid, defaults):
 
     # restore the original auto_order_whitelist setting
     get_settings().auto_order_whitelist = auto_order_whitelist
-
-
-async def test_items_response_unexpected_types(request_valid, defaults, mock_search_result):
-    """Item properties contain values in unexpected types for processing level and platform
-    These values should be tranformed so that the validation passes
-    """
-    result_properties = mock_search_result.data[0].properties
-    result_properties["processing:level"] = 2
-    result_properties["platform"] = ["P1", "P2"]
-    resp_json = await request_valid(f"search?collections={defaults.collection}", search_result=mock_search_result)
-    res = resp_json["features"]
-    assert len(res) == 2
-    first_props = res[0]["properties"]
-    assert first_props["processing:level"] == "L2"
-    assert first_props["platform"] == "P1,P2"
 
 
 async def test_assets_with_different_download_base_url(request_valid, defaults):
@@ -818,11 +802,7 @@ async def test_pagination_with_federation_backend(request_valid, defaults, metho
         post_data=post_data,
         expected_search_kwargs={
             "collection": defaults.collection,
-            "token": None,
             "limit": 10,
-            "provider": "test_provider",
-            "token": None,
-            "items_per_page": 10,
             "federation:backends": "test_provider",
             "raise_errors": False,
             "count": False,

@@ -18,6 +18,7 @@
 """Get Queryables."""
 
 import asyncio
+import logging
 from typing import Any, Literal, Optional, cast, get_args, get_origin
 
 import attr
@@ -152,6 +153,8 @@ COMMON_QUERYABLES_PROPERTIES = {
     },
 }
 
+logger = logging.getLogger(__name__)
+
 
 @attr.s
 class FiltersClient(AsyncBaseFiltersClient):
@@ -217,11 +220,20 @@ class FiltersClient(AsyncBaseFiltersClient):
         required = queryables.get("required", [])
 
         for k, field in self.stac_metadata_model.model_fields.items():
-            if field.validation_alias in properties:
+            if isinstance(field.validation_alias, AliasChoices):
+                for choice in field.validation_alias.choices:
+                    if choice in properties:
+                        properties[field.serialization_alias or k] = properties[choice]
+                        if (field.serialization_alias or k) != choice:
+                            del properties[choice]
+                    if choice in required:
+                        required.remove(choice)
+                        required.append(field.serialization_alias or k)
+            elif field.validation_alias in properties:
                 properties[field.serialization_alias or k] = properties[field.validation_alias]
                 if (field.serialization_alias or k) != field.validation_alias:
                     del properties[field.validation_alias]
-            if field.validation_alias in required:
+            if isinstance(field.validation_alias, str) and field.validation_alias in required:
                 required.remove(field.validation_alias)
                 required.append(field.serialization_alias or k)
 
@@ -265,9 +277,14 @@ class FiltersClient(AsyncBaseFiltersClient):
             }
         )
         validated_params = validated_params_model.model_dump(exclude_none=True, by_alias=True)
-        eodag_params = {
-            self.stac_metadata_model.from_stac(param): validated_params[param] for param in validated_params
-        }
+        eodag_params: dict[str, Any] = {}
+        for param in validated_params:
+            try:
+                eodag_param = self.stac_metadata_model.from_stac(param)
+            except NotImplementedError:
+                logger.warning("param %s could not be mapped to eodag param", param)
+                eodag_param = param
+            eodag_params[eodag_param] = validated_params[param]
 
         # the parameters in eodag_params are all lists:
         # adapt them to use list or primitive type according to the collection queryables
