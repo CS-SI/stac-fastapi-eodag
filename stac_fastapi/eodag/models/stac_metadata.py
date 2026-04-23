@@ -211,10 +211,15 @@ def get_federation_backend_dict(request: Request, provider_name: str) -> dict[st
         for p in request.app.state.dag.providers.values()
         if provider_name in [p.name, p.metadata.get("group", None)]
     )
+    provider_status = next(
+        (status for p_id, status in request.app.state.providers_status.items() if provider.name == p_id),
+        {},
+    )
     return {
         "title": provider.metadata.get("group", None) or provider.name,
         "description": provider.metadata.get("description", None),
         "url": provider.metadata.get("url", None),
+        **provider_status,
     }
 
 
