@@ -35,7 +35,6 @@ from eodag.utils.exceptions import (
     MisconfiguredError,
     NoMatchingCollection,
     NotAvailableError,
-    QuotaExceededError,
     RequestError,
     TimeOutError,
     UnsupportedCollection,
@@ -61,7 +60,6 @@ EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
     UnsupportedProvider: status.HTTP_404_NOT_FOUND,
     ValidationError: status.HTTP_400_BAD_REQUEST,
     RequestError: status.HTTP_400_BAD_REQUEST,
-    QuotaExceededError: status.HTTP_429_TOO_MANY_REQUESTS,
 }
 
 logger = logging.getLogger(__name__)

@@ -32,7 +32,6 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.parsers.cql2_json import parse as parse_json
-from stac_fastapi.api.models import create_post_request_model
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.search import BaseSearchPostRequest
@@ -384,10 +383,6 @@ class EodagCoreClient(CustomCoreClient):
         :param kwargs: Additional keyword arguments.
         :returns: Found items.
         """
-        search_post_model = create_post_request_model(self.extensions)
-        request_json = await request.json()
-        search_post_model.model_validate(request_json, extra="forbid")
-
         return await self._search_base(search_request, request)
 
     async def get_search(

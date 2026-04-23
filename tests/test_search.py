@@ -38,33 +38,6 @@ async def test_request_params_invalid(bbox, request_not_valid, defaults):
     await request_not_valid(f"search?collections={defaults.collection}&bbox={bbox}")
 
 
-async def test_invalid_post_search_request(request_not_valid):
-    """
-    Test if an invalid POST /search request body returns an error
-    """
-    post_body = {
-        "collections": ["S2_MSI_L1C"],
-        "limit": 1,
-        "sortby": [{"field": "datetime", "direction": "asc"}],
-        "query": {"federation:backends": {"eq": "creodias_s3"}},
-        "ecmwf:year": {"eq": "2000"},  # additional parameter outside of query
-    }
-    await request_not_valid("search", "POST", post_body)
-
-
-async def test_valid_post_search_request(request_valid):
-    """
-    Test if a valid POST /search request body passes validation
-    """
-    post_body = {
-        "collections": ["S2_MSI_L1C"],
-        "limit": 1,
-        "sortby": [{"field": "datetime", "direction": "asc"}],
-        "query": {"federation:backends": {"eq": "creodias_s3"}},
-    }
-    await request_valid(url="search", method="POST", post_data=post_body)
-
-
 @pytest.mark.parametrize("input_bbox,expected_geom", [(None, None), ("bbox_csv", "bbox_list")])
 async def test_request_params_valid(request_valid, defaults, input_bbox, expected_geom):
     """
