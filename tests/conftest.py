@@ -30,9 +30,9 @@ from urllib.parse import urljoin
 import pytest
 from eodag import EODataAccessGateway
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
-from eodag.api.provider import Provider, ProviderConfig, ProvidersDict
+from eodag.api.provider import Provider, ProvidersDict
 from eodag.api.search_result import SearchResult
-from eodag.config import PluginConfig
+from eodag.config import PluginConfig, ProviderConfig
 from eodag.plugins.authentication.aws_auth import AwsAuth
 from eodag.plugins.authentication.base import Authentication
 from eodag.plugins.authentication.openid_connect import OIDCRefreshTokenBase
