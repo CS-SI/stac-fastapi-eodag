@@ -71,6 +71,13 @@ class Settings(ApiSettings):
         alias="validate",
     )
 
+    provider_online_status_threshold: float = Field(
+        default=0.8,
+        description="Threshold for considering a provider as online based"
+        "on the statuses of the all collections provided",
+        alias="provider_online_status_threshold",
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
