@@ -30,7 +30,6 @@ from fastapi.middleware import Middleware
 from fastapi.responses import ORJSONResponse
 from stac_fastapi.api.app import StacApi
 from stac_fastapi.api.models import (
-    EmptyRequest,
     ItemCollectionUri,
     create_get_request_model,
     create_post_request_model,
@@ -38,6 +37,7 @@ from stac_fastapi.api.models import (
 )
 from stac_fastapi.extensions.core import (
     CollectionSearchExtension,
+    CollectionSearchFilterExtension,
     FilterExtension,
     FreeTextExtension,
     QueryExtension,
@@ -114,10 +114,12 @@ search_extensions_map = {
 
 # collection_search extensions
 cs_extensions_map = {
-    "query": QueryExtension(conformance_classes=[QueryConformanceClasses.COLLECTIONS]),
-    "offset-pagination": OffsetPaginationExtension(),
-    "collection-search": CollectionSearchExtension(),
-    "free-text": FreeTextExtension(conformance_classes=[FreeTextConformanceClasses.COLLECTIONS]),
+    "sort": SortExtension(conformance_classes=[SortConformanceClasses.COLLECTIONS]),
+    "filter": CollectionSearchFilterExtension(client=FiltersClient()),
+    "free_text": FreeTextExtension(
+        conformance_classes=[FreeTextConformanceClasses.COLLECTIONS],
+    ),
+    "pagination": OffsetPaginationExtension(),
 }
 
 # item_collection extensions
@@ -128,11 +130,14 @@ itm_col_extensions_map = {
     "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
 }
 
+collection_search_extension = CollectionSearchExtension.from_extensions(cs_extensions_map.values())
+
 all_extensions = {
     **search_extensions_map,
     **cs_extensions_map,
     **itm_col_extensions_map,
     **{
+        "collection-search": collection_search_extension,
         "data-download": DataDownload(),
         "collection-order": CollectionOrderExtension(
             client=BaseCollectionOrderClient(stac_metadata_model=stac_metadata_model)
@@ -194,13 +199,6 @@ search_extensions = get_enabled_extensions(search_extensions_map)
 search_post_model = create_post_request_model(search_extensions)
 search_get_model = create_get_request_model(search_extensions)
 
-collections_model = create_request_model(
-    "CollectionsRequest",
-    base_model=EmptyRequest,
-    extensions=get_enabled_extensions(cs_extensions_map),
-    request_type="GET",
-)
-
 item_collection_model = create_request_model(
     "ItemsRequest",
     base_model=ItemCollectionUri,
@@ -221,7 +219,7 @@ api = StacApi(
     response_class=ORJSONResponse,
     search_get_request_model=search_get_model,
     search_post_request_model=search_post_model,
-    collections_get_request_model=collections_model,
+    collections_get_request_model=collection_search_extension.GET,
     items_get_request_model=item_collection_model,
     middlewares=[
         Middleware(BrotliMiddleware),

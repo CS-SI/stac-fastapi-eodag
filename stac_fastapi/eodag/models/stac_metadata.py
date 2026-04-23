@@ -36,6 +36,7 @@ from stac_pydantic.item import ItemProperties
 from stac_pydantic.shared import Provider
 from typing_extensions import Self
 
+from eodag.api.provider import Provider as EodagProvider
 from stac_fastapi.eodag.extensions.stac import (
     BaseStacExtension,
 )
@@ -205,13 +206,15 @@ def get_federation_backend_dict(request: Request, provider_name: str) -> dict[st
     :param provider_name: provider name
     :return: Federation backend dictionary
     """
-    provider = next(
-        p for p in request.app.state.dag.providers.values() if provider_name in [p.name, getattr(p, "group", None)]
+    provider: EodagProvider = next(
+        cast(EodagProvider, p)
+        for p in request.app.state.dag.providers.values()
+        if provider_name in [p.name, p.metadata.get("group", None)]
     )
     return {
-        "title": provider.group or provider.name,
-        "description": provider.title,
-        "url": provider.url,
+        "title": provider.metadata.get("group", None) or provider.name,
+        "description": provider.metadata.get("description", None),
+        "url": provider.metadata.get("url", None),
     }
 
 

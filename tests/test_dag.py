@@ -6,7 +6,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from eodag import EODataAccessGateway
 from eodag.api.collection import Collection, CollectionsDict, CollectionsList
-from eodag.api.provider import Provider, ProviderConfig, ProvidersDict
+from eodag.api.provider import Provider, ProvidersDict
+from eodag.config import ProviderConfig
 from eodag.utils.exceptions import RequestError, TimeOutError
 from fastapi import FastAPI
 from pytest_mock import MockerFixture
