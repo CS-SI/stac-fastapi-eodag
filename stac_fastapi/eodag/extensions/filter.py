@@ -277,18 +277,10 @@ class FiltersClient(AsyncBaseFiltersClient):
             }
         )
         validated_params = validated_params_model.model_dump(exclude_none=True, by_alias=True)
-        eodag_params: dict[str, Any] = {}
-        for param in validated_params:
-            try:
-                eodag_param = CommonStacMetadata.from_stac(param)
-            except NotImplementedError:
-                logger.warning("param %s could not be mapped to eodag param", param)
-                eodag_param = param
-            eodag_params[eodag_param] = validated_params[param]
 
         # the parameters in eodag_params are all lists:
         # adapt them to use list or primitive type according to the collection queryables
-        eodag_params_pc = {k: eodag_params[k] for k in ["provider", "collection"] if k in eodag_params}
+        eodag_params_pc = {k: validated_params[k] for k in ["provider", "collection"] if k in validated_params}
         try:
             eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params_pc)
         except UnsupportedCollection as err:
@@ -331,20 +323,20 @@ class FiltersClient(AsyncBaseFiltersClient):
                 )
 
             # check if any of the aliases is in eodag_params
-            eodag_key = next((n for n in aliases if n in eodag_params.keys()), None)
+            eodag_key = next((n for n in aliases if n in validated_params.keys()), None)
             if not eodag_key:
-                # queryable_key is not in eodag_params: skip
+                # queryable_key is not in validated_params: skip
                 continue
 
             # adapt the value
             if base_type in (Literal, str):
-                if isinstance(eodag_params[eodag_key], list):
+                if isinstance(validated_params[eodag_key], list):
                     # convert list to single value
-                    eodag_params[eodag_key] = eodag_params[eodag_key][-1]
+                    validated_params[eodag_key] = validated_params[eodag_key][-1]
             elif base_type in (tuple, list):
-                if not isinstance(eodag_params[eodag_key], list):
+                if not isinstance(validated_params[eodag_key], list):
                     # convert single value to list
-                    eodag_params[eodag_key] = [eodag_params[eodag_key]]
+                    validated_params[eodag_key] = [validated_params[eodag_key]]
             else:
                 raise NotImplementedError(f"Error for stac name {queryables_key}: type not supported: {param_args[0]}")
-        return eodag_params
+        return validated_params

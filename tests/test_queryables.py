@@ -128,7 +128,7 @@ async def test_collection_queryables_with_filters(mock_list_queryables, mock_lis
     )
     _assert_list_queryables_call(
         mock_list_queryables.call_args_list,
-        {"collection": "ABC_DEF", "start_datetime": "2020-01-01T00:00:00Z"},
+        {"collection": "ABC_DEF", "datetime": "2020-01-01T00:00:00Z"},
     )
     mock_list_queryables.reset_mock()
     # queryables with invalid datetime filter

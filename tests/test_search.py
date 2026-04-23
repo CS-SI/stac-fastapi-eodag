@@ -328,8 +328,8 @@ async def test_filter_extension_items(request_valid, defaults, mock_search):
 @pytest.mark.parametrize(
     "sortby,expected_sort_by",
     [
-        ("-datetime", [("start_datetime", "desc")]),
-        ("datetime", [("start_datetime", "asc")]),
+        ("-datetime", [("datetime", "desc")]),
+        ("datetime", [("datetime", "asc")]),
         ("-start_datetime", [("start_datetime", "desc")]),
         ("start_datetime", [("start_datetime", "asc")]),
         ("-end_datetime", [("end_datetime", "desc")]),
@@ -537,7 +537,7 @@ async def test_assets_alt_url_blacklist(
             "POST",
             "search",
             {"collections": ["{defaults.collection}"], "query": {"federation:backends": {"eq": "cop_dataspace"}}},
-            {"federation:backends": "cop_dataspace"},
+            {"provider": "cop_dataspace"},
         ),
         # POST with no provider specified
         ("POST", "search", {"collections": ["{defaults.collection}"]}, {}),
@@ -546,7 +546,7 @@ async def test_assets_alt_url_blacklist(
             "GET",
             'search?collections={defaults.collection}&query={{"federation:backends":{{"eq":"cop_dataspace"}} }}',
             None,
-            {"federation:backends": "cop_dataspace"},
+            {"provider": "cop_dataspace"},
         ),
         # GET with no provider specified
         ("GET", "search?collections={defaults.collection}", None, {}),
@@ -803,7 +803,7 @@ async def test_pagination_with_federation_backend(request_valid, defaults, metho
         expected_search_kwargs={
             "collection": defaults.collection,
             "limit": 10,
-            "federation:backends": "test_provider",
+            "provider": "test_provider",
             "raise_errors": False,
             "count": False,
             "validate": True,
@@ -927,7 +927,7 @@ async def test_next_page_token_key(app_client, defaults, mocker, pagination_conf
         "limit": 10,
         "raise_errors": False,
         "token": "test_token",
-        "federation:backends": "test_provider",
+        "provider": "test_provider",
     }
 
     eodag_search_next_page(dag=mock_dag, eodag_args=eodag_args)

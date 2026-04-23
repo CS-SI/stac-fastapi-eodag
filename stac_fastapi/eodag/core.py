@@ -193,7 +193,7 @@ class EodagCoreClient(CustomCoreClient):
                 result = await asyncio.to_thread(request.app.state.dag.search, validate=validate, **eodag_args)
                 search_result.extend(result)
             search_result.number_matched = len(search_result)
-        elif eodag_args.get("token") and eodag_args.get("federation:backends"):
+        elif eodag_args.get("token") and eodag_args.get("provider"):
             # search with pagination
             search_result = await asyncio.to_thread(eodag_search_next_page, request.app.state.dag, eodag_args)
         else:
@@ -603,23 +603,21 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest) -> dict[str,
         for param in sortby:
             param_tuples.append(
                 (
-                    CommonStacMetadata.from_stac(param["field"]),
+                    param["field"],
                     param["direction"],
                 )
             )
         sort_by["sort_by"] = param_tuples
 
-    eodag_query = {}
+    parsed_query = {}
     if query_attr := base_args.pop("query", None):
         parsed_query = parse_query(query_attr)
-        eodag_query = {CommonStacMetadata.from_stac(k): v for k, v in parsed_query.items()}
 
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
-    eodag_filter = {}
+    parsed_filter = {}
     base_args.pop("filter_lang", None)
     if f := base_args.pop("filter_expr", None):
         parsed_filter = parse_cql2(f)
-        eodag_filter = {CommonStacMetadata.from_stac(k): v for k, v in parsed_filter.items()}
 
     # EODAG search support a single collection
     if collections := base_args.pop("collections", search_request.collections):
@@ -629,8 +627,10 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest) -> dict[str,
         base_args["ids"] = search_request.ids
 
     # merge all eodag search arguments
-    base_args = base_args | sort_by | eodag_filter | eodag_query
+    base_args = base_args | sort_by | parsed_filter | parsed_query
     base_args = {k: v for k, v in base_args.items() if v is not None}  # remove parameters with value None
+    if "federation:backends" in base_args:
+        base_args["provider"] = base_args.pop("federation:backends")  # change federation:backends to provider
 
     return base_args
 
@@ -749,7 +749,7 @@ def eodag_search_next_page(dag, eodag_args):
     """
     eodag_args = eodag_args.copy()
     next_page_token = eodag_args.pop("token", None)
-    provider = eodag_args.pop("federation:backends")
+    provider = eodag_args.pop("provider")
     if not next_page_token or not provider:
         raise ValueError("Missing required token and federation backend for next page search.")
     search_plugin = next(dag._plugins_manager.get_search_plugins(provider=provider))
