@@ -77,14 +77,20 @@ def init_dag(app: FastAPI) -> None:
 
     # update eodag collections config from external stac collections
     collections = {}
+    status = {}
     for c in dag.list_collections():
         if ext_coll := ext_stac_collections.get(c.id):
             collection = ext_coll
             collection["id"] = c._id
             collection["alias"] = c.id
+            if federation := collection.pop("federation", None):
+                status[c._id] = federation
             collections[c._id] = collection
 
     dag.db.upsert_collections(CollectionsDict.from_configs(collections))
+
+    # store status in a separate column to avoid federation to be overwritten by subsequent upsert_collections() calls
+    dag.db.set_status(status)
 
     # pre-build search plugins
     for provider in dag.providers:
