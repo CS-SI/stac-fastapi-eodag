@@ -20,15 +20,18 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
 from eodag import EODataAccessGateway
 from eodag.api.collection import CollectionsDict
+from eodag.databases.base import Database
 from eodag.utils.exceptions import (
     RequestError,
     TimeOutError,
 )
 from eodag.utils.requests import fetch_json
+from stac_fastapi.eodag.config import get_settings
 
 if TYPE_CHECKING:
     from typing import Any
@@ -69,9 +72,45 @@ def fetch_external_stac_collections(
     return ext_stac_collections
 
 
+def _build_database() -> Database | None:
+    """Build the EODAG database backend according to settings.
+
+    Returns ``None`` to let ``EODataAccessGateway`` fall back to its default
+    SQLite backend. For the ``postgresql`` backend, a libpq connection string
+    is built from the standard ``PG*`` environment variables (``PGHOST``,
+    ``PGPORT``, ``PGUSER``, ``PGDATABASE``, ``PGPASSWORD``); any variable that
+    is unset is omitted, letting libpq apply its own defaults.
+    """
+    settings = get_settings()
+    if settings.database_type != "postgresql":
+        return None
+
+    try:
+        from psycopg.conninfo import make_conninfo
+
+        from stac_fastapi.eodag.databases.postgresql import PostgreSQLDatabase
+    except ImportError as e:
+        raise ImportError(
+            "The 'postgresql' extra is required to use the PostgreSQL backend. "
+            "Install it with: pip install stac-fastapi-eodag[postgresql]"
+        ) from e
+
+    pg_env_to_kwarg = {
+        "PGHOST": "host",
+        "PGPORT": "port",
+        "PGUSER": "user",
+        "PGDATABASE": "dbname",
+        "PGPASSWORD": "password",
+    }
+    kwargs = {kwarg: os.environ[env] for env, kwarg in pg_env_to_kwarg.items() if os.getenv(env)}
+    conninfo = make_conninfo(**kwargs)
+
+    return PostgreSQLDatabase(conninfo=conninfo)
+
+
 def init_dag(app: FastAPI) -> None:
     """Init EODataAccessGateway server instance, pre-running all time consuming tasks"""
-    dag = EODataAccessGateway()
+    dag = EODataAccessGateway(db=_build_database())
 
     ext_stac_collections = fetch_external_stac_collections(dag.list_collections())
 

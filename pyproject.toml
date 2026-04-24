@@ -33,7 +33,10 @@ Repository = "https://github.com/CS-SI/stac-fastapi-eodag.git"
 "Bug Tracker" = "https://github.com/CS-SI/stac-fastapi-eodag/issues/"
 
 [project.optional-dependencies]
-server = ["uvicorn[standard]"]
+server = ["uvicorn[standard]", "stac_fastapi.eodag[postgresql]"]
+postgresql = [
+    "psycopg[binary] >= 3.1.10",
+]
 telemetry = [
     "opentelemetry-api",
     "opentelemetry-sdk",

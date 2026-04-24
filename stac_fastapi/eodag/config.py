@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated, Union
+from typing import Annotated, Literal, Union
 
 from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
@@ -33,6 +33,12 @@ class Settings(ApiSettings):
     """EODAG Server config"""
 
     debug: bool = False
+
+    database_type: Annotated[Literal["sqlite", "postgresql"], Field] = Field(
+        default="sqlite",
+        description="Type of database to use for STAC API backend",
+        validate_default=False,
+    )
 
     keep_origin_url: bool = Field(
         default=False,

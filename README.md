@@ -103,6 +103,7 @@ Reach to [stac-fastapi documentation](https://stac-utils.github.io/stac-fastapi/
 
 | name | description | default value |
 | --- | --- | --- |
+| `DATABASE_TYPE` | The type of database used by EODAG to store data (`sqlite` or `postgresql`). | "sqlite" |
 | `DEBUG` | When set to `True`, set the EODAG logging level to `3`. Otherwise, set EODAG logging level to `2`. | False |
 | `KEEP_ORIGIN_URL` | Keep origin as alternate URL when data-download extension is enabled. | False |
 | `ORIGIN_URL_BLACKLIST` | Hide from clients items assets' origin URLs starting with URLs from the list. A string of comma separated values is expected. | "" |
