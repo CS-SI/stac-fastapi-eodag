@@ -43,7 +43,7 @@ async def test_collection(
 async def test_list_collections(app_client, mock_list_collections):
     """A simple request to list collections must succeed"""
     collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
-    collection2 = Collection(id="S2_MSI_L2A")
+    collection2 = Collection(id="S2_MSI_L2A", title="SENTINEL2 Level-2A")
     collections_list = CollectionsList([collection1, collection2])
     mock_list_collections.return_value = collections_list
 
@@ -86,7 +86,7 @@ async def test_search_collections_freetext_ok(app_client, mock_list_collections,
 async def test_search_collections_freetext_nok(app_client, mock_list_collections):
     """A collections free-text search with a not supported filter must return all collections"""
     collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
-    collection2 = Collection(id="S2_MSI_L2A")
+    collection2 = Collection(id="S2_MSI_L2A", title="SENTINEL2 Level-2A")
     mock_list_collections.return_value = CollectionsList([collection1, collection2])
     r = await app_client.get("/collections?gibberish=gibberish")
     assert mock_list_collections.called
@@ -97,7 +97,7 @@ async def test_search_collections_freetext_nok(app_client, mock_list_collections
 async def test_search_collections_query(app_client, mock_list_collections):
     """A collections query search must succeed"""
     collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
-    collection2 = Collection(id="S2_MSI_L2A")
+    collection2 = Collection(id="S2_MSI_L2A", title="SENTINEL2 Level-2A")
     mock_list_collections.return_value = CollectionsList([collection1, collection2])
     r = await app_client.get('/collections?query={"federation:backends":{"eq":"cop_dataspace"}}')
 
@@ -109,8 +109,8 @@ async def test_search_collections_query(app_client, mock_list_collections):
 async def test_search_collections_bbox(app_client, mock_list_collections, mocker, app):
     """A collections bbox search must succeed"""
     collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
-    collection2 = Collection(id="S2_MSI_L2A")
-    collection3 = Collection(id="S1_SAR_GRD")
+    collection2 = Collection(id="S2_MSI_L2A", title="SENTINEL2 Level-2A")
+    collection3 = Collection(id="S1_SAR_GRD", title="SENTINEL1 GRD")
     mock_list_collections.return_value = CollectionsList([collection1, collection2, collection3])
 
     mocker.patch.dict(
@@ -202,7 +202,7 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     - Pagination links ('next', 'previous', 'first', 'self', 'root') are generated appropriately depending on context.
     """
     collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
-    collection2 = Collection(id="S2_MSI_L2A")
+    collection2 = Collection(id="S2_MSI_L2A", title="SENTINEL2 Level-2A")
     mock_list_collections.return_value = CollectionsList([collection1, collection2])
 
     # Default pagination with only 2 collections

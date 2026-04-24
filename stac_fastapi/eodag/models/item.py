@@ -34,7 +34,6 @@ from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.models.links import ItemLinks
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 
 def _get_retrieve_body_for_order(product: EOProduct) -> dict[str, Any]:
@@ -58,7 +57,6 @@ def _get_retrieve_body_for_order(product: EOProduct) -> dict[str, Any]:
 
 def create_stac_item(
     product: EOProduct,
-    model: type[CommonStacMetadata],
     extension_is_enabled: Callable[[str], bool],
     request: Request,
     extension_names: Optional[list[str]],
@@ -82,8 +80,6 @@ def create_stac_item(
         collection=collection,
         stac_version=STAC_API_VERSION,
     )
-
-    stac_extensions: set[str] = set()
 
     download_base_url = settings.download_base_url
     if not download_base_url:
@@ -150,21 +146,12 @@ def create_stac_item(
                     },
                 }
 
-    feature_model = model.model_validate(
-        {
-            **product.properties,
-            **{"federation:backends": [product.provider], "storage:tier": product.properties.get("order:status")},
-        }
-    )
-    stac_extensions.update(feature_model.get_conformance_classes())
-
+    product_dict = product.as_dict()
     # filter properties we do not want to expose
-    feature["properties"] = {
-        k: v for k, v in feature_model.model_dump(exclude_none=True).items() if not k.startswith("eodag:")
-    }
+    feature["properties"] = {k: v for k, v in product_dict["properties"].items() if not k.startswith("eodag:")}
     feature["properties"].pop("qs", None)
 
-    feature["stac_extensions"] = list(stac_extensions)
+    feature["stac_extensions"] = product_dict["stac_extensions"]
 
     if extension_names and product.provider not in auto_order_whitelist:
         if "CollectionOrderExtension" in extension_names and (
@@ -187,6 +174,7 @@ def create_stac_item(
 
     feature["links"] = ItemLinks(
         collection_id=collection,
+        collection_title=collection_obj.title if collection_obj else collection,
         item_id=quoted_id,
         retrieve_body=retrieve_body,
         request=request,

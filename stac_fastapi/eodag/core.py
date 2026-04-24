@@ -46,6 +46,7 @@ from eodag import EOProduct, SearchResult
 from eodag.api.collection import Collection as EodagCollection
 from eodag.api.collection import CollectionsList
 from eodag.plugins.search.build_search_result import ECMWFSearch
+from eodag.types.stac_metadata import CommonStacMetadata
 from eodag.utils import deepcopy, get_geometry_from_various
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
@@ -60,7 +61,6 @@ from stac_fastapi.eodag.models.links import (
     ItemCollectionLinks,
     PagingLinks,
 )
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 from stac_fastapi.eodag.utils import (
     check_poly_is_point,
     dt_range_to_eodag,
@@ -88,7 +88,7 @@ class EodagCoreClient(CustomCoreClient):
     """"""
 
     post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
-    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
+    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
     def _get_collection(
         self, collection: EodagCollection, request: Request, collections_providers: dict[str, set]
@@ -160,13 +160,14 @@ class EodagCoreClient(CustomCoreClient):
         extended_coll_links = extended_collection.get("links", [])
         extended_collection["links"] = CollectionLinks(
             collection_id=extended_collection["id"],
+            collection_title=extended_collection["title"],
             request=request,
         ).get_links(extensions=extension_names, extra_links=extra_links + extended_coll_links)
 
         return Collection(**extended_collection)
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
-        eodag_args = prepare_search_base_args(search_request=search_request, model=self.stac_metadata_model)
+        eodag_args = prepare_search_base_args(search_request=search_request)
 
         request.state.eodag_args = eodag_args
 
@@ -209,9 +210,7 @@ class EodagCoreClient(CustomCoreClient):
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         for product in search_result:
-            feature = create_stac_item(
-                product, self.stac_metadata_model, self.extension_is_enabled, request, extension_names, request_json
-            )
+            feature = create_stac_item(product, self.extension_is_enabled, request, extension_names, request_json)
             features.append(feature)
 
         feature_collection = ItemCollection(
@@ -422,6 +421,8 @@ class EodagCoreClient(CustomCoreClient):
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
         """
+        # If collection does not exist, NotFoundError wil be raised
+        collection = await self.get_collection(collection_id, request=request)
 
         base_args = {"collections": [collection_id], "bbox": bbox, "datetime": datetime, "limit": limit, "token": token}
 
@@ -432,9 +433,9 @@ class EodagCoreClient(CustomCoreClient):
         search_request = self.post_request_model.model_validate(clean)
         item_collection = await self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
-        links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
-            extensions=extension_names, extra_links=item_collection["links"]
-        )
+        links = ItemCollectionLinks(
+            collection_id=collection_id, collection_title=collection["title"], request=request
+        ).get_links(extensions=extension_names, extra_links=item_collection["links"])
         item_collection["links"] = links
         return item_collection
 
@@ -586,7 +587,7 @@ class EodagCoreClient(CustomCoreClient):
         return clean
 
 
-def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[CommonStacMetadata]) -> dict[str, Any]:
+def prepare_search_base_args(search_request: BaseSearchPostRequest) -> dict[str, Any]:
     """Prepare arguments for an eodag search based on a search request
 
     :param search_request: the search request
@@ -607,23 +608,21 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         for param in sortby:
             param_tuples.append(
                 (
-                    model.to_eodag(param["field"]),
+                    param["field"],
                     param["direction"],
                 )
             )
         sort_by["sort_by"] = param_tuples
 
-    eodag_query = {}
+    parsed_query = {}
     if query_attr := base_args.pop("query", None):
         parsed_query = parse_query(query_attr)
-        eodag_query = {model.to_eodag(k): v for k, v in parsed_query.items()}
 
     # get the extracted CQL2 properties dictionary if the CQL2 filter exists
-    eodag_filter = {}
+    parsed_filter = {}
     base_args.pop("filter_lang", None)
     if f := base_args.pop("filter_expr", None):
         parsed_filter = parse_cql2(f)
-        eodag_filter = {model.to_eodag(k): v for k, v in parsed_filter.items()}
 
     # EODAG search support a single collection
     if collections := base_args.pop("collections", search_request.collections):
@@ -633,8 +632,10 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest, model: type[
         base_args["ids"] = search_request.ids
 
     # merge all eodag search arguments
-    base_args = base_args | sort_by | eodag_filter | eodag_query
+    base_args = base_args | sort_by | parsed_filter | parsed_query
     base_args = {k: v for k, v in base_args.items() if v is not None}  # remove parameters with value None
+    if "federation:backends" in base_args:
+        base_args["provider"] = base_args.pop("federation:backends")  # change federation:backends to provider
 
     return base_args
 
@@ -753,7 +754,7 @@ def eodag_search_next_page(dag, eodag_args):
     """
     eodag_args = eodag_args.copy()
     next_page_token = eodag_args.pop("token", None)
-    provider = eodag_args.get("provider")
+    provider = eodag_args.pop("provider")
     if not next_page_token or not provider:
         raise ValueError("Missing required token and federation backend for next page search.")
     search_plugin = next(dag._plugins_manager.get_search_plugins(provider=provider))

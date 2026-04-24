@@ -29,7 +29,6 @@ async def test_landing_page(request_valid):
         "url": "https://dataspace.copernicus.eu",
     }
     assert len(response["federation"]) > 1
-    assert "https://api.openeo.org/extensions/federation/0.1.0" in response["stac_extensions"]
 
 
 async def test_forward(app_client):

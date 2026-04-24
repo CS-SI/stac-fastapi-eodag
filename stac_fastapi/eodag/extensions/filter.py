@@ -18,9 +18,11 @@
 """Get Queryables."""
 
 import asyncio
+import logging
 from typing import Any, Literal, Optional, cast, get_args, get_origin
 
 import attr
+from eodag.types.stac_metadata import CommonStacMetadata
 from fastapi import Request
 from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, create_model
 from stac_fastapi.extensions.core.filter.client import AsyncBaseFiltersClient
@@ -30,7 +32,6 @@ from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.eodag_types.queryables import QueryablesGetParams
 from stac_fastapi.eodag.errors import UnsupportedCollection
-from stac_fastapi.eodag.models.stac_metadata import CommonStacMetadata
 
 COMMON_QUERYABLES_PROPERTIES = {
     "id": {
@@ -152,12 +153,14 @@ COMMON_QUERYABLES_PROPERTIES = {
     },
 }
 
+logger = logging.getLogger(__name__)
+
 
 @attr.s
 class FiltersClient(AsyncBaseFiltersClient):
     """Defines a pattern for implementing the STAC filter extension."""
 
-    stac_metadata_model: type[CommonStacMetadata] = attr.ib(default=CommonStacMetadata)
+    stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
     async def get_queryables(
         self,
@@ -217,11 +220,20 @@ class FiltersClient(AsyncBaseFiltersClient):
         required = queryables.get("required", [])
 
         for k, field in self.stac_metadata_model.model_fields.items():
-            if field.validation_alias in properties:
+            if isinstance(field.validation_alias, AliasChoices):
+                for choice in field.validation_alias.choices:
+                    if choice in properties:
+                        properties[field.serialization_alias or k] = properties[choice]
+                        if (field.serialization_alias or k) != choice:
+                            del properties[choice]
+                    if choice in required:
+                        required.remove(choice)
+                        required.append(field.serialization_alias or k)
+            elif field.validation_alias in properties:
                 properties[field.serialization_alias or k] = properties[field.validation_alias]
                 if (field.serialization_alias or k) != field.validation_alias:
                     del properties[field.validation_alias]
-            if field.validation_alias in required:
+            if isinstance(field.validation_alias, str) and field.validation_alias in required:
                 required.remove(field.validation_alias)
                 required.append(field.serialization_alias or k)
 
@@ -265,11 +277,10 @@ class FiltersClient(AsyncBaseFiltersClient):
             }
         )
         validated_params = validated_params_model.model_dump(exclude_none=True, by_alias=True)
-        eodag_params = {self.stac_metadata_model.to_eodag(param): validated_params[param] for param in validated_params}
 
         # the parameters in eodag_params are all lists:
         # adapt them to use list or primitive type according to the collection queryables
-        eodag_params_pc = {k: eodag_params[k] for k in ["provider", "collection"] if k in eodag_params}
+        eodag_params_pc = {k: validated_params[k] for k in ["provider", "collection"] if k in validated_params}
         try:
             eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params_pc)
         except UnsupportedCollection as err:
@@ -312,20 +323,20 @@ class FiltersClient(AsyncBaseFiltersClient):
                 )
 
             # check if any of the aliases is in eodag_params
-            eodag_key = next((n for n in aliases if n in eodag_params.keys()), None)
+            eodag_key = next((n for n in aliases if n in validated_params.keys()), None)
             if not eodag_key:
-                # queryable_key is not in eodag_params: skip
+                # queryable_key is not in validated_params: skip
                 continue
 
             # adapt the value
             if base_type in (Literal, str):
-                if isinstance(eodag_params[eodag_key], list):
+                if isinstance(validated_params[eodag_key], list):
                     # convert list to single value
-                    eodag_params[eodag_key] = eodag_params[eodag_key][-1]
+                    validated_params[eodag_key] = validated_params[eodag_key][-1]
             elif base_type in (tuple, list):
-                if not isinstance(eodag_params[eodag_key], list):
+                if not isinstance(validated_params[eodag_key], list):
                     # convert single value to list
-                    eodag_params[eodag_key] = [eodag_params[eodag_key]]
+                    validated_params[eodag_key] = [validated_params[eodag_key]]
             else:
                 raise NotImplementedError(f"Error for stac name {queryables_key}: type not supported: {param_args[0]}")
-        return eodag_params
+        return validated_params
