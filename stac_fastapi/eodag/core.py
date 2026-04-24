@@ -126,7 +126,10 @@ class EodagCoreClient(CustomCoreClient):
             request=request,
         ).get_links(extensions=extension_names, extra_links=coll_dict["links"])
 
-        # remove eodag-specific fields
+        # move federation:backends to summaries
+        if not coll_dict.get("summaries"):
+            coll_dict["summaries"] = {}
+        coll_dict["summaries"]["federation:backends"] = coll_dict.pop("federation:backends")
         coll_dict["links"] = all_coll_links
         return Collection(**coll_dict)
 
