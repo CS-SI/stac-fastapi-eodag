@@ -31,9 +31,7 @@ import orjson
 from fastapi import HTTPException
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError
-from pygeofilter.backends.cql2_json import to_cql2
 from pygeofilter.parsers.cql2_json import parse as parse_json
-from pygeofilter.parsers.cql2_text import parse as parse_cql2_text
 from stac_fastapi.api.models import create_post_request_model
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
@@ -47,8 +45,6 @@ from eodag.api.collection import Collection as EodagCollection
 from eodag.api.collection import CollectionsList
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.types.stac_metadata import CommonStacMetadata
-from eodag.utils import deepcopy, get_geometry_from_various
-from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.constants import DEFAULT_LIMIT
@@ -126,6 +122,7 @@ class EodagCoreClient(CustomCoreClient):
         # add API-required links
         all_coll_links = CollectionLinks(
             collection_id=collection.id,
+            collection_title=collection.title,
             request=request,
         ).get_links(extensions=extension_names, extra_links=coll_dict["links"])
 
@@ -371,9 +368,9 @@ class EodagCoreClient(CustomCoreClient):
         item_collection = cast(ItemCollection, await self._search_base(search_request, request))
         extension_names = [type(ext).__name__ for ext in self.extensions]
         extra_links = item_collection.get("links", [])
-        links = ItemCollectionLinks(collection_id=collection_id, request=request).get_links(
-            extensions=extension_names, extra_links=extra_links
-        )
+        links = ItemCollectionLinks(
+            collection_id=collection_id, collection_title=collection["title"], request=request
+        ).get_links(extensions=extension_names, extra_links=extra_links)
         item_collection["links"] = links
         return item_collection
 

@@ -68,7 +68,7 @@ def create_stac_item(
         raise NotFoundError("A STAC item can not be created from an EODAG EOProduct without collection")
 
     settings: Settings = get_settings()
-    collection_obj = request.app.state.dag.collections_config.get(product.collection)
+    collection_obj = request.app.state.dag.get_collection(product.collection)
 
     feature = Item(
         type="Feature",
@@ -121,8 +121,10 @@ def create_stac_item(
                     feature["assets"][k]["alternate"] = {"origin": origin}
 
         # TODO: remove downloadLink asset after EODAG assets rework
-        if (download_link := product.properties.get("eodag:download_link")) and not any(
-            key.endswith(".parquet") for key in product.assets and not any("zarr" in key for key in product.assets)
+        if (
+            (download_link := product.properties.get("eodag:download_link"))
+            and not any(key.endswith(".parquet") for key in product.assets)
+            and not any("zarr" in key for key in product.assets)
         ):
             origin_href = download_link
             if asset_proxy_url:
