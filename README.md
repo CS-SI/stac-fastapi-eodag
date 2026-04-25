@@ -103,8 +103,8 @@ Reach to [stac-fastapi documentation](https://stac-utils.github.io/stac-fastapi/
 
 | name | description | default value |
 | --- | --- | --- |
-| `DATABASE_TYPE` | The type of database used by EODAG to store data (`sqlite` or `postgresql`). | "sqlite" |
 | `DEBUG` | When set to `True`, set the EODAG logging level to `3`. Otherwise, set EODAG logging level to `2`. | False |
+| `DATABASE_TYPE` | The type of database used by EODAG to store data (`sqlite` or `postgresql`). | "sqlite" |
 | `KEEP_ORIGIN_URL` | Keep origin as alternate URL when data-download extension is enabled. | False |
 | `ORIGIN_URL_BLACKLIST` | Hide from clients items assets' origin URLs starting with URLs from the list. A string of comma separated values is expected. | "" |
 | `COUNT` | Whether to run a query with a count request or not. | False |
@@ -133,6 +133,20 @@ export OTEL_METRIC_EXPORT_INTERVAL="5000"  # shorter export interval for testing
 export APP_PORT=8080  # change app port because otel-collector uses 8000
 python stac_fastapi/eodag/app.py
 ```
+
+### PostgreSQL database parameters
+
+When `DATABASE_TYPE` is set to `postgresql`, the connection is configured through the standard libpq environment variables.
+
+| name | description | default value |
+| --- | --- | --- |
+| `PGHOST` | Hostname or IP address of the PostgreSQL server. | "" |
+| `PGPORT` | Port on which the PostgreSQL server is listening. | "" |
+| `PGUSER` | PostgreSQL user name used to authenticate. | "" |
+| `PGDATABASE` | Name of the database to connect to. | "" |
+| `PGPASSWORD` | Password used to authenticate the PostgreSQL user. | "" |
+
+Any variable that is left unset is omitted from the connection string, letting libpq apply its own defaults (e.g. `PGHOST` defaults to a local connection on the same machine, `PGPORT` to `5432`, `PGUSER` to the current OS user name, `PGDATABASE` to the value of `PGUSER`).
 
 ### EODAG parameters
 
