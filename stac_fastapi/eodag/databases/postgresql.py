@@ -460,6 +460,26 @@ class PostgreSQLDatabase(Database):
                 self._con.rollback()
             raise
 
+    def set_status(self, status: dict[str, dict[str, Any]]) -> None:
+        """
+        Set the federation status.
+
+        :param status: Dictionary mapping collection IDs to their backend status.
+
+        :raises: :class:`~psycopg.Error` if the database operation fails (the
+            transaction is rolled back before re-raising).
+        """
+        try:
+            self._execute(
+                "UPDATE collections SET federation = %s WHERE id = %s OR internal_id = %s",
+                [(status, c, c) for c, status in status.items()],
+            )
+            self._con.commit()
+        except Exception:
+            if not self._con.closed:
+                self._con.rollback()
+            raise
+
     # --------------------------------------------------------------- queries
     def collections_search(
         self,
@@ -556,7 +576,8 @@ class PostgreSQLDatabase(Database):
 
         sql = (
             f"SELECT c.content AS content, "
-            f"c.federation_backends AS federation_backends{select_score} "
+            f"c.federation_backends AS federation_backends, "
+            f"c.federation AS federation{select_score} "
             f"{from_clause} WHERE {full_where}{order_by}"
         )
         if limit is not None:
@@ -566,6 +587,7 @@ class PostgreSQLDatabase(Database):
         for row in self._execute(sql, params or None).fetchall():
             coll = _collection_from_json(row["content"])
             coll["federation:backends"] = row["federation_backends"]
+            coll["federation"] = row["federation"]
             collections_list.append(coll)
 
         return collections_list, number_matched
@@ -721,8 +743,8 @@ class PostgreSQLDatabase(Database):
 def _collection_to_json(collection: Any) -> dict[str, Any]:
     """Serialize a Collection (or dict) for JSONB storage.
 
-    Drops the ``federation:backends`` key from the stored content as it is
-    materialized in a dedicated ``text[]`` column.
+    Drops the ``federation:backends`` and ``federation`` keys from the stored content as
+    they are materialized in a dedicated ``text[]`` column.
 
     :param collection: A :class:`~eodag.api.collection.Collection` instance or
         a plain dict representing a STAC collection.
@@ -738,6 +760,7 @@ def _collection_to_json(collection: Any) -> dict[str, Any]:
         if not data.get(key):
             data[key] = BASE_COLLECTION[key]
     data.pop("federation:backends", None)
+    data.pop("federation", None)
     return data
 
 
@@ -825,6 +848,7 @@ def create_collections_table(con: psycopg.Connection[Any]) -> None:
             end_datetime TIMESTAMPTZ,
             geometry geometry(Polygon, 4326),
             federation_backends TEXT[],
+            federation TEXT[],
             priority INTEGER,
             tsv tsvector
         );
