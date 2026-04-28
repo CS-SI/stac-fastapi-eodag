@@ -121,6 +121,8 @@ def get_providers_status(collections_list: CollectionsList) -> dict[str, dict[st
         if not getattr(collection, "federation", None):
             continue
         for provider_id, status in collection.federation.items():
+            if provider_id not in providers_status:
+                continue
             ps = providers_status[provider_id]
             ps["last_status_check"] = _get_last_check(ps, status, "last_status_check")
             ps["last_successful_check"] = _get_last_check(ps, status, "last_successful_check")
