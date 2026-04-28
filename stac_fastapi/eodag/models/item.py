@@ -25,7 +25,6 @@ from fastapi import Request
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.stac import Item
-from stac_pydantic.api.version import STAC_API_VERSION
 from stac_pydantic.links import Link, Links
 from stac_pydantic.shared import Asset
 
@@ -77,7 +76,7 @@ def create_stac_item(
         geometry=product.geometry.__geo_interface__,
         bbox=product.geometry.bounds,
         collection=product.collection,
-        stac_version=STAC_API_VERSION,
+        stac_version="1.1.0",
     )
 
     download_base_url = settings.download_base_url
