@@ -104,29 +104,42 @@ def get_providers_status(collections_list: CollectionsList) -> dict[str, dict[st
         else:
             return None
 
+    # count how many collections are available for each provider
+    for collection in collections_list:
+        providers = collection.federation_backends
+        for provider_id in providers:
+            d = {
+                "count_online": 0,
+                "count_offline": 0,
+                "total_collections": 0,
+                "last_status_check": None,
+                "last_successful_check": None,
+            }
+            ps = providers_status.setdefault(provider_id, d)
+            providers_status[provider_id]["total_collections"] += 1
+
     # count how many online/offline collections for each provider and keep the last check dates
     for collection in collections_list:
         if not getattr(collection, "federation", None):
             continue
         for provider_id, status in collection.federation.items():
-            d = {"online": 0, "offline": 0, "last_status_check": None, "last_successful_check": None}
-            ps = providers_status.setdefault(provider_id, d)
+            ps = providers_status[provider_id]
             ps["last_status_check"] = _get_last_check(ps, status, "last_status_check")
             ps["last_successful_check"] = _get_last_check(ps, status, "last_successful_check")
             if status["status"] == "online":
-                ps["online"] += 1
+                ps["count_online"] += 1
             else:
-                ps["offline"] += 1
+                ps["count_offline"] += 1
 
     # determine provider's status based on online/offline collections count and threshold
     ret_providers_status = {}
     for provider_id, status in providers_status.items():
-        online = status["online"]
-        offline = status["offline"]
-        total = online + offline
+        count_online = status["count_online"]
+        count_offline = status["count_offline"]
+        total = count_online + count_offline
         if total == 0:
             provider_status = "offline"
-        elif online / total >= online_threshold:
+        elif count_online / total >= online_threshold:
             provider_status = "online"
         else:
             provider_status = "offline"
@@ -134,6 +147,9 @@ def get_providers_status(collections_list: CollectionsList) -> dict[str, dict[st
             "status": provider_status,
             "last_status_check": status["last_status_check"],
             "last_successful_check": status["last_successful_check"],
+            "successful_collections": count_online,
+            "failed_collections": count_offline,
+            "total_collections": status["total_collections"],
         }
 
     return ret_providers_status
@@ -195,7 +211,8 @@ def init_dag(app: FastAPI) -> None:
 
     dag.db.upsert_collections(CollectionsDict.from_configs(collections))
 
-    # store status in a separate DB column to avoid federation to be overwritten by subsequent upsert_collections() calls
+    # store status in a separate DB column to avoid federation to be overwritten
+    # by subsequent upsert_collections() calls
     dag.db.set_status(status)
 
     # store providers status in app state
