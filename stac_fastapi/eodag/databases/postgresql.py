@@ -470,7 +470,7 @@ class PostgreSQLDatabase(Database):
             transaction is rolled back before re-raising).
         """
         try:
-            self._execute(
+            self._executemany(
                 "UPDATE collections SET federation = %s WHERE id = %s OR internal_id = %s",
                 [(status, c, c) for c, status in status.items()],
             )
@@ -848,7 +848,7 @@ def create_collections_table(con: psycopg.Connection[Any]) -> None:
             end_datetime TIMESTAMPTZ,
             geometry geometry(Polygon, 4326),
             federation_backends TEXT[],
-            federation TEXT[],
+            federation JSONB,
             priority INTEGER,
             tsv tsvector
         );
