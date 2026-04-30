@@ -575,7 +575,7 @@ class PostgreSQLDatabase(Database):
         number_matched = cast(int, count_row["n"]) if count_row is not None else 0
 
         sql = (
-            f"SELECT c.content AS content, "
+            f"SELECT c.id, c.content AS content, "
             f"c.federation_backends AS federation_backends, "
             f"c.federation AS federation{select_score} "
             f"{from_clause} WHERE {full_where}{order_by}"
@@ -902,11 +902,13 @@ def create_collections_table(con: psycopg.Connection[Any]) -> None:
 
             NEW.tsv :=
                 setweight(to_tsvector('simple',
-                    coalesce(NEW.content->>'title', '')), 'A')
+                    coalesce(NEW.id, '')), 'A')
                 || setweight(to_tsvector('simple',
-                    coalesce(NEW.content->>'description', '')), 'B')
+                    coalesce(NEW.content->>'title', '')), 'B')
                 || setweight(to_tsvector('simple',
-                    coalesce(kws, '')), 'C');
+                    coalesce(kws, '')), 'C')
+                || setweight(to_tsvector('simple',
+                    coalesce(NEW.content->>'description', '')), 'D');
 
             RETURN NEW;
         END;
