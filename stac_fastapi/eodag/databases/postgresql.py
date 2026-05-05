@@ -113,6 +113,7 @@ class PostgreSQLDatabase(Database):
 
         try:
             _ensure_extensions(self._con)
+            _acquire_schema_init_lock(self._con)
             create_collections_table(self._con)
             create_collections_federation_backends_table(self._con)
             create_federation_backends_table(self._con)
@@ -773,6 +774,18 @@ def _register_json_adapters(con: psycopg.Connection[Any]) -> None:
     set_json_loads(orjson.loads, context=con)
 
 
+def _acquire_schema_init_lock(con: psycopg.Connection[Any]) -> None:
+    """Serialize PostgreSQL schema initialization across processes.
+
+    Acquiring a transaction-scoped advisory lock prevents multiple app
+    instances from concurrently executing DDL during startup.
+
+    :param con: The psycopg connection used to acquire the lock.
+    """
+    cur = con.cursor()
+    cur.execute("SELECT pg_advisory_xact_lock(%s)", (1234567890,))
+
+
 def _ensure_extensions(con: psycopg.Connection[Any]) -> None:
     """Ensure required PostgreSQL extensions are installed.
 
@@ -889,15 +902,27 @@ def create_collections_table(con: psycopg.Connection[Any]) -> None:
         $$ LANGUAGE plpgsql;
         """
     )
-    cur.execute("DROP TRIGGER IF EXISTS collections_set_geometry_trg ON collections;")
-    cur.execute("DROP TRIGGER IF EXISTS collections_set_derived_cols_trg ON collections;")
     cur.execute(
-        """
-        CREATE TRIGGER collections_set_derived_cols_trg
-        BEFORE INSERT OR UPDATE OF content ON collections
-        FOR EACH ROW EXECUTE FUNCTION collections_set_derived_cols();
-        """
+        "SELECT EXISTS("
+        "SELECT 1 FROM pg_trigger WHERE tgname = %s AND tgrelid = %s::regclass) AS exists",
+        ("collections_set_geometry_trg", "collections"),
     )
+    if cur.fetchone()["exists"]:
+        cur.execute("DROP TRIGGER collections_set_geometry_trg ON collections;")
+
+    cur.execute(
+        "SELECT EXISTS("
+        "SELECT 1 FROM pg_trigger WHERE tgname = %s AND tgrelid = %s::regclass) AS exists",
+        ("collections_set_derived_cols_trg", "collections"),
+    )
+    if not cur.fetchone()["exists"]:
+        cur.execute(
+            """
+            CREATE TRIGGER collections_set_derived_cols_trg
+            BEFORE INSERT OR UPDATE OF content ON collections
+            FOR EACH ROW EXECUTE FUNCTION collections_set_derived_cols();
+            """
+        )
 
     # Indexes
     cur.execute("CREATE INDEX IF NOT EXISTS idx_collections_datetime ON collections (datetime);")
