@@ -9,7 +9,7 @@ jobs:
     name: No git-sourced dependencies on main
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Ensure eodag is not installed from a git source
         run: |
           if grep -E 'eodag\s*(\[.*\])?\s*@\s*git\+' pyproject.toml; then
