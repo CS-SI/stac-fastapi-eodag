@@ -24,7 +24,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING, TypedDict
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError as pydanticValidationError
 from starlette import status
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -147,7 +147,7 @@ class ResponseSearchError(Exception):
         return 400
 
 
-async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONResponse:
+async def eodag_errors_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handler for EODAG errors"""
     code = EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500)) or 500
     detail = f"{type(exc).__name__}: {str(exc)}"
@@ -164,13 +164,13 @@ async def eodag_errors_handler(request: Request, exc: Exception) -> ORJSONRespon
             stac_param = request.app.state.stac_metadata_model.to_stac(error_param)
             detail = detail.replace(error_param, stac_param)
 
-    return ORJSONResponse(
+    return JSONResponse(
         status_code=code,
         content={"code": str(code), "ticket": request_id_context.get(), "description": detail},
     )
 
 
-def error_handler(request: Request, error: Exception) -> ORJSONResponse:
+def error_handler(request: Request, error: Exception) -> JSONResponse:
     """Handle errors"""
     code = getattr(error, "status_code", 400)
     description = (
@@ -182,7 +182,7 @@ def error_handler(request: Request, error: Exception) -> ORJSONResponse:
     if errors != []:
         description = "Something went wrong"
         code = min(error.get("status_code", 500) for error in errors)
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=code,
             content={
                 "code": str(code),
@@ -192,13 +192,13 @@ def error_handler(request: Request, error: Exception) -> ORJSONResponse:
             },
         )
 
-    return ORJSONResponse(
+    return JSONResponse(
         status_code=code,
         content={"code": str(code), "ticket": request_id_context.get(), "description": description},
     )
 
 
-def pydantic_validation_handler(request: Request, error: Exception) -> ORJSONResponse:
+def pydantic_validation_handler(request: Request, error: Exception) -> JSONResponse:
     """Special handling for pydantic errors. They are a subtype of built-in ValueError."""
 
     if not isinstance(error, pydanticValidationError):
