@@ -145,7 +145,7 @@ jobs:
         args: >
           -Dsonar.projectKey=cs-si_stac-fastapi-eodag
           -Dsonar.organization=cs-si
-          -Dsonar.python.version=3.14
+          -Dsonar.python.version=3.9
           -Dsonar.python.coverage.reportPaths=test-reports/coverage.xml
           -Dsonar.sources=stac_fastapi/
           -Dsonar.tests=tests/

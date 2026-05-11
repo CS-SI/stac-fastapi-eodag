@@ -130,7 +130,7 @@ def check_poly_is_point(poly: Polygon) -> Union[Point, Polygon]:
     :returns: Either a `Point` or the unchanged `poly`.
     """
 
-    if poly.area == 0 and poly.area == 0 and poly.bounds[0] == poly.bounds[2] and poly.bounds[1] == poly.bounds[3]:
+    if poly.area == 0 and poly.bounds[0] == poly.bounds[2] and poly.bounds[1] == poly.bounds[3]:
         return Point(poly.exterior.coords[0])
     else:
         return poly
