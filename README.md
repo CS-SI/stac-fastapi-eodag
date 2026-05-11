@@ -5,6 +5,9 @@
   <img src="https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png" alt="FastAPI" height=100 />
 </p>
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=cs-si_stac-fastapi-eodag&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=cs-si_stac-fastapi-eodag)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/CS-SI/stac-fastapi-eodag)
+
 [EODAG](https://github.com/CS-SI/eodag) backend for [stac-fastapi](https://github.com/stac-utils/stac-fastapi), the [FastAPI](https://fastapi.tiangolo.com/) implementation of the [STAC API spec](https://github.com/radiantearth/stac-api-spec)
 
 stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provide a powerful, unified API for accessing Earth observation data from various providers.
