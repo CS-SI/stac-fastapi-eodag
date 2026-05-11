@@ -1,60 +1,60 @@
 # Copyright CS GROUP - France, https://www.cs-soprasteria.com
 # SPDX-License-Identifier: APACHE-2.0
 
-## @section Global parameters
+## Global parameters
 ## Global Docker image parameters
 ## Please, note that this will override the image parameters, including dependencies, configured to use the global value
 ## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
 ##
 
-## @param global.imageRegistry Global Docker image registry
-## @param global.imagePullSecrets Global Docker registry secret names as an array
-## @param global.storageClass Global StorageClass for Persistent Volume(s)
 ##
 global:
+  # -- Global Docker image registry
   imageRegistry: ""
   ## E.g.
   ## imagePullSecrets:
   ##   - myRegistryKeySecretName
   ##
+  # -- Global Docker registry secret names as an array
   imagePullSecrets: []
+  # -- Global StorageClass for Persistent Volume(s)
   storageClass: ""
 
-## @section Common parameters
+## Common parameters
 ##
 
-## @param kubeVersion Force target Kubernetes version (using Helm capabilities if not set)
 ##
+# -- Force target Kubernetes version (using Helm capabilities if not set)
 kubeVersion: ""
-## @param nameOverride String to partially override common.names.fullname
 ##
+# -- String to partially override common.names.fullname
 nameOverride: ""
-## @param fullnameOverride String to fully override common.names.fullname
 ##
+# -- String to fully override common.names.fullname
 fullnameOverride: ""
-## @param namespaceOverride String to fully override common.names.namespaceapi
 ##
+# -- String to fully override common.names.namespaceapi
 namespaceOverride: ""
-## @param commonLabels Labels to add to all deployed objects
 ##
+# -- Labels to add to all deployed objects
 commonLabels: {}
-## @param commonAnnotations Annotations to add to all deployed objects
 ##
+# -- Annotations to add to all deployed objects
 commonAnnotations: {}
-## @param clusterDomain Kubernetes cluster domain name
 ##
+# -- Kubernetes cluster domain name
 clusterDomain: cluster.local
-## @param extraDeploy Array of extra objects to deploy with the release
 ##
+# -- Array of extra objects to deploy with the release
 extraDeploy: []
 
 
-## @section EODAG configuration
+## EODAG configuration
 ## ref: https://eodag.readthedocs.io/en/stable/
 ##
 
-## @param collections Optional overwrite of product types default configuration
 ## ref: https://github.com/CS-SI/eodag/blob/master/eodag/resources/collections.yml
+# -- Optional overwrite of product types default configuration
 collections: ""
 # collections: |-
 #   # CBERS 4 ---------------------------------------------------------------------
@@ -72,8 +72,8 @@ collections: ""
 #     extent: {"temporal": {"interval": [["2014-12-07T00:00:00Z", null]]}}
 #     title: CBERS-4 MUX Level-2
 
-## @param providers Optional overwrite of providers default configuration
 ## ref: https://github.com/CS-SI/eodag/blob/master/eodag/resources/providers.yml
+# -- Optional overwrite of providers default configuration
 providers: ""
 # providers: |-
 #   !provider
@@ -133,9 +133,9 @@ providers: ""
 #       GENERIC_COLLECTION:
 #         _collection: '{collection}'
 
-## @param config [object] EODAG configuration
 ## doc: https://eodag.readthedocs.io/en/stable/getting_started_guide/configure.html
 ## ref: https://github.com/CS-SI/eodag/blob/master/eodag/resources/user_conf_template.yml
+# -- [object] EODAG configuration
 config:
   # cop_cds:
   #     priority: # Lower value means lower priority (Default: 0)
@@ -155,58 +155,57 @@ config:
   #             username:
   #             password:
 
-## @param configExistingSecret.name Existing secret name for EODAG config. If this is set, value config will be ignored
-## @param configExistingSecret.key Existing secret key for EODAG config. If this is set, value config will be ignored
 configExistingSecret:
+  # -- Existing secret name for EODAG config. If this is set, value config will be ignored
   name: ""
+  # -- Existing secret key for EODAG config. If this is set, value config will be ignored
   key: ""
 
 
-## @section stac-fastapi-eodag configuration
+## stac-fastapi-eodag configuration
 
-## @param api.title API title
-## @param api.description API description
-## @param api.landingId ID of the landing page
 ##
 api:
+  # -- API title
   title: EODAG STAC FastAPI
+  # -- API description
   description: STAC API powered by EODAG and STAC FastAPI
+  # -- ID of the landing page
   landingId: eodag-stac-fastapi
 
-## @param rootPath Application root path
 ##
+# -- Application root path
 rootPath: ""
 
-## @param debug When set to true, set the EODAG logging level to 3 (DEBUG). Otherwise, set EODAG logging level to 2 (INFO).
 ##
+# -- When set to true, set the EODAG logging level to 3 (DEBUG). Otherwise, set EODAG logging level to 2 (INFO).
 debug: false
 
-## @param keepOriginUrl Keep the original URL in the response headers
 ##
+# -- Keep the original URL in the response headers
 keepOriginUrl: false
 
 
-## @section stac-fastapi-eodag common parameters
+## stac-fastapi-eodag common parameters
 
 ## CS Group stac-fastapi-eodag image version
 ## ref: https://hub.docker.com/r/csspace/eodag-server
-## @param image.registry stac-fastapi-eodag image registry
-## @param image.repository stac-fastapi-eodag image repository
-## @param image.tag Overrides the stac-fastapi-eodag image tag whose default is the chart appVersion (immutable tags are recommended)
-## @param image.digest stac-fastapi-eodag image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
-## @param image.pullPolicy stac-fastapi-eodag image pull policy
-## @param image.pullSecrets Specify docker-registry secret names as an array
 ## Number of replicas to deploy
 ##
 image:
+  # -- stac-fastapi-eodag image registry
   registry: ghcr.io
+  # -- stac-fastapi-eodag image repository
   repository: cs-si/stac-fastapi-eodag
+  # -- Overrides the stac-fastapi-eodag image tag whose default is the chart appVersion (immutable tags are recommended)
   tag: "v0.3.0-eodag-4.0.0"
+  # -- stac-fastapi-eodag image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
   digest: ""
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
   ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
   ##
+  # -- stac-fastapi-eodag image pull policy
   pullPolicy: IfNotPresent
   ## Optionally specify an array of imagePullSecrets.
   ## Secrets must be manually created in the namespace.
@@ -215,259 +214,259 @@ image:
   ## pullSecrets:
   ##   - myRegistryKeySecretName
   ##
+  # -- Specify docker-registry secret names as an array
   pullSecrets: []
 
-## @param replicaCount Number of stac-fastapi-eodag replicas
 ##
+# -- Number of stac-fastapi-eodag replicas
 replicaCount: 1
 
 ## Configure extra options for stac-fastapi-eodag containers' liveness and readiness probes
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/#configure-probes
-## @param startupProbe.enabled Enable startupProbe on stac-fastapi-eodag containers
-## @param startupProbe.initialDelaySeconds Initial delay seconds for startupProbe
-## @param startupProbe.periodSeconds Period seconds for startupProbe
-## @param startupProbe.timeoutSeconds Timeout seconds for startupProbe
-## @param startupProbe.failureThreshold Failure threshold for startupProbe
-## @param startupProbe.successThreshold Success threshold for startupProbe
 ##
 startupProbe:
+  # -- Enable startupProbe on stac-fastapi-eodag containers
   enabled: false
+  # -- Initial delay seconds for startupProbe
   initialDelaySeconds: 10
+  # -- Period seconds for startupProbe
   periodSeconds: 10
+  # -- Timeout seconds for startupProbe
   timeoutSeconds: 1
+  # -- Failure threshold for startupProbe
   failureThreshold: 3
+  # -- Success threshold for startupProbe
   successThreshold: 1
-## @param livenessProbe.enabled Enable livenessProbe on stac-fastapi-eodag containers
-## @param livenessProbe.initialDelaySeconds Initial delay seconds for livenessProbe
-## @param livenessProbe.periodSeconds Period seconds for livenessProbe
-## @param livenessProbe.timeoutSeconds Timeout seconds for livenessProbe
-## @param livenessProbe.failureThreshold Failure threshold for livenessProbe
-## @param livenessProbe.successThreshold Success threshold for livenessProbe
 ##
 livenessProbe:
+  # -- Enable livenessProbe on stac-fastapi-eodag containers
   enabled: false
+  # -- Initial delay seconds for livenessProbe
   initialDelaySeconds: 3
+  # -- Period seconds for livenessProbe
   periodSeconds: 10
+  # -- Timeout seconds for livenessProbe
   timeoutSeconds: 1
+  # -- Failure threshold for livenessProbe
   failureThreshold: 3
+  # -- Success threshold for livenessProbe
   successThreshold: 1
-## @param readinessProbe.enabled Enable readinessProbe on stac-fastapi-eodag containers
-## @param readinessProbe.initialDelaySeconds Initial delay seconds for readinessProbe
-## @param readinessProbe.periodSeconds Period seconds for readinessProbe
-## @param readinessProbe.timeoutSeconds Timeout seconds for readinessProbe
-## @param readinessProbe.failureThreshold Failure threshold for readinessProbe
-## @param readinessProbe.successThreshold Success threshold for readinessProbe
 ##
 readinessProbe:
+  # -- Enable readinessProbe on stac-fastapi-eodag containers
   enabled: false
+  # -- Initial delay seconds for readinessProbe
   initialDelaySeconds: 3
+  # -- Period seconds for readinessProbe
   periodSeconds: 10
+  # -- Timeout seconds for readinessProbe
   timeoutSeconds: 1
+  # -- Failure threshold for readinessProbe
   failureThreshold: 3
+  # -- Success threshold for readinessProbe
   successThreshold: 1
 
-## @param customLivenessProbe Custom livenessProbe that overrides the default one
 ##
+# -- Custom livenessProbe that overrides the default one
 customLivenessProbe: {}
 
-## @param customReadinessProbe Custom readinessProbe that overrides the default one
 ##
+# -- Custom readinessProbe that overrides the default one
 customReadinessProbe: {}
 
 ## stac-fastapi-eodag resource requests and limits
 ## ref: https://kubernetes.io/docs/user-guide/compute-resources/
-## @param resources.limits The resources limits for the stac-fastapi-eodag containers
-## @param resources.requests The requested resources for the stac-fastapi-eodag containers
 ##
 resources:
+  # -- The resources limits for the stac-fastapi-eodag containers
   limits: {}
+  # -- The requested resources for the stac-fastapi-eodag containers
   requests: {}
 
 ## STAC FastAPI EODAG horizontal autoscaling
 ## ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-## @param horizontalPodAutoscaler.enabled Decide to enable or disable the horizontal pod autoscaler
-## @param horizontalPodAutoscaler.maxReplicas The maximum number of replicas that are allowed to run simultaneously
-## @param horizontalPodAutoscaler.cpuUtilization The maximum CPU utilization target computed in % of the CPU resources request.
-## @param horizontalPodAutoscaler.memUtilization The maximum RAM utilization target computed in % of the RAM resources request.
 ##
 horizontalPodAutoscaler:
+  # -- Decide to enable or disable the horizontal pod autoscaler
   enabled: false
+  # -- The maximum number of replicas that are allowed to run simultaneously
   maxReplicas: 10
+  # -- The maximum CPU utilization target computed in % of the CPU resources request.
   cpuUtilization: 50
+  # -- The maximum RAM utilization target computed in % of the RAM resources request.
   memUtilization: 50
 
 ## Configure Pods Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-## @param podSecurityContext.enabled Enabled stac-fastapi-eodag pods' Security Context
-## @param podSecurityContext.fsGroup Set stac-fastapi-eodag pod's Security Context fsGroup
 ##
 podSecurityContext:
+  # -- Enabled stac-fastapi-eodag pods' Security Context
   enabled: false
+  # -- Set stac-fastapi-eodag pod's Security Context fsGroup
   fsGroup: 1001
 
 ## Configure Container Security Context
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-## @param containerSecurityContext.enabled Enabled stac-fastapi-eodag containers' Security Context
-## @param containerSecurityContext.runAsUser Set stac-fastapi-eodag containers' Security Context runAsUser
-## @param containerSecurityContext.allowPrivilegeEscalation Set stac-fastapi-eodag containers' Security Context allowPrivilegeEscalation
-## @param containerSecurityContext.capabilities.drop Set stac-fastapi-eodag containers' Security Context capabilities to be dropped
-## @param containerSecurityContext.readOnlyRootFilesystem Set stac-fastapi-eodag containers' Security Context readOnlyRootFilesystem
-## @param containerSecurityContext.runAsNonRoot Set stac-fastapi-eodag container's Security Context runAsNonRoot
 ##
 containerSecurityContext:
+  # -- Enabled stac-fastapi-eodag containers' Security Context
   enabled: false
+  # -- Set stac-fastapi-eodag containers' Security Context runAsUser
   runAsUser: 1001
+  # -- Set stac-fastapi-eodag containers' Security Context allowPrivilegeEscalation
   allowPrivilegeEscalation: false
   capabilities:
+    # -- Set stac-fastapi-eodag containers' Security Context capabilities to be dropped
     drop:
       - all
+  # -- Set stac-fastapi-eodag containers' Security Context readOnlyRootFilesystem
   readOnlyRootFilesystem: false
+  # -- Set stac-fastapi-eodag container's Security Context runAsNonRoot
   runAsNonRoot: true
 
-## @param command Override default container command (useful when using custom images)
 ##
+# -- Override default container command (useful when using custom images)
 command: []
 
-## @param args Override default container args (useful when using custom images). Overrides the defaultArgs.
 ##
+# -- Override default container args (useful when using custom images). Overrides the defaultArgs.
 args: []
 
 ## stac-fastapi-eodag application ports
-## @param containerPorts.http stac-fastapi-eodag application HTTP port number
 containerPorts:
+  # -- stac-fastapi-eodag application HTTP port number
   http: 8080
 
-## @param hostAliases stac-fastapi-eodag pods host aliases
 ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
 ##
+# -- stac-fastapi-eodag pods host aliases
 hostAliases: []
 
-## @param podLabels Extra labels for stac-fastapi-eodag pods
 ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 ##
+# -- Extra labels for stac-fastapi-eodag pods
 podLabels: {}
 
-## @param podAnnotations Annotations for stac-fastapi-eodag pods
 ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 ##
+# -- Annotations for stac-fastapi-eodag pods
 podAnnotations: {}
 
-## @param podAffinityPreset Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
 ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
 ##
+# -- Pod affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
 podAffinityPreset: ""
 
-## @param podAntiAffinityPreset Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
 ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#inter-pod-affinity-and-anti-affinity
 ##
+# -- Pod anti-affinity preset. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
 podAntiAffinityPreset: soft
 
 ## Node affinity preset
 ## ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#node-affinity
 ##
 nodeAffinityPreset:
-  ## @param nodeAffinityPreset.type Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
   ##
+  # -- Node affinity preset type. Ignored if `affinity` is set. Allowed values: `soft` or `hard`
   type: ""
-  ## @param nodeAffinityPreset.key Node label key to match. Ignored if `affinity` is set
   ##
+  # -- Node label key to match. Ignored if `affinity` is set
   key: ""
-  ## @param nodeAffinityPreset.values Node label values to match. Ignored if `affinity` is set
   ## E.g.
   ## values:
   ##   - e2e-az1
   ##   - e2e-az2
   ##
+  # -- Node label values to match. Ignored if `affinity` is set
   values: []
 
-## @param affinity Affinity for stac-fastapi-eodag pods assignment
 ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
 ## NOTE: `podAffinityPreset`, `podAntiAffinityPreset`, and `nodeAffinityPreset` will be ignored when it's set
 ##
+# -- Affinity for stac-fastapi-eodag pods assignment
 affinity: {}
 
-## @param nodeSelector Node labels for stac-fastapi-eodag pods assignment
 ## ref: https://kubernetes.io/docs/user-guide/node-selection/
 ##
+# -- Node labels for stac-fastapi-eodag pods assignment
 nodeSelector: {}
 
-## @param tolerations Tolerations for stac-fastapi-eodag pods assignment
 ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
 ##
+# -- Tolerations for stac-fastapi-eodag pods assignment
 tolerations: []
 
-## @param schedulerName Name of the k8s scheduler (other than default)
 ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
 ##
+# -- Name of the k8s scheduler (other than default)
 schedulerName: ""
 
-## @param shareProcessNamespace Enable shared process namespace in a pod.
 ## If set to false (default), each container will run in separate namespace,  will have PID=1.
 ## If set to true, the /pause will run as init process and will reap any zombie PIDs,
 ## for example, generated by a custom exec probe running longer than a probe timeoutSeconds.
 ## Enable this only if customLivenessProbe or customReadinessProbe is used and zombie PIDs are accumulating.
 ## Ref: https://kubernetes.io/docs/tasks/configure-pod-container/share-process-namespace/
 ##
+# -- Enable shared process namespace in a pod.
 shareProcessNamespace: false
 
-## @param topologySpreadConstraints Topology Spread Constraints for pod assignment
 ## https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 ## The value is evaluated as a template
 ##
+# -- Topology Spread Constraints for pod assignment
 topologySpreadConstraints: []
 
-## @param updateStrategy.type stac-fastapi-eodag statefulset strategy type
 ## ref: https://kubernetes.io/docs/concepts/workloads/s/statefulset/#update-strategies
 ##
 updateStrategy:
   ## StrategyType
   ## Can be set to RollingUpdate or OnDelete
   ##
+  # -- stac-fastapi-eodag statefulset strategy type
   type: RollingUpdate
 
-## @param priorityClassName stac-fastapi-eodag pods' priorityClassName
 ##
+# -- stac-fastapi-eodag pods' priorityClassName
 priorityClassName: ""
 
-## @param runtimeClassName Name of the runtime class to be used by pod(s)
 ## ref: https://kubernetes.io/docs/concepts/containers/runtime-class/
 ##
+# -- Name of the runtime class to be used by pod(s)
 runtimeClassName: ""
 
-## @param terminationGracePeriodSeconds Termination grace period in seconds for pods
 ## This allows pods to gracefully shut down before being forcefully terminated
 ##
+# -- Termination grace period in seconds for pods
 terminationGracePeriodSeconds: 30
 
-## @param lifecycleHooks for the stac-fastapi-eodag container(s) to automate configuration before or after startup
 ##
+# -- for the stac-fastapi-eodag container(s) to automate configuration before or after startup
 lifecycleHooks: {}
 
-## @param extraEnvVars Array with extra environment variables to add to stac-fastapi-eodag nodes
 ## e.g:
 ## extraEnvVars:
 ##   - name: FOO
 ##     value: "bar"
 ##
+# -- Array with extra environment variables to add to stac-fastapi-eodag nodes
 extraEnvVars: []
 
-## @param extraEnvVarsCM Name of existing ConfigMap containing extra env vars for stac-fastapi-eodag nodes
 ##
+# -- Name of existing ConfigMap containing extra env vars for stac-fastapi-eodag nodes
 extraEnvVarsCM: ""
 
-## @param extraEnvVarsSecret Name of existing Secret containing extra env vars for stac-fastapi-eodag nodes
 ##
+# -- Name of existing Secret containing extra env vars for stac-fastapi-eodag nodes
 extraEnvVarsSecret: ""
 
-## @param extraVolumes Optionally specify extra list of additional volumes for the stac-fastapi-eodag pod(s)
 ##
+# -- Optionally specify extra list of additional volumes for the stac-fastapi-eodag pod(s)
 extraVolumes: []
 
-## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for the stac-fastapi-eodag container(s)
 ##
+# -- Optionally specify extra list of additional volumeMounts for the stac-fastapi-eodag container(s)
 extraVolumeMounts: []
 
-## @param sidecars Add additional sidecar containers to the stac-fastapi-eodag pod(s)
 ## e.g:
 ## sidecars:
 ##   - name: your-image-name
@@ -477,9 +476,9 @@ extraVolumeMounts: []
 ##       - name: portname
 ##         containerPort: 1234
 ##
+# -- Add additional sidecar containers to the stac-fastapi-eodag pod(s)
 sidecars: []
 
-## @param initContainers Add additional init containers to the stac-fastapi-eodag pod(s)
 ## ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 ## e.g:
 ## initContainers:
@@ -488,110 +487,104 @@ sidecars: []
 ##    imagePullPolicy: Always
 ##    command: ['sh', '-c', 'echo "hello world"']
 ##
+# -- Add additional init containers to the stac-fastapi-eodag pod(s)
 initContainers: []
 
 ## Deployment configuration
 deployment:
-  ## @param deployment.annotations Additional custom annotations for stac-fastapi-eodag deployment
+  # -- Additional custom annotations for stac-fastapi-eodag deployment
   annotations: {}
 
 ## Service configuration
 ##
 service:
-  ## @param service.type Kubernetes service type
   ##
+  # -- Kubernetes service type
   type: ClusterIP
-  ## @param service.http.enabled Enable http port on service
   ##
   http:
+    # -- Enable http port on service
     enabled: true
-  ## @param service.ports.http stac-fastapi-eodag service HTTP port
   ##
   ports:
+    # -- stac-fastapi-eodag service HTTP port
     http: 8080
 
-  ## @param service.nodePorts [object] Specify the nodePort values for the LoadBalancer and NodePort service types.
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
   ##
+  # -- [object] Specify the nodePort values for the LoadBalancer and NodePort service types.
   nodePorts:
     http: ""
     metrics: ""
-  ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
   ## Values: ClientIP or None
   ## ref: https://kubernetes.io/docs/user-guide/services/
   ##
+  # -- Control where client requests go, to the same pod or round-robin
   sessionAffinity: None
-  ## @param service.sessionAffinityConfig Additional settings for the sessionAffinity
   ## sessionAffinityConfig:
   ##   clientIP:
   ##     timeoutSeconds: 300
   ##
+  # -- Additional settings for the sessionAffinity
   sessionAffinityConfig: {}
-  ## @param service.clusterIP stac-fastapi-eodag service clusterIP IP
   ## e.g:
   ## clusterIP: None
   ##
+  # -- stac-fastapi-eodag service clusterIP IP
   clusterIP: ""
-  ## @param service.loadBalancerIP loadBalancerIP for the SuiteCRM Service (optional, cloud specific)
   ## ref: https://kubernetes.io/docs/user-guide/services/#type-loadbalancer
   ##
+  # -- loadBalancerIP for the SuiteCRM Service (optional, cloud specific)
   loadBalancerIP: ""
-  ## @param service.loadBalancerSourceRanges Address that are allowed when service is LoadBalancer
   ## https://kubernetes.io/docs/tasks/access-application-cluster/configure-cloud-provider-firewall/#restrict-access-for-loadbalancer-service
   ## Example:
   ## loadBalancerSourceRanges:
   ##   - 10.10.10.0/24
   ##
+  # -- Address that are allowed when service is LoadBalancer
   loadBalancerSourceRanges: []
-  ## @param service.externalTrafficPolicy Enable client source IP preservation
   ## ref https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/#preserving-the-client-source-ip
   ##
+  # -- Enable client source IP preservation
   externalTrafficPolicy: Cluster
-  ## @param service.annotations Additional custom annotations for stac-fastapi-eodag service
   ##
+  # -- Additional custom annotations for stac-fastapi-eodag service
   annotations: {}
-  ## @param service.extraPorts Extra port to expose on stac-fastapi-eodag service
   ##
+  # -- Extra port to expose on stac-fastapi-eodag service
   extraPorts: []
 
 ## Configure the ingress for the stac-fastapi-eodag
 ## Ref: https://kubernetes.io/docs/user-guide/ingress/
-## @param ingress.enabled Enable the creation of an ingress for the stac-fastapi-eodag
-## @param ingress.pathType Path type for the stac-fastapi-eodag ingress
-## @param ingress.apiVersion Ingress API version for the stac-fastapi-eodag ingress
-## @param ingress.hostname Ingress hostname for the stac-fastapi-eodag ingress
-## @param ingress.annotations Annotations for the stac-fastapi-eodag ingress. To enable certificate autogeneration, place here your cert-manager annotations.
-## @param ingress.tls Enable TLS for the stac-fastapi-eodag ingress
-## @param ingress.extraHosts Extra hosts array for the stac-fastapi-eodag ingress
-## @param ingress.path Path array for the stac-fastapi-eodag ingress
-## @param ingress.extraPaths Extra paths for the stac-fastapi-eodag ingress
-## @param ingress.extraTls Extra TLS configuration for the stac-fastapi-eodag ingress
-## @param ingress.secrets Secrets array to mount into the Ingress
-## @param ingress.ingressClassName IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)
 ##
 ingress:
   ## Set to true to enable ingress record generation
   ##
+  # -- Enable the creation of an ingress for the stac-fastapi-eodag
   enabled: false
-  ## @param ingress.selfSigned Create a TLS secret for this ingress record using self-signed certificates generated by Helm
   ##
+  # -- Create a TLS secret for this ingress record using self-signed certificates generated by Helm
   selfSigned: false
   ## Ingress Path type
   ##
+  # -- Path type for the stac-fastapi-eodag ingress
   pathType: ImplementationSpecific
   ## Override API Version (automatically detected if not set)
   ##
+  # -- Ingress API version for the stac-fastapi-eodag ingress
   apiVersion: ""
   ## When the ingress is enabled, a host pointing to this will be created
   ##
+  # -- Ingress hostname for the stac-fastapi-eodag ingress
   hostname: eodag.local
   ## The Path to eodag. You may need to set this to '/*' in order to use this
   ## with ALB ingress s.
   ##
+  # -- Path array for the stac-fastapi-eodag ingress
   path: /
-  ## @param ingress.servicePort Backend service port to use
   ## Default is http. Alternative is https.
   ##
+  # -- Backend service port to use
   servicePort: http
   ## For a full list of possible ingress annotations, please see
   ## ref: https://github.com/kubernetes/ingress-nginx/blob/master/docs/user-guide/nginx-configuration/annotations.md
@@ -603,20 +596,24 @@ ingress:
   ##   kubernetes.io/ingress.class: nginx
   ##   cert-manager.io/cluster-issuer: cluster-issuer-name
   ##
+  # -- Annotations for the stac-fastapi-eodag ingress. To enable certificate autogeneration, place here your cert-manager annotations.
   annotations: {}
   ## Enable TLS configuration for the hostname defined at ingress.hostname parameter
   ## TLS certificates will be retrieved from a TLS secret with name: {{- printf "%s-tls" .Values.ingress.hostname }}
   ## You can use the ingress.secrets parameter to create this TLS secret or rely on cert-manager to create it
   ##
+  # -- Enable TLS for the stac-fastapi-eodag ingress
   tls: false
   ## The list of additional hostnames to be covered with this ingress record.
   ## Most likely the hostname above will be enough, but in the event more hosts are needed, this is an array
+  # -- Extra hosts array for the stac-fastapi-eodag ingress
   extraHosts: []
   ## - name: eodag.local
   ##   path: /
   ##
   ## Any additional arbitrary paths that may need to be added to the ingress under the main host.
   ## For example: The ALB ingress  requires a special rule for handling SSL redirection.
+  # -- Extra paths for the stac-fastapi-eodag ingress
   extraPaths: []
   ## - path: /*
   ##   backend:
@@ -625,6 +622,7 @@ ingress:
   ##
   ## The tls configuration for additional hostnames to be covered with this ingress record.
   ## see: https://kubernetes.io/docs/concepts/services-networking/ingress/#tls
+  # -- Extra TLS configuration for the stac-fastapi-eodag ingress
   extraTls: []
   ## - hosts:
   ##     - eodag.local
@@ -641,6 +639,7 @@ ingress:
   ## It is also possible to create and manage the certificates outside of this helm chart
   ## Please see README.md for more information
   ##
+  # -- Secrets array to mount into the Ingress
   secrets: []
   ## - name: eodag.local-tls
   ##   key:
@@ -650,8 +649,8 @@ ingress:
   ## This is supported in Kubernetes 1.18+ and required if you have more than one IngressClass marked as the default for your cluster .
   ## ref: https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/
   ##
+  # -- IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)
   ingressClassName: ""
-  ## @param ingress.extraRules Additional rules to be covered with this ingress record
   ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-rules
   ## e.g:
   ## extraRules:
@@ -664,64 +663,65 @@ ingress:
   ##           port:
   ##             name: http
   ##
+  # -- Additional rules to be covered with this ingress record
   extraRules: []
 
 ## ServiceAccount configuration
 ##
 serviceAccount:
-  ## @param serviceAccount.create Specifies whether a ServiceAccount should be created
   ##
+  # -- Specifies whether a ServiceAccount should be created
   create: true
-  ## @param serviceAccount.name The name of the ServiceAccount to use.
   ## If not set and create is true, a name is generated using the common.names.fullname template
   ##
+  # -- The name of the ServiceAccount to use.
   name: ""
-  ## @param serviceAccount.annotations Additional custom annotations for the ServiceAccount
   ##
+  # -- Additional custom annotations for the ServiceAccount
   annotations: {}
-  ## @param serviceAccount.automountServiceAccountToken Automount service account token for the server service account
   ##
+  # -- Automount service account token for the server service account
   automountServiceAccountToken: true
 
 
-## @section Telemetry parameters
+## Telemetry parameters
 ##
 ## Collector component: https://hub.docker.com/r/otel/opentelemetry-collector-contrib
-## @param otel.enabled Enable otel export
-## @param otel.endpoint The hostname and port for an otel compatible backend
-## @param otel.interval The
-## @param otel.timeout The timeout for data transfer
-## @param otel.collector.enabled Deploy an otel collector backend as sidecar
 otel:
+  # -- Enable otel export
   enabled: false
+  # -- The hostname and port for an otel compatible backend
   endpoint: "http://localhost:4318"
+  # -- The
   interval: 60000
+  # -- The timeout for data transfer
   timeout: 10
 
   collector:
+    # -- Deploy an otel collector backend as sidecar
     enabled: false
     ## OpenTelemetry Collector image version
     ## ref: https://hub.docker.com/r/otel/opentelemetry-collector-contrib
-    ## @param otel.collector.image.registry OpenTelemetry Collector image registry
-    ## @param otel.collector.image.repository OpenTelemetry Collector image repository
-    ## @param otel.collector.image.tag Overrides the OpenTelemetry Collector image tag
-    ## @param otel.collector.image.pullPolicy stac-fastapi-eodag image pull policy
     ##
     image:
+      # -- OpenTelemetry Collector image registry
       registry: docker.io
+      # -- OpenTelemetry Collector image repository
       repository: otel/opentelemetry-collector-contrib
+      # -- Overrides the OpenTelemetry Collector image tag
       tag: "0.95.0"
       ## Specify a imagePullPolicy
       ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
       ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
       ##
+      # -- stac-fastapi-eodag image pull policy
       pullPolicy: IfNotPresent
     ports:
-      ## @param otel.collector.ports.otlpReceiver port to receive otel telemetry
+      # -- port to receive otel telemetry
       otlpReceiver: 4318
-      ## @param otel.collector.ports.prometheusExporter Port for Prometheus scrapping. Data available under /metrics
+      # -- Port for Prometheus scrapping. Data available under /metrics
       prometheusExporter: 8000
-    ## @param otel.collector.config [object] Optional overwrite of OpenTelemetry Collector default configuration
+    # -- [object] Optional overwrite of OpenTelemetry Collector default configuration
     config: |-
       extensions:
         health_check:
@@ -764,30 +764,30 @@ otel:
         extensions: [health_check, pprof, zpages]
 
   serviceMonitor:
-    ## @param otel.serviceMonitor.enabled if `true`, creates a Prometheus Operator PodMonitor
     ##
+    # -- if `true`, creates a Prometheus Operator PodMonitor
     enabled: false
-    ## @param otel.serviceMonitor.namespace Namespace for the PodMonitor Resource (defaults to the Release Namespace)
     ##
+    # -- Namespace for the PodMonitor Resource (defaults to the Release Namespace)
     namespace: ""
-    ## @param otel.serviceMonitor.interval Interval at which metrics should be scraped.
     ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#endpoint
     ## e.g:
     ## interval: 10s
     ##
+    # -- Interval at which metrics should be scraped.
     interval: ""
-    ## @param otel.serviceMonitor.scrapeTimeout Timeout after which the scrape is ended
     ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#endpoint
     ## e.g:
     ## scrapeTimeout: 10s
     ##
+    # -- Timeout after which the scrape is ended
     scrapeTimeout: ""
-    ## @param otel.serviceMonitor.labels Labels that can be used so PodMonitor will be discovered by Prometheus
     ##
+    # -- Labels that can be used so PodMonitor will be discovered by Prometheus
     labels: {}
-    ## @param otel.serviceMonitor.relabelings RelabelConfigs to apply to samples before scraping
     ##
+    # -- RelabelConfigs to apply to samples before scraping
     relabelings: []
-    ## @param otel.serviceMonitor.metricRelabelings MetricRelabelConfigs to apply to samples before ingestion
     ##
+    # -- MetricRelabelConfigs to apply to samples before ingestion
     metricRelabelings: []

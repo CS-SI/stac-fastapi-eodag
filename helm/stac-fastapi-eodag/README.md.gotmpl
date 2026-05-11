@@ -1,0 +1,155 @@
+# EODAG Server
+
+This chart bootstraps a [stac-fastapi-eodag](https://github.com/CS-SI/stac-fastapi-eodag) deployment on a [Kubernetes](http://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
+
+## TL;DR
+
+```console
+helm repo add stac-fastapi-eodag https://cs-si.github.io/stac-fastapi-eodag
+helm repo update
+helm install my-release stac-fastapi-eodag/stac-fastapi-eodag
+```
+
+## Prerequisites
+
+- Kubernetes 1.23+
+- Helm 3.8.0+
+
+## Installing the Chart
+
+### Add the Helm Repository
+
+First, add the stac-fastapi-eodag Helm repository:
+
+```console
+helm repo add stac-fastapi-eodag https://cs-si.github.io/stac-fastapi-eodag
+helm repo update
+```
+
+### Install the Chart
+
+To install the chart with the release name `my-release`:
+
+```console
+helm install my-release stac-fastapi-eodag/stac-fastapi-eodag
+```
+
+These commands deploy stac-fastapi-eodag on the Kubernetes cluster in the default configuration.
+
+> **Tip**: List all releases using `helm list`
+
+## Uninstalling the Chart
+
+To uninstall the `my-release` deployment:
+
+```bash
+helm uninstall my-release
+```
+
+The command removes all the Kubernetes components associated with the chart and deletes the release.
+
+## Parameters
+
+{{ template "chart.valuesSection" . }}
+
+Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
+
+```console
+helm install my-release \
+  --set image.pullPolicy=Always \
+  stac-fastapi-eodag/stac-fastapi-eodag
+```
+
+Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart:
+
+```console
+helm install my-release -f values.yaml stac-fastapi-eodag/stac-fastapi-eodag
+```
+
+> **Tip**: You can use the default [values.yaml](values.yaml)
+
+## Configuration and installation details
+
+### EODAG provider configuration
+
+EODAG credentials and provider settings are passed via the `config` value, which maps directly to the [EODAG user configuration](https://eodag.readthedocs.io/en/stable/getting_started_guide/configure.html).
+
+```yaml
+config:
+  cop_dataspace:
+    priority: 1
+    auth:
+      credentials:
+        username: your-username
+        password: your-password
+```
+
+For production deployments, use an existing Kubernetes secret instead of embedding credentials in values:
+
+```yaml
+configExistingSecret:
+  name: eodag-credentials
+  key: eodag-config.yml
+```
+
+### Expose the API on a subpath
+
+To run stac-fastapi-eodag under a path prefix such as `/stac`, set `rootPath` and configure the ingress rewrite accordingly:
+
+```yaml
+rootPath: /stac
+
+ingress:
+  enabled: true
+  hostname: my-cluster.example.com
+  path: /stac/?(.*)
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+```
+
+### Immutable image tags
+
+Always pin the image to an immutable tag in production. The default tag follows the pattern `<app-version>-eodag-<eodag-version>` (e.g. `v0.3.0-eodag-4.0.0`). Avoid using `latest` or floating tags — they make rollbacks unreliable and deployments non-deterministic.
+
+### Horizontal Pod Autoscaling
+
+Enable HPA to automatically scale the API under load:
+
+```yaml
+horizontalPodAutoscaler:
+  enabled: true
+  maxReplicas: 5
+  cpuUtilization: 70
+```
+
+Ensure `resources.requests` are set, as HPA requires them to compute utilization ratios.
+
+### OpenTelemetry / observability
+
+The chart ships with an optional OpenTelemetry Collector sidecar. Enable it to export traces and metrics to any OTLP-compatible backend (Jaeger, Tempo, etc.):
+
+```yaml
+otel:
+  enabled: true
+  endpoint: "http://tempo.monitoring.svc:4318"
+  collector:
+    enabled: true
+```
+
+Prometheus metrics are exposed by the collector on port `8000` under `/metrics`. A `ServiceMonitor` resource for the Prometheus Operator can be enabled via `otel.serviceMonitor.enabled`.
+
+## License
+
+Copyright 5, CS GROUP - France, https://www.cs-soprasteria.com
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+<http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

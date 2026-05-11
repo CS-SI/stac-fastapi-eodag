@@ -1,4 +1,4 @@
-.PHONY: install-deps test lint run
+.PHONY: install-deps test lint run helm-docs
 
 install-deps:
 	uv sync --extra dev --extra server --extra telemetry
@@ -13,3 +13,6 @@ lint:
 
 run:
 	uv run uvicorn stac_fastapi.eodag.app:app --host 0.0.0.0 --port 8080 --reload
+
+helm-docs:
+	docker run --rm --volume "$(PWD):/helm-docs" -u $(shell id -u) jnorwood/helm-docs:latest --chart-search-root=helm
