@@ -104,7 +104,7 @@ async def test_count_search(request_valid, defaults, mock_search, mock_search_re
             validate=True,
         ),
     )
-    assert response["numberMatched"] is None
+    assert response.get("numberMatched") is None
 
     # Reset search mock, set "number_matched" attribute of the search results mock for a counting search
     # and set count to True
