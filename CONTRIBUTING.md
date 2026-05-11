@@ -26,11 +26,34 @@ If you intend to contribute to eodag source code:
 ```bash
 git clone https://github.com/CS-SI/stac-fastapi-eodag.git
 cd stac-fastapi-eodag
-python -m pip install -e .[dev,server]
-pre-commit install
+make install-deps
 ```
 
+We use [`uv`](https://docs.astral.sh/uv/) to manage dependencies and virtual environments.
+If you don't have it yet: `pip install uv` or see the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+
 We use `pre-commit` to run a suite of linters, formatters and pre-commit hooks to ensure the code base is homogeneously formatted and easier to read.
+
+### 2. Run the tests
+
+```bash
+make test
+```
+
+### 3. Run the linters
+
+```bash
+make lint
+```
+
+### 4. Available make targets
+
+```bash
+make install-deps   # sync dependencies and install pre-commit hooks
+make test      # run the test suite
+make lint      # run linters
+make run       # start the development server
+```
 
 ## Contribute to the Helm chart
 
