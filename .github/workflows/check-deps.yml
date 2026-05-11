@@ -1,0 +1,18 @@
+name: Check dependencies
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  no-git-deps:
+    name: No git-sourced dependencies on main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure eodag is not installed from a git source
+        run: |
+          if grep -E 'eodag\s*(\[.*\])?\s*@\s*git\+' pyproject.toml; then
+            echo "ERROR: eodag must not be pinned to a git source on main. Use a released PyPI version."
+            exit 1
+          fi
