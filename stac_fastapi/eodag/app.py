@@ -27,7 +27,6 @@ from brotli_asgi import BrotliMiddleware
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware import Middleware
-from fastapi.responses import ORJSONResponse
 from stac_fastapi.api.app import StacApi
 from stac_fastapi.api.models import (
     EmptyRequest,
@@ -51,6 +50,7 @@ from stac_fastapi.extensions.core.query import QueryConformanceClasses
 from stac_fastapi.extensions.core.sort import SortConformanceClasses
 from stac_fastapi.types.search import APIRequest
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse as StarletteJSONResponse
 
 from eodag.types.stac_metadata import create_stac_metadata_model
 from eodag.utils import StreamResponseContent
@@ -224,7 +224,7 @@ api = StacApi(
     settings=settings,
     extensions=extensions,
     client=client,
-    response_class=ORJSONResponse,
+    response_class=StarletteJSONResponse,
     search_get_request_model=search_get_model,
     search_post_request_model=search_post_model,
     collections_get_request_model=collection_search_extension.GET,
