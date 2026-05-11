@@ -5,8 +5,6 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  schedule:
-    - cron: "0 7 * * 1"
   workflow_dispatch:
 
 jobs:
@@ -15,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         # Get history and tags for SCM versioning to work
         fetch-depth: 0
     - name: Install the latest version of uv with cache enabled
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v8.1.0
       with:
         version: "latest"
         enable-cache: true
@@ -33,16 +31,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.9, "3.14"]
+        python-version: [3.9, 3.14]
         os: [ubuntu-latest, windows-latest]
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         # Get history and tags for SCM versioning to work
         fetch-depth: 0
     - name: Install the latest version of uv with cache enabled
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v8.1.0
       with:
         version: "latest"
         enable-cache: true
@@ -51,7 +49,7 @@ jobs:
       run: uvx --python ${{ matrix.python-version }} --with tox-uv --with tox-gh-actions tox
     - name: Upload Unit Test Results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: unit-test-results-python${{ matrix.python-version }}-${{ matrix.os }}
         path: |
@@ -66,7 +64,7 @@ jobs:
 
     steps:
     - name: Download Artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         path: artifacts
 
@@ -77,7 +75,7 @@ jobs:
         files: artifacts/*/junit-report.xml
 
     - name: Produce the coverage report for Ubuntu
-      uses: insightsengineering/coverage-action@v2
+      uses: insightsengineering/coverage-action@v3
       with:
         # Path to the Cobertura XML report.
         path: artifacts/unit-test-results-python3.14-ubuntu-latest/coverage.xml
@@ -111,15 +109,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout the repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         # Get history and tags for SCM versioning to work
         fetch-depth: 0
     - name: Install the latest version of uv with cache enabled
-      uses: astral-sh/setup-uv@v3
+      uses: astral-sh/setup-uv@v8.1.0
       with:
         version: "latest"
         enable-cache: true
         cache-dependency-glob: ""
     - name: Testing with tox and sphinx (to have rst2html.py utility available)
       run: uvx --with tox-uv --with sphinx tox -e pypi
+
+  sonarqube:
+    name: SonarQube scan
+    needs: tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+    - name: Checkout the repo
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+    - name: Download Ubuntu coverage artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: unit-test-results-python3.14-ubuntu-latest
+        path: test-reports
+    - name: SonarQube Scan
+      uses: SonarSource/sonarqube-scan-action@v7
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=cs-si_stac-fastapi-eodag
+          -Dsonar.organization=cs-si
+          -Dsonar.python.version=3.14
+          -Dsonar.python.coverage.reportPaths=test-reports/coverage.xml
+          -Dsonar.sources=stac_fastapi/
+          -Dsonar.tests=tests/
