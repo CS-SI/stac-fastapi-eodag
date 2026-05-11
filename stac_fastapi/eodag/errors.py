@@ -147,7 +147,7 @@ class ResponseSearchError(Exception):
         return 400
 
 
-async def eodag_errors_handler(request: Request, exc: Exception) -> JSONResponse:
+def eodag_errors_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handler for EODAG errors"""
     code = EODAG_DEFAULT_STATUS_CODES.get(type(exc), getattr(exc, "status_code", 500)) or 500
     detail = f"{type(exc).__name__}: {str(exc)}"
