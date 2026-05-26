@@ -52,7 +52,7 @@ from eodag.utils import (
 from eodag.utils.env import is_env_var_true
 from psycopg import sql as pg_sql
 from psycopg.rows import dict_row
-from psycopg.types.json import JsonbDumper, set_json_dumps, set_json_loads
+from psycopg.types.json import Json, JsonbDumper, set_json_dumps, set_json_loads
 
 from stac_fastapi.eodag.databases.postgresql_cql2 import cql2_json_to_sql
 from stac_fastapi.eodag.databases.postgresql_fts import stac_q_to_tsquery
@@ -274,7 +274,12 @@ class PostgreSQLDatabase(Database):
                 metadata = EXCLUDED.metadata,
                 enabled = EXCLUDED.enabled
             """,
-            fb_configs,
+            # Json() sends plugins_config with the json OID (raw text) instead of the
+            # jsonb OID used by the default JsonbDumper. PostgreSQL stores the value
+            # verbatim in the JSON column, preserving key insertion order. This is
+            # required because EODAG resolves metadata_mapping templates sequentially
+            # and depends on keys appearing in the correct order.
+            [(name, Json(pc), pri, meta, enabled) for name, pc, pri, meta, enabled in fb_configs],
         )
         logger.debug("Upserted %d federation backend(s)", len(fb_configs))
 
@@ -296,7 +301,9 @@ class PostgreSQLDatabase(Database):
             ON CONFLICT (collection_id, federation_backend_name) DO UPDATE SET
                 plugins_config = EXCLUDED.plugins_config
             """,
-            coll_fb_configs,
+            # Json() — same rationale as in _upsert_federation_backends(): preserves
+            # key order in the JSON column so metadata_mapping templates resolve correctly.
+            [(cid, name, Json(pc)) for cid, name, pc in coll_fb_configs],
         )
         logger.debug("Upserted %d collection-provider config(s)", len(coll_fb_configs))
 
@@ -763,8 +770,10 @@ def _collection_from_json(data: Any) -> dict[str, Any]:
 def _register_json_adapters(con: psycopg.Connection[Any]) -> None:
     """Register per-connection JSON adapters.
 
-    - Plain ``dict`` parameters are dumped as ``jsonb`` (no need to wrap them
-      in ``Jsonb(...)`` at every call site).
+    - Plain ``dict`` parameters are dumped as ``jsonb`` (suitable for JSONB
+      columns such as ``metadata`` and ``content``). Use ``Json(value)`` to
+      override per-parameter when inserting into ``JSON`` columns where key
+      order must be preserved (e.g. ``plugins_config``).
     - JSON (de)serialization uses ``orjson`` for performance.
 
     :param con: The psycopg connection on which to register the adapters.
@@ -946,7 +955,7 @@ def create_federation_backends_table(con: psycopg.Connection[Any]) -> None:
         CREATE TABLE IF NOT EXISTS federation_backends (
             key BIGSERIAL PRIMARY KEY,
             name TEXT UNIQUE NOT NULL,
-            plugins_config JSONB NOT NULL,
+            plugins_config JSON NOT NULL,
             priority INTEGER NOT NULL,
             metadata JSONB,
             enabled BOOLEAN NOT NULL
@@ -969,7 +978,7 @@ def create_collections_federation_backends_table(con: psycopg.Connection[Any]) -
         CREATE TABLE IF NOT EXISTS collections_federation_backends (
             collection_id TEXT,
             federation_backend_name TEXT,
-            plugins_config JSONB NOT NULL,
+            plugins_config JSON NOT NULL,
             PRIMARY KEY (collection_id, federation_backend_name)
         );
         """
