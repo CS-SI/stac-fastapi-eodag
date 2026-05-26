@@ -65,11 +65,6 @@ if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
 logger = logging.getLogger("eodag.databases.postgresql_database")
-BASE_COLLECTION = {
-    "description": "description",
-    "keywords": [],
-    "extent": {"spatial": {"bbox": [-180, -90, 180, 90]}, "temporal": {"interval": [[None, None]]}},
-}
 
 
 class PostgreSQLDatabase(Database):
@@ -742,9 +737,6 @@ def _collection_to_json(collection: Any) -> dict[str, Any]:
         data["_id"] = collection._id
     else:
         data = dict(collection)
-    for key in BASE_COLLECTION:
-        if not data.get(key):
-            data[key] = BASE_COLLECTION[key]
     data.pop("federation:backends", None)
     return data
 
@@ -895,7 +887,11 @@ def create_collections_table(con: psycopg.Connection[Any]) -> None:
             SELECT string_agg(value, ' ')
             INTO kws
             FROM jsonb_array_elements_text(
-                COALESCE(NEW.content->'keywords', '[]'::jsonb)
+                CASE
+                    WHEN jsonb_typeof(NEW.content->'keywords') = 'array'
+                    THEN NEW.content->'keywords'
+                    ELSE '[]'::jsonb
+                END
             ) AS value;
 
             NEW.tsv :=
