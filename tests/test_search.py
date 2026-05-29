@@ -377,7 +377,7 @@ async def test_filter_extension_items(request_valid, defaults, mock_search):
 
 async def test_filter_extension_items_json_in_get_rejected(app_client, defaults):
     """Search through /items endpoint with JSON in GET filter should return a clear 400 error."""
-    filter_value = '%7B%22ecmwf:location%22%3A%7B%22longitude%22%3A100%2C%22latitude%22%3A0%7D%7D'
+    filter_value = "%7B%22ecmwf:location%22%3A%7B%22longitude%22%3A100%2C%22latitude%22%3A0%7D%7D"
     response = await app_client.get(
         f"/collections/{defaults.collection}/items?bbox={defaults.bbox_csv}&filter={filter_value}"
     )
@@ -387,8 +387,8 @@ async def test_filter_extension_items_json_in_get_rejected(app_client, defaults)
     assert resp_json["code"] == "400"
     assert resp_json["description"] == (
         'The "filter" parameter provided in a GET request contains a JSON/dictionary object, '
-        'which is not supported in the query string. Please use a POST request with a JSON body '
-        'for this type of filter.'
+        "which is not supported in the query string. Please use a POST request with a JSON body "
+        "for this type of filter."
     )
 
 

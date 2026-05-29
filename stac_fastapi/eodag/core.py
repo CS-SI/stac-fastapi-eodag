@@ -559,8 +559,8 @@ class EodagCoreClient(CustomCoreClient):
                     status_code=400,
                     detail=(
                         'The "filter" parameter provided in a GET request contains a JSON/dictionary object, '
-                        'which is not supported in the query string. Please use a POST request with a JSON body '
-                        'for this type of filter.'
+                        "which is not supported in the query string. Please use a POST request with a JSON body "
+                        "for this type of filter."
                     ),
                 )
 
