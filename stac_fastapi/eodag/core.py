@@ -196,7 +196,22 @@ class EodagCoreClient(CustomCoreClient):
             search_result.number_matched = len(search_result)
         elif eodag_args.get("token") and eodag_args.get("provider"):
             # search with pagination
-            search_result = await asyncio.to_thread(eodag_search_next_page, request.app.state.dag, eodag_args)
+            provider = eodag_args["provider"]
+            search_plugin = next(request.app.state.dag._plugins_manager.get_search_plugins(provider=provider))
+            pagination = getattr(search_plugin.config, "pagination", {})
+            if pagination.get("next_page_token_location") == "header":
+                token_key = pagination.get("next_page_token_key", "token")
+                eodag_args = eodag_args.copy()
+                eodag_args[token_key] = eodag_args.pop("token")
+                eodag_args.pop("provider")
+                eodag_args.pop("count", None)
+                search_result = await asyncio.to_thread(
+                    request.app.state.dag.search, **eodag_args
+                )
+            else:
+                search_result = await asyncio.to_thread(
+                    eodag_search_next_page, request.app.state.dag, eodag_args
+                )
         else:
             # search without ids or pagination
             search_result = await asyncio.to_thread(request.app.state.dag.search, validate=validate, **eodag_args)
