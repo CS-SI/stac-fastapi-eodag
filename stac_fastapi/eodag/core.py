@@ -487,6 +487,18 @@ class EodagCoreClient(CustomCoreClient):
     ) -> dict[str, Any]:
         """Clean up search arguments to match format expected by pgstac"""
         if filter_expr:
+            # Reject filters containing JSON/dict-like payloads in GET requests.
+            # These complex filters must be sent as a POST with a JSON body.
+            if "{" in filter_expr or "}" in filter_expr:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        'The "filter" parameter provided in a GET request contains a JSON/dictionary object, '
+                        "which is not supported in the query string. Please use a POST request with a JSON body "
+                        "for this type of filter."
+                    ),
+                )
+
             if filter_lang == "cql2-text":
                 base_args["filter"] = cql2.parse_text(filter_expr).to_json()
             elif filter_lang == "cql2-json":
