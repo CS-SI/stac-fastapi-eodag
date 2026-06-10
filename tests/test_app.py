@@ -61,6 +61,23 @@ async def test_liveness_probe(app_client):
     assert response.json()["message"] == "PONG"
 
 
+async def test_lifespan_installs_stream_signal_handlers(mocker):
+    """The app lifespan must install the stream interrupt signal handlers."""
+    from fastapi import FastAPI
+
+    from stac_fastapi.eodag.app import lifespan
+
+    app = FastAPI()
+    mock_init_dag = mocker.patch("stac_fastapi.eodag.app.init_dag")
+    mock_install = mocker.patch("stac_fastapi.eodag.app.StreamResponseContent.install_signal_handlers")
+
+    async with lifespan(app):
+        pass
+
+    mock_init_dag.assert_called_once()
+    mock_install.assert_called_once_with()
+
+
 async def test_conformance(request_valid):
     """Request to /conformance should return a valid response"""
     await request_valid("conformance", check_links=False)
