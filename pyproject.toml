@@ -103,7 +103,6 @@ known-first-party = ["stac_fastapi.eodag"]
 version_toml = ["pyproject.toml:project.version"]
 branch = "main"
 changelog_file = "CHANGELOG.md"
-build_command = false
 tag_format = "v{version}"
 
 [tool.semantic_release.commit_parser_options]
