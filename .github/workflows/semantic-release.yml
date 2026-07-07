@@ -1,0 +1,66 @@
+name: Publish a Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Publish a Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "stac-fastapi-eodag release bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: ""
+
+      - name: Calculate the next release version
+        id: psr
+        run: |
+          BEFORE=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          uvx --python 3.11 python-semantic-release version --no-commit --no-tag --no-changelog --skip-build --no-push
+          AFTER=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "No releasable commits found, skipping."
+            echo "released=false" >> $GITHUB_OUTPUT
+          else
+            echo "released=true" >> $GITHUB_OUTPUT
+            echo "new_version=$AFTER" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Helm chart versions
+        if: steps.psr.outputs.released == 'true'
+        run: |
+          NEW_VERSION="${{ steps.psr.outputs.new_version }}"
+          EODAG_VERSION=$(grep -A1 '^name = "eodag"$' uv.lock | grep version | sed 's/version = "\(.*\)"/\1/')
+          sed -i "s/^appVersion:.*/appVersion: ${NEW_VERSION}/" helm/stac-fastapi-eodag/Chart.yaml
+          sed -i "s/^version:.*/version: ${NEW_VERSION}/" helm/stac-fastapi-eodag/Chart.yaml
+          sed -i "s|tag: \"v[0-9][^\"]*\"|tag: \"v${NEW_VERSION}-eodag-${EODAG_VERSION}\"|" helm/stac-fastapi-eodag/values.yaml
+
+      - name: Commit and tag the release
+        if: steps.psr.outputs.released == 'true'
+        run: |
+          NEW_VERSION="${{ steps.psr.outputs.new_version }}"
+          git add pyproject.toml helm/stac-fastapi-eodag/Chart.yaml helm/stac-fastapi-eodag/values.yaml
+          git commit -m "chore(release): v${NEW_VERSION}"
+          git tag "v${NEW_VERSION}"
+          git push origin HEAD:main
+          git push origin "v${NEW_VERSION}"

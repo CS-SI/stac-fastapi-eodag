@@ -98,6 +98,18 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["stac_fastapi.eodag"]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+changelog_file = "CHANGELOG.md"
+build_command = false
+tag_format = "v{version}"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["feat", "fix", "perf", "refactor", "docs", "style", "test", "chore", "ci", "build"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf", "build"]
 known-third-party = ["rasterio", "stac-pydantic", "fastapi", "stac_fastapi"]
 section-order = [
     "future",

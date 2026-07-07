@@ -263,6 +263,7 @@ async def test_default_in_collection_queryables(
     app_client,
     mock_stac_discover_queryables,
     mock_token_authenticate,
+    mock_aws_authenticate,
     mock_oidc_refresh_token_base_init,
     mock_oidc_token_exchange_auth_authenticate,
 ):
