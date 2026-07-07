@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "semanticCommits": "enabled",
+  "packageRules": [
+    {
+      "matchPackageNames": ["eodag"],
+      "semanticCommitType": "build",
+      "groupName": "eodag dependency updates"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "semanticCommitType": "build",
+      "groupName": "GitHub Actions"
+    }
+  ]
+}

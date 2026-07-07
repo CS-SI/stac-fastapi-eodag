@@ -6,8 +6,6 @@ on:
     branches:
       - main
   workflow_dispatch:
-  repository_dispatch:
-    types: [release]
 
 env:
   REGISTRY: ghcr.io
@@ -26,8 +24,6 @@ jobs:
 
       - name: Determine the container tag and labels
         id: container_tag
-        env:
-          CLIENT_PAYLOAD_TYPE: ${{ github.event.client_payload.type }}
         run: |
           APP_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
           echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
@@ -35,8 +31,8 @@ jobs:
           # Default: branch/tag name
           CONTAINER_TAG=${GITHUB_REF##*/}
 
-          # Check if this is a release or eodag dispatch
-          if [[ "${GITHUB_REF_TYPE}" == "tag" || "${CLIENT_PAYLOAD_TYPE}" == "release" ]]; then
+          # Tag pushes are release images, main is the floating development image.
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
               EODAG_VERSION=$(grep -A1 '^name = "eodag"$' uv.lock | grep version | sed 's/version = "\(.*\)"/\1/')
               echo "EODAG_VERSION=$EODAG_VERSION" >> $GITHUB_ENV
               CONTAINER_TAG="${APP_VERSION}-eodag-${EODAG_VERSION}"
