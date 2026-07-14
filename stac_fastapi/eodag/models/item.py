@@ -122,23 +122,32 @@ def create_stac_item(
                     feature["assets"][k]["alternate"] = {"origin": origin}
 
         # TODO: remove downloadLink asset after EODAG assets rework
-        if (download_link := product.properties.get("eodag:download_link")) and not any(
-            key.endswith(".parquet") for key in product.assets
-        ):
+        if not any(key.endswith(".parquet") for key in product.assets):
+            # eodag:download_link may be missing for some providers (e.g. planetary_computer)
+            # but we still want to provide a download link for them
+            download_link = product.properties.get("eodag:download_link")
             origin_href = download_link
             if asset_proxy_url:
                 download_link = asset_proxy_url + "/downloadLink"
 
-            mime_type = guess_file_type(origin_href) or "application/octet-stream"
+            mime_type = "application/octet-stream"
+            if origin_href:
+                mime_type = guess_file_type(origin_href) or mime_type
 
-            feature["assets"]["downloadLink"] = {
-                "title": "Download link",
-                "href": download_link,
-                # TODO: download link is not always a ZIP archive
-                "type": mime_type,
-            }
+            if download_link:
+                feature["assets"]["downloadLink"] = {
+                    "title": "Download link",
+                    "href": download_link,
+                    # TODO: download link is not always a ZIP archive
+                    "type": mime_type,
+                }
 
-            if settings.keep_origin_url and not origin_href.startswith(tuple(settings.origin_url_blacklist)):
+            # origin_href (a.k.a. eodag:download_link) may be missing for some providers (e.g. planetary_computer)
+            if (
+                origin_href
+                and settings.keep_origin_url
+                and not origin_href.startswith(tuple(settings.origin_url_blacklist))
+            ):
                 feature["assets"]["downloadLink"]["alternate"] = {
                     "origin": {
                         "title": "Origin asset link",
