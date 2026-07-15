@@ -154,12 +154,14 @@ class BaseDataDownloadClient:
             # (the same one as order ID) to make error message clearer
             product.properties["title"] = product.properties["id"]
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
-            status_link_metadata: Union[str, list[Union[str, None]]] = product.downloader.config.order_on_response["metadata_mapping"]["eodag:status_link"]
+            status_link_metadata: Union[str, list[Union[str, None]]]
+            status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["eodag:status_link"]
             product.properties["eodag:order_link"] = product.properties["eodag:status_link"] = get_metadata_path_value(
                 status_link_metadata
             ).format(orderId=item_id)
 
-            search_link_metadata: Optional[Union[str, list[Union[str, None]]]] = product.downloader.config.order_on_response["metadata_mapping"].get(
+            search_link_metadata: Optional[Union[str, list[Union[str, None]]]]
+            search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get(
                 "eodag:search_link"
             )
             if search_link_metadata:
