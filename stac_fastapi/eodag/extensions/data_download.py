@@ -156,16 +156,16 @@ class BaseDataDownloadClient:
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
             status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["eodag:status_link"]
             product.properties["eodag:order_link"] = product.properties["eodag:status_link"] = get_metadata_path_value(
-                status_link_metadata
+                status_link_metadata  # type: ignore[arg-type]
             ).format(orderId=item_id)
 
             search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get(
                 "eodag:search_link"
             )
             if search_link_metadata:
-                product.properties["eodag:search_link"] = get_metadata_path_value(search_link_metadata).format(
-                    orderId=item_id
-                )
+                product.properties["eodag:search_link"] = get_metadata_path_value(
+                    search_link_metadata  # type: ignore[arg-type]
+                ).format(orderId=item_id)
 
             order_status_method = getattr(product.downloader, "_order_status", None)
             if not order_status_method:
