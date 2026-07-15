@@ -29,6 +29,9 @@ async def test_landing_page(request_valid):
         "url": "https://dataspace.copernicus.eu",
     }
     assert len(response["federation"]) > 1
+    assert all(isinstance(ext, str) and ext for ext in response["stac_extensions"]), (
+        "stac_extensions must only contain non-empty strings (no null)"
+    )
 
 
 async def test_forward(app_client):
