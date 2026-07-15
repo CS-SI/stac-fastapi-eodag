@@ -198,7 +198,7 @@ image:
   # -- stac-fastapi-eodag image repository
   repository: cs-si/stac-fastapi-eodag
   # -- Overrides the stac-fastapi-eodag image tag whose default is the chart appVersion (immutable tags are recommended)
-  tag: "v0.3.0-eodag-4.0.0"
+  tag: "v0.4.0-eodag-4.5.0"
   # -- stac-fastapi-eodag image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
   digest: ""
   ## Specify a imagePullPolicy
