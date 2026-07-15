@@ -1,6 +1,6 @@
 [project]
 name = "stac_fastapi.eodag"
-version = "0.2.0"
+version = "0.4.0"
 description = "A stac-fastapi backend using EODAG"
 readme = "README.md"
 authors = [{ name = "CS GROUP - France (CSSI)", email = "eodag@csgroup.space" }]
@@ -103,7 +103,7 @@ known-first-party = ["stac_fastapi.eodag"]
 version_toml = ["pyproject.toml:project.version"]
 branch = "main"
 changelog_file = "CHANGELOG.md"
-build_command = false
+build_command = ""
 tag_format = "v{version}"
 
 [tool.semantic_release.commit_parser_options]
