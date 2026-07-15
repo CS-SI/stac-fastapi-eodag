@@ -29,7 +29,7 @@ from stac_pydantic.api.version import STAC_API_VERSION
 from stac_pydantic.shared import Asset
 
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
+from eodag.api.product.metadata_mapping import ONLINE_STATUS
 from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.errors import MisconfiguredError
@@ -98,9 +98,9 @@ def create_stac_item(
         # a product from a whitelisted federation backend is considered as online
         product.properties["order:status"] = ONLINE_STATUS
 
-    # create assets only if product is not offline
+    # create assets only if product is online (skip if on staging or offline)
     if (
-        product.properties.get("order:status", ONLINE_STATUS) != OFFLINE_STATUS
+        product.properties.get("order:status", ONLINE_STATUS) == ONLINE_STATUS
         or product.provider in auto_order_whitelist
     ):
         for k, v in product.assets.items():
