@@ -12,10 +12,6 @@
 
 stac-fastapi-eodag combines the capabilities of EODAG and STAC FastAPI to provide a powerful, unified API for accessing Earth observation data from various providers.
 
-## Disclaimer
-
-⚠️ This project is a **WIP** and not ready for any production usage. Use at your own risks.
-
 ## Getting started
 
 ### Run stac-fastapi-eodag locally
@@ -71,6 +67,16 @@ NOTE: This will start a stac-fastapi-eodag container and an otel-collector conta
 ### Run in Kubernetes
 
 You can install stac-fastapi-eodag in your Kubernetes cluster with the [Helm chart in this repository](./helm/stac-fastapi-eodag/README.md).
+
+## Usage examples
+
+### Filter collections by provider
+
+To list all collections available from a specific provider, use the `query` parameter with the `federation:backends` field. For example, to find all collections from `fedeo_ceda`:
+
+```
+http://stac-fastapi-eodag.stac-fastapi-eodag.svc.cluster.local:8080/collections?query={"federation:backends": {"eq": "fedeo_ceda"}}
+```
 
 ## Configuration
 
