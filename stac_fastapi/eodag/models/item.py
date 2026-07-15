@@ -29,7 +29,7 @@ from stac_pydantic.api.version import STAC_API_VERSION
 from stac_pydantic.shared import Asset
 
 from eodag.api.product._product import EOProduct
-from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
+from eodag.api.product.metadata_mapping import ONLINE_STATUS
 from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.errors import MisconfiguredError
@@ -98,9 +98,9 @@ def create_stac_item(
         # a product from a whitelisted federation backend is considered as online
         product.properties["order:status"] = ONLINE_STATUS
 
-    # create assets only if product is not offline
+    # create assets only if product is online (skip if on staging or offline)
     if (
-        product.properties.get("order:status", ONLINE_STATUS) != OFFLINE_STATUS
+        product.properties.get("order:status", ONLINE_STATUS) == ONLINE_STATUS
         or product.provider in auto_order_whitelist
     ):
         for k, v in product.assets.items():
@@ -122,23 +122,32 @@ def create_stac_item(
                     feature["assets"][k]["alternate"] = {"origin": origin}
 
         # TODO: remove downloadLink asset after EODAG assets rework
-        if (download_link := product.properties.get("eodag:download_link")) and not any(
-            key.endswith(".parquet") for key in product.assets
-        ):
+        if not any(key.endswith(".parquet") for key in product.assets):
+            # eodag:download_link may be missing for some providers (e.g. planetary_computer)
+            # but we still want to provide a download link for them
+            download_link = product.properties.get("eodag:download_link")
             origin_href = download_link
             if asset_proxy_url:
                 download_link = asset_proxy_url + "/downloadLink"
 
-            mime_type = guess_file_type(origin_href) or "application/octet-stream"
+            mime_type = "application/octet-stream"
+            if origin_href:
+                mime_type = guess_file_type(origin_href) or mime_type
 
-            feature["assets"]["downloadLink"] = {
-                "title": "Download link",
-                "href": download_link,
-                # TODO: download link is not always a ZIP archive
-                "type": mime_type,
-            }
+            if download_link:
+                feature["assets"]["downloadLink"] = {
+                    "title": "Download link",
+                    "href": download_link,
+                    # TODO: download link is not always a ZIP archive
+                    "type": mime_type,
+                }
 
-            if settings.keep_origin_url and not origin_href.startswith(tuple(settings.origin_url_blacklist)):
+            # origin_href (a.k.a. eodag:download_link) may be missing for some providers (e.g. planetary_computer)
+            if (
+                origin_href
+                and settings.keep_origin_url
+                and not origin_href.startswith(tuple(settings.origin_url_blacklist))
+            ):
                 feature["assets"]["downloadLink"]["alternate"] = {
                     "origin": {
                         "title": "Origin asset link",
