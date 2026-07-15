@@ -197,8 +197,8 @@ async def test_items_response(request_valid, defaults):
 
 async def test_assets_with_different_download_base_url(request_valid, defaults):
     """Domain for download links should be as configured in settings"""
-    settings = get_settings()
-    settings.download_base_url = "http://otherserver/"
+    download_base_url = get_settings().download_base_url
+    get_settings().download_base_url = "http://otherserver/"
     resp_json = await request_valid(
         f"search?collections={defaults.collection}",
     )
@@ -210,6 +210,9 @@ async def test_assets_with_different_download_base_url(request_valid, defaults):
         res[0]["assets"]["asset1"]["href"]
         == f"http://otherserver/data/cop_dataspace/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
+
+    # restore the original download_base_url setting
+    get_settings().download_base_url = download_base_url
 
 
 async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_result):
