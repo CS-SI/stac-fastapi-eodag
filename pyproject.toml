@@ -5,9 +5,11 @@ description = "A stac-fastapi backend using EODAG"
 readme = "README.md"
 authors = [{ name = "CS GROUP - France (CSSI)", email = "eodag@csgroup.space" }]
 license = { file = "LICENSE" }
-requires-python = ">= 3.9"
+requires-python = ">= 3.9.2"
 dependencies = [
     "attr",
+    "cryptography>=48.0.1; python_version < '3.10'",
+    "cryptography>=48.0.1; python_version >= '3.10'",
     "eodag[all-providers]",
     "fastapi",
     "geojson",
@@ -15,13 +17,15 @@ dependencies = [
     "orjson",
     "pydantic",
     "pydantic_core",
+    "pyjwt>=2.13.0",
     "pygeofilter",
     "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions",
     "stac-fastapi.types",
     "stac-pydantic==3.1.*",
     "brotli-asgi",
-    "starlette",
+    "starlette; python_version < '3.10'",
+    "starlette>=1.3.1; python_version >= '3.10'",
     "typing_extensions",
     "shapely",
 ]
