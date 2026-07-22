@@ -30,6 +30,7 @@ from stac_pydantic.shared import Asset
 
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
+from eodag.plugins.search.build_search_result import END, START, ecmwf_temporal_to_eodag
 from eodag.utils import deepcopy, guess_file_type
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.errors import MisconfiguredError
@@ -153,8 +154,7 @@ def create_stac_item(
     feature["properties"] = {k: v for k, v in product_dict["properties"].items() if not k.startswith("eodag:")}
     feature["properties"].pop("qs", None)
     # add eodag request parameters to properties
-    eodag_request_params = product_dict["properties"].get("eodag:request_params", {})
-    eodag_request_params = {f"ecmwf:{k}": v for k, v in eodag_request_params.items()}
+    eodag_request_params = _extract_eodag_request_params(product)
     feature["properties"].update(eodag_request_params)
 
     feature["stac_extensions"] = product_dict["stac_extensions"]
@@ -187,3 +187,23 @@ def create_stac_item(
     ).get_links(extensions=extension_names, extra_links=feature.get("links"), request_json=request_json)
 
     return feature
+
+
+def _extract_eodag_request_params(
+    product: EOProduct,
+) -> dict[str, Any]:
+    """Extract EODAG request parameters from an EOProduct"""
+    product_dict = product.as_dict()
+    eodag_request_params = product_dict["properties"].get("eodag:request_params", {})
+    eodag_request_params.pop("area", None)
+    eodag_request_params.pop("location", None)
+    start_datetime, end_datetime = ecmwf_temporal_to_eodag(eodag_request_params)
+    eodag_request_params = {f"ecmwf:{k}": v for k, v in eodag_request_params.items()}
+    datetime_value = start_datetime or end_datetime
+    if datetime_value:
+        eodag_request_params["datetime"] = datetime_value
+    if start_datetime:
+        eodag_request_params[START] = start_datetime
+    if end_datetime:
+        eodag_request_params[END] = end_datetime
+    return eodag_request_params
