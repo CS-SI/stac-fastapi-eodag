@@ -152,6 +152,10 @@ def create_stac_item(
     # filter properties we do not want to expose
     feature["properties"] = {k: v for k, v in product_dict["properties"].items() if not k.startswith("eodag:")}
     feature["properties"].pop("qs", None)
+    # add eodag request parameters to properties
+    eodag_request_params = product_dict["properties"].get("eodag:request_params", {})
+    eodag_request_params = {f"ecmwf:{k}": v for k, v in eodag_request_params.items()}
+    feature["properties"].update(eodag_request_params)
 
     feature["stac_extensions"] = product_dict["stac_extensions"]
 
