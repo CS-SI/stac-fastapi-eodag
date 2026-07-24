@@ -125,6 +125,65 @@ async def test_order_ok(request_valid, post_data):
 
 
 @pytest.mark.parametrize("post_data", [{"foo": "bar"}, {}])
+async def test_order_item_contains_request_params(request_valid, mock_search, post_data):
+    """GET /collections/{id}/items/{item_id} of an ordered product must contain the original request parameters"""
+    federation_backend = "cop_ads"
+    collection_id = "CAMS_EAC4"
+    product = EOProduct(
+        federation_backend,
+        dict(
+            geometry="POINT (0 0)",
+            title="dummy_product",
+            id="dummy_id",
+        ),
+    )
+    product.collection = collection_id
+
+    product_dataset = "cams-global-reanalysis-eac4"
+    endpoint = "https://ads.atmosphere.copernicus.eu/api/retrieve/v1"
+    product.properties["eodag:order_link"] = (
+        f"{endpoint}/processes/{product_dataset}/execution" + '?{"request": {"quux": "abc"}}'
+    )
+    # store the original request parameters on the product, as the order endpoint would
+    product.properties["eodag:request_params"] = post_data
+
+    # order an offline product
+    product.properties["order:status"] = OFFLINE_STATUS
+
+    # add auth and download plugins to make the order works
+    plugins_manager = PluginManager(ProvidersDict.from_configs(load_default_config()))
+    download_plugin = plugins_manager.get_download_plugin(product)
+    auth_plugin = plugins_manager.get_auth_plugin(download_plugin, product)
+    auth_plugin.config.credentials = {"apikey": "anicekey"}
+    product.register_downloader(download_plugin, auth_plugin)
+
+    product_id = product.properties["id"]
+    url = f"collections/{collection_id}/items/{product_id}"
+
+    @responses.activate(registry=responses.registries.OrderedRegistry)
+    async def run():
+
+        # GET the ordered item by ID and verify request params are present in properties
+        item = await request_valid(
+            url=url,
+            method="GET",
+            search_result=SearchResult([product]),
+            expected_search_kwargs=dict(
+                collection=collection_id,
+                id=product_id,
+                validate=True,
+            ),
+            check_links=False,
+        )
+
+        # the item properties must contain the original request parameters, prefixed with "ecmwf:"
+        for key, value in post_data.items():
+            assert item["properties"][f"ecmwf:{key}"] == value
+
+    await run()
+
+
+@pytest.mark.parametrize("post_data", [{"foo": "bar"}, {}])
 async def test_order_with_poll_pending(request_valid, post_data):
     """Order a product through eodag server with a pending poll and check"
     if it has been ordered correctly and its status is on staging"""
