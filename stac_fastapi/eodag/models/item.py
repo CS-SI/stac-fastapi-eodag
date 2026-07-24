@@ -79,6 +79,13 @@ def create_stac_item(
     collection_obj = request.app.state.dag.collections_config.get(product.collection)
     collection = collection_obj.id if collection_obj else product.collection
 
+    # add eodag request parameters to properties
+    eodag_request_params = _extract_eodag_request_params(product)
+    product.properties.update(eodag_request_params)
+    eodag_geometry = _extract_eodag_geometry(product)
+    if eodag_geometry:
+        product.geometry = eodag_geometry
+
     feature = Item(
         type="Feature",
         assets={},
@@ -160,13 +167,6 @@ def create_stac_item(
     # filter properties we do not want to expose
     feature["properties"] = {k: v for k, v in product_dict["properties"].items() if not k.startswith("eodag:")}
     feature["properties"].pop("qs", None)
-    # add eodag request parameters to properties
-    eodag_request_params = _extract_eodag_request_params(product)
-    feature["properties"].update(eodag_request_params)
-    eodag_geometry = _extract_eodag_geometry(product)
-    if eodag_geometry:
-        feature["geometry"] = eodag_geometry.__geo_interface__
-        feature["bbox"] = eodag_geometry.bounds
 
     feature["stac_extensions"] = product_dict["stac_extensions"]
 
@@ -204,8 +204,7 @@ def _extract_eodag_request_params(
     product: EOProduct,
 ) -> dict[str, Any]:
     """Extract EODAG request parameters from an EOProduct"""
-    product_dict = product.as_dict()
-    eodag_request_params = product_dict["properties"].get("eodag:request_params", {})
+    eodag_request_params = product.properties.get("eodag:request_params", {})
     eodag_request_params = deepcopy(eodag_request_params)
     eodag_request_params.pop("area", None)
     eodag_request_params.pop("location", None)
@@ -225,8 +224,7 @@ def _extract_eodag_geometry(
     product: EOProduct,
 ) -> Optional[BaseGeometry]:
     """Extract EODAG geometry from an EOProduct"""
-    product_dict = product.as_dict()
-    eodag_request_params = product_dict["properties"].get("eodag:request_params", {})
+    eodag_request_params = product.properties.get("eodag:request_params", {})
 
     geometry = None
     # ECMWF Polytope uses non-geojson structure for features
