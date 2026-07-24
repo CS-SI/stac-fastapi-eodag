@@ -22,6 +22,7 @@ from urllib.parse import quote, unquote_plus, urlparse
 
 import orjson
 from fastapi import Request
+from shapely.geometry.base import BaseGeometry
 from stac_fastapi.types.errors import NotFoundError
 from stac_fastapi.types.requests import get_base_url
 from stac_fastapi.types.stac import Item
@@ -31,7 +32,13 @@ from stac_pydantic.shared import Asset
 from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, ONLINE_STATUS
 from eodag.plugins.search.build_search_result import END, START, ecmwf_temporal_to_eodag
-from eodag.utils import deepcopy, guess_file_type
+from eodag.utils import (
+    deepcopy,
+    get_geometry_from_ecmwf_area,
+    get_geometry_from_ecmwf_feature,
+    get_geometry_from_ecmwf_location,
+    guess_file_type,
+)
 from stac_fastapi.eodag.config import Settings, get_settings
 from stac_fastapi.eodag.errors import MisconfiguredError
 from stac_fastapi.eodag.models.links import ItemLinks
@@ -156,6 +163,10 @@ def create_stac_item(
     # add eodag request parameters to properties
     eodag_request_params = _extract_eodag_request_params(product)
     feature["properties"].update(eodag_request_params)
+    eodag_geometry = _extract_eodag_geometry(product)
+    if eodag_geometry:
+        feature["geometry"] = eodag_geometry.__geo_interface__
+        feature["bbox"] = eodag_geometry.bounds
 
     feature["stac_extensions"] = product_dict["stac_extensions"]
 
@@ -195,6 +206,7 @@ def _extract_eodag_request_params(
     """Extract EODAG request parameters from an EOProduct"""
     product_dict = product.as_dict()
     eodag_request_params = product_dict["properties"].get("eodag:request_params", {})
+    eodag_request_params = deepcopy(eodag_request_params)
     eodag_request_params.pop("area", None)
     eodag_request_params.pop("location", None)
     start_datetime, end_datetime = ecmwf_temporal_to_eodag(eodag_request_params)
@@ -207,3 +219,24 @@ def _extract_eodag_request_params(
     if end_datetime:
         eodag_request_params[END] = end_datetime
     return eodag_request_params
+
+
+def _extract_eodag_geometry(
+    product: EOProduct,
+) -> Optional[BaseGeometry]:
+    """Extract EODAG geometry from an EOProduct"""
+    product_dict = product.as_dict()
+    eodag_request_params = product_dict["properties"].get("eodag:request_params", {})
+
+    geometry = None
+    # ECMWF Polytope uses non-geojson structure for features
+    if "feature" in eodag_request_params:
+        geometry = get_geometry_from_ecmwf_feature(eodag_request_params["feature"])
+    # bounding box in area format
+    if "area" in eodag_request_params:
+        geometry = get_geometry_from_ecmwf_area(eodag_request_params["area"])
+    # single location
+    if "location" in eodag_request_params:
+        geometry = get_geometry_from_ecmwf_location(eodag_request_params["location"])
+
+    return geometry
