@@ -206,6 +206,7 @@ def _extract_eodag_request_params(
     """Extract EODAG request parameters from an EOProduct"""
     eodag_request_params = product.properties.get("eodag:request_params", {})
     eodag_request_params = deepcopy(eodag_request_params)
+    eodag_request_params.pop("feature", None)
     eodag_request_params.pop("area", None)
     eodag_request_params.pop("location", None)
     start_datetime, end_datetime = ecmwf_temporal_to_eodag(eodag_request_params)

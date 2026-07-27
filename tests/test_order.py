@@ -166,7 +166,24 @@ async def test_order_item_contains_request_params(request_valid, post_data):
         assert item["properties"][f"ecmwf:{key}"] == value
 
 
-async def test_order_item_contains_request_params_geom(request_valid):
+@pytest.mark.parametrize(
+    "post_data, expected_bbox, expected_geometry",
+    [
+        ({"area": [41, 10, 40, 11]}, [10, 40, 11, 41], [[10, 40], [10, 41], [11, 41], [11, 40], [10, 40]]),
+        (
+            {"location": {"longitude": 10, "latitude": 40}},
+            [10, 40, 10, 40],
+            [[10, 40], [10, 40], [10, 40], [10, 40]],
+            # [[10, 40],[10, 40],[11, 40],[11, 40],[10, 40]],
+        ),
+        (
+            {"feature": {"type": "polygon", "shape": [[40, 10], [41, 10], [41, 11], [40, 11], [40, 10]]}},
+            [10, 40, 11, 41],
+            [[10, 40], [10, 41], [11, 41], [11, 40], [10, 40]],
+        ),
+    ],
+)
+async def test_order_item_contains_request_params_geom(request_valid, post_data, expected_bbox, expected_geometry):
     """GET /collections/{id}/items/{item_id} of an ordered product must update
     the geometry and bbox attributes"""
     federation_backend = "cop_ads"
@@ -181,10 +198,6 @@ async def test_order_item_contains_request_params_geom(request_valid):
     )
     product.collection = collection_id
     product_id = product.properties["id"]
-    post_data = {
-        # area: [max_lat, min_lon, min_lat, max_lon]
-        "area": [41, 10, 40, 11],
-    }
 
     # store the original request parameters on the product, as the order endpoint would
     product.properties["eodag:request_params"] = post_data
@@ -206,24 +219,16 @@ async def test_order_item_contains_request_params_geom(request_valid):
         check_links=False,
     )
 
-    # bbox: [min_lon, min_lat, max_lon, max_lat]
-    assert item["bbox"] == [10, 40, 11, 41]
+    assert item["bbox"] == expected_bbox
     assert item["geometry"] == {
         "type": "Polygon",
-        "coordinates": [
-            [
-                [10, 40],
-                [10, 41],
-                [11, 41],
-                [11, 40],
-                [10, 40],
-            ]
-        ],
+        "coordinates": [expected_geometry],
     }
-    # the original request parameter "area" must not be present in properties
-    assert "area" not in item["properties"]
-    assert "ecmwf:area" not in item["properties"]
-    assert "ecmwf_area" not in item["properties"]
+    # the original request parameter must not be present in properties
+    for p in ("area", "location", "feature"):
+        assert p not in item["properties"]
+        assert f"ecmwf:{p}" not in item["properties"]
+        assert f"ecmwf_{p}" not in item["properties"]
 
 
 @pytest.mark.parametrize("post_data", [{"foo": "bar"}, {}])
