@@ -124,7 +124,7 @@ async def test_order_ok(request_valid, post_data):
     await run()
 
 
-@pytest.mark.parametrize("post_data", [{"foo": "bar"}, {}])
+@pytest.mark.parametrize("post_data", [{"foo": "bar", "date": "2025-01-01/2025-01-31"}, {}])
 async def test_order_item_contains_request_params(request_valid, post_data):
     """GET /collections/{id}/items/{item_id} of an ordered product must contain
     the original request parameters"""
@@ -161,7 +161,14 @@ async def test_order_item_contains_request_params(request_valid, post_data):
         check_links=False,
     )
 
+    # "ecmwf:date" is mapped to "datetime", "start_datetime" and "end_datetime"
+    if "date" in post_data:
+        start_datetime, end_datetime = post_data["date"].split("/")
+        assert item["properties"]["datetime"] == start_datetime + "T00:00:00.000Z"
+        assert item["properties"]["start_datetime"] == start_datetime + "T00:00:00.000Z"
+        assert item["properties"]["end_datetime"] == end_datetime + "T00:00:00.000Z"
     # the item properties must contain the original request parameters, prefixed with "ecmwf:"
+    # this includes also "ecmwf:date"
     for key, value in post_data.items():
         assert item["properties"][f"ecmwf:{key}"] == value
 
