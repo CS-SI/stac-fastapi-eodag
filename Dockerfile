@@ -6,6 +6,8 @@ WORKDIR /app
 
 COPY . /app
 
+RUN apt update && apt install git -y --no-install-recommends 
+
 RUN python -m pip install  --no-cache-dir .[server,telemetry]
 
 RUN adduser --disabled-password --gecos '' appuser
