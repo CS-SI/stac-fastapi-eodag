@@ -130,9 +130,5 @@ async def test_zarr_file_display(
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
     mock_http_base_stream_download.assert_called_once_with(
-        product,
-        asset="group/foo.txt",
-        auth=None,
-        timeout=-1,
-        wait=-1
+        product, asset="group/foo.txt", auth=None, timeout=-1, wait=-1
     )
