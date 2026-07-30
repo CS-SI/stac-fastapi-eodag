@@ -24,7 +24,6 @@ from eodag.api.product import EOProduct
 from eodag.config import PluginConfig
 from eodag.plugins.download.http import HTTPDownload
 
-from stac_fastapi.eodag.app import stac_metadata_model
 from stac_fastapi.eodag.extensions.data_download import BaseDataDownloadClient
 from stac_fastapi.eodag.models.item import create_stac_item
 
@@ -71,7 +70,6 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
     )
     response = create_stac_item(
         product,
-        stac_metadata_model,
         lambda extension_name: extension_name == "DataDownload",
         request,
         extension_names=[],
@@ -88,7 +86,7 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
 
 async def test_zarr_file_display(
     defaults,
-    mock_data_download_requests_get,
+    mock_http_base_stream_download,
 ):
     """get_data_with_file should request streaming for a file inside a .zarr asset."""
     collection = defaults.collection
@@ -114,11 +112,11 @@ async def test_zarr_file_display(
     request = mock.Mock()
     request.app.state.dag = dag
     request.base_url._url = "http://testserver/"
-    mock_data_download_requests_get.return_value = mock.Mock(
+    mock_http_base_stream_download.return_value = mock.MagicMock(
         status_code=200,
         headers={"Content-Type": "text/plain"},
     )
-    mock_data_download_requests_get.return_value.iter_content.return_value = iter([b"hello"])
+    mock_http_base_stream_download.return_value.iter_content.return_value = iter([b"hello"])
 
     response = client.get_data_with_file(
         "cop_dataspace",
@@ -131,8 +129,10 @@ async def test_zarr_file_display(
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
-    mock_data_download_requests_get.assert_called_once_with(
-        "https://data/cop_dataspace/example.zarr/group/foo.txt",
-        headers={},
-        stream=True,
+    mock_http_base_stream_download.assert_called_once_with(
+        product,
+        asset="group/foo.txt",
+        auth=None,
+        timeout=-1,
+        wait=-1
     )
