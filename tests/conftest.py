@@ -537,14 +537,6 @@ def mock_base_data_download_get_data(mocker):
 
 
 @pytest.fixture(scope="function")
-def mock_data_download_requests_get(mocker):
-    """
-    Mocks the `requests.get` call used by EOProduct.request_asset.
-    """
-    return mocker.patch("eodag.api.product._product.requests.get")
-
-
-@pytest.fixture(scope="function")
 def mock_item_get_settings(mocker):
     """
     Mocks the `get_settings` function used by STAC item creation.
