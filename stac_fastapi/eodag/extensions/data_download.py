@@ -227,18 +227,20 @@ class BaseDataDownloadClient:
         if zarr_asset_name:
             asset_values = product.assets[zarr_asset_name]
             base_url = asset_values["href"]
-            new_asset_name = file_path.lstrip('/')
+            new_asset_name = file_path.lstrip("/")
             target_url = f"{base_url.rstrip('/')}/{new_asset_name}"
 
             product.assets.update({new_asset_name: {"href": target_url}})
             s = product.downloader.stream_download(
-                        product,
-                        auth=auth,
-                        asset=new_asset_name,
-                        wait=-1,
-                        timeout=-1,
-                    )
-            return StreamingResponse(s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream"))
+                product,
+                auth=auth,
+                asset=new_asset_name,
+                wait=-1,
+                timeout=-1,
+            )
+            return StreamingResponse(
+                s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream")
+            )
 
         presigned_response = self._try_presign_asset(product, asset_name, auth)
         if presigned_response:
