@@ -158,7 +158,6 @@ class BaseDataDownloadClient:
         auto_order_whitelist = settings.auto_order_whitelist
         if federation_backend in auto_order_whitelist:
             logger.info(f"Provider {federation_backend} is whitelisted, ordering product before download")
-
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
             logger.debug(f"Polling product {product}")
             try:
@@ -228,18 +227,18 @@ class BaseDataDownloadClient:
         if zarr_asset_name:
             asset_values = product.assets[zarr_asset_name]
             base_url = asset_values["href"]
-            target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
+            new_asset_name = file_path.lstrip('/')
+            target_url = f"{base_url.rstrip('/')}/{new_asset_name}"
 
-            r = product.request_asset(url=target_url)
-
-            return StreamingResponse(
-                r.iter_content(chunk_size=1024 * 1024),
-                status_code=r.status_code,
-                media_type=r.headers.get("Content-Type", "application/octet-stream"),
-                headers={
-                    k: v for k, v in r.headers.items() if k.lower() not in ["content-encoding", "transfer-encoding"]
-                },
-            )
+            product.assets.update({new_asset_name: {"href": target_url}})
+            s = product.downloader.stream_download(
+                        product,
+                        auth=auth,
+                        asset=new_asset_name,
+                        wait=-1,
+                        timeout=-1,
+                    )
+            return StreamingResponse(s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream"))
 
         presigned_response = self._try_presign_asset(product, asset_name, auth)
         if presigned_response:
