@@ -22,7 +22,7 @@ import logging
 import os
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Iterator, Optional, Union, cast
 
 import attr
 from eodag.api.core import EODataAccessGateway
@@ -55,7 +55,7 @@ class BaseDataDownloadClient:
         self,
         product: EOProduct,
         asset_name: Optional[str],
-        auth: Optional[dict],
+        auth: Any
     ) -> Optional[RedirectResponse]:
         """Return a presigned URL redirect when available."""
         if product.downloader_auth and asset_name and asset_name not in ["downloadLink", "zarr"]:
@@ -224,7 +224,7 @@ class BaseDataDownloadClient:
         zarr_asset_name = next(
             (name for name in product.assets if (name.endswith("zarr") and asset_name != "downloadLink")), None
         )
-        if zarr_asset_name:
+        if zarr_asset_name and file_path:
             asset_values = product.assets[zarr_asset_name]
             base_url = asset_values["href"]
             new_asset_name = file_path.lstrip("/")
