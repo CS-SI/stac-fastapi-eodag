@@ -22,7 +22,7 @@ import logging
 import os
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import TYPE_CHECKING, Annotated, Any, Iterator, Optional, Union, cast
+from typing import Annotated, Any, Iterator, Optional, Union, cast
 
 import attr
 from eodag.api.core import EODataAccessGateway
@@ -52,10 +52,7 @@ class BaseDataDownloadClient:
     """Defines a pattern for implementing the data download extension."""
 
     def _try_presign_asset(
-        self,
-        product: EOProduct,
-        asset_name: Optional[str],
-        auth: Any
+        self, product: EOProduct, asset_name: Optional[str], auth: Any
     ) -> Optional[RedirectResponse]:
         """Return a presigned URL redirect when available."""
         if product.downloader_auth and asset_name and asset_name not in ["downloadLink", "zarr"]:
