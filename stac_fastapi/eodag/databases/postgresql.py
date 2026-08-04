@@ -206,6 +206,38 @@ class PostgreSQLDatabase(Database):
         )
         self._con.commit()
 
+    def delete_federation_backends(self, names: list[str]) -> None:
+        """Remove federation backends and their collection configs from the database.
+
+        :param names: Names of the federation backends to remove.
+
+        :raises: :class:`ValueError` if ``names`` is empty.
+        :raises: :class:`~psycopg.Error` if the database operation fails (the
+            transaction is rolled back before re-raising).
+        """
+        if not names:
+            raise ValueError("names cannot be empty")
+
+        try:
+            # Delete from federation_backends first so _refresh_collections_denorm
+            # recomputes affected collections without the removed backends
+            self._execute(
+                "DELETE FROM federation_backends WHERE name = ANY(%s)",
+                (names,),
+            )
+            self._refresh_collections_denorm(names)
+            # Now clean up the collection-backend mapping table
+            self._execute(
+                "DELETE FROM collections_federation_backends"
+                " WHERE federation_backend_name = ANY(%s)",
+                (names,),
+            )
+            self._con.commit()
+        except Exception:
+            if not self._con.closed:
+                self._con.rollback()
+            raise
+
     def upsert_collections(self, collections: CollectionsDict) -> None:
         """Add or update collections in the database.
 
@@ -442,6 +474,29 @@ class PostgreSQLDatabase(Database):
                 self._con.rollback()
             raise
 
+    def restore_fbs(self) -> None:
+        """Restore federation backends which have been disabled.
+
+        :raises: :class:`~psycopg.Error` if the database operation fails (the
+            transaction is rolled back before re-raising).
+        """
+        try:
+            restored = [
+                row["name"]
+                for row in self._execute(
+                    "SELECT name FROM federation_backends WHERE enabled = false"
+                ).fetchall()
+            ]
+            self._execute(
+                "UPDATE federation_backends SET enabled = true WHERE enabled = false"
+            )
+            self._refresh_collections_denorm(restored)
+            self._con.commit()
+        except Exception:
+            if not self._con.closed:
+                self._con.rollback()
+            raise
+
     def set_priority(self, name: str, priority: int) -> None:
         """Set the priority of a federation backend.
 
@@ -520,7 +575,15 @@ class PostgreSQLDatabase(Database):
         )
 
         from_clause = "FROM collections c"
-        where_parts = [where, "c.federation_backends IS NOT NULL"] if with_fbs_only else [where]
+        where_parts = (
+            [
+                where,
+                "c.federation_backends IS NOT NULL",
+                "jsonb_array_length(c.federation_backends) > 0",
+            ]
+            if with_fbs_only
+            else [where]
+        )
         params: list[Any] = []
         order_terms: list[str] = []
         select_score = ""
