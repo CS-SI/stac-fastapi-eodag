@@ -99,8 +99,12 @@ def create_stac_item(
             if origin:
                 asset["alternate"] = {"origin": origin}
 
+    is_product_online = (
+        properties.get("order:status", ONLINE_STATUS) == ONLINE_STATUS or provider in auto_order_whitelist
+    )
+
     # TODO: remove downloadLink asset after EODAG assets rework
-    if not any(asset_name.endswith(".parquet") for asset_name in assets):
+    if is_product_online and not any(asset_name.endswith(".parquet") for asset_name in assets):
         # eodag:download_link may be missing for some providers (e.g. planetary_computer)
         # but we still want to provide a download link for them when proxying is enabled.
         origin_href = properties.get("eodag:download_link")
@@ -112,7 +116,7 @@ def create_stac_item(
 
         if download_link:
             assets["downloadLink"] = {
-                "title": "Download link",
+                "title": "Full product download link",
                 "href": download_link,
                 "type": mime_type,
                 "roles": ["data"],
