@@ -609,12 +609,13 @@ def prepare_search_base_args(search_request: BaseSearchPostRequest) -> dict[str,
     :param model: the model used to validate stac metadata
     :returns: a dictionary containing arguments for the eodag search
     """
-    if search_request.ids is None:
-        base_args = search_request.model_dump()
+    base_args = search_request.model_dump()
+
+    if search_request.ids:
+        base_args.pop("limit", None)
+    else:
         base_args["raise_errors"] = False
         base_args["count"] = get_settings().count
-    else:
-        base_args = {}
 
     # parse "sortby" search request attribute if it exists to make it work for an eodag search
     sort_by = {}

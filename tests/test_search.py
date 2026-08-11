@@ -544,6 +544,34 @@ async def test_ids_post_search(request_valid, defaults):
     )
 
 
+async def test_ids_post_search_keeps_provider_from_query(request_valid, defaults):
+    """POST ids search must keep provider parsed from query federation:backends."""
+    await request_valid(
+        "search",
+        method="POST",
+        post_data={
+            "collections": [defaults.collection],
+            "ids": ["foo", "bar"],
+            "query": {"federation:backends": {"eq": "cop_dataspace"}},
+        },
+        search_call_count=2,
+        expected_search_kwargs=[
+            {
+                "id": "foo",
+                "collection": defaults.collection,
+                "provider": "cop_dataspace",
+                "validate": True,
+            },
+            {
+                "id": "bar",
+                "collection": defaults.collection,
+                "provider": "cop_dataspace",
+                "validate": True,
+            },
+        ],
+    )
+
+
 # TODO: add test_provider_prefix_post_search when feature is ready
 
 
