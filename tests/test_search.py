@@ -197,8 +197,8 @@ async def test_items_response(request_valid, defaults):
 
 async def test_assets_with_different_download_base_url(request_valid, defaults):
     """Domain for download links should be as configured in settings"""
-    settings = get_settings()
-    settings.download_base_url = "http://otherserver/"
+    download_base_url = get_settings().download_base_url
+    get_settings().download_base_url = "http://otherserver/"
     resp_json = await request_valid(
         f"search?collections={defaults.collection}",
     )
@@ -210,6 +210,9 @@ async def test_assets_with_different_download_base_url(request_valid, defaults):
         res[0]["assets"]["asset1"]["href"]
         == f"http://otherserver/data/cop_dataspace/{res[0]['collection']}/{res[0]['id']}/asset1"
     )
+
+    # restore the original download_base_url setting
+    get_settings().download_base_url = download_base_url
 
 
 async def test_no_invalid_symbols_in_urls(request_valid, defaults, mock_search_result):
@@ -248,6 +251,34 @@ async def test_downloadlink_excluded_when_parquet_asset(request_valid, defaults,
 
     # Second product has no parquet asset and is ONLINE, so downloadLink should be present
     assert "downloadLink" in res[1]["assets"], "downloadLink should be present when no parquet assets"
+
+
+async def test_downloadlink_present_when_eodag_download_link_missing(request_valid, defaults, mock_search_result):
+    """downloadLink should be present when eodag:download_link is missing"""
+    search_result = mock_search_result
+
+    # Remove eodag:download_link from first product
+    search_result[0].properties.pop("eodag:download_link")
+
+    # Make sure second product is ONLINE to have assets
+    search_result[1].properties["order:status"] = ONLINE_STATUS
+
+    resp_json = await request_valid(f"search?collections={defaults.collection}", search_result=search_result)
+    res = resp_json["features"]
+
+    # First product does *not* have eodag:download_link, but downloadLink should still be created
+    assert "downloadLink" in res[0]["assets"], "downloadLink should be present also when eodag:download_link is missing"
+    assert (
+        res[0]["assets"]["downloadLink"]["href"]
+        == f"http://testserver/data/cop_dataspace/{res[0]['collection']}/{res[0]['id']}/downloadLink"
+    )
+
+    # Second product has eodag:download_link, so downloadLink should be present
+    assert "downloadLink" in res[1]["assets"], "downloadLink should be present when eodag:download_link exists"
+    assert (
+        res[1]["assets"]["downloadLink"]["href"]
+        == f"http://testserver/data/cop_dataspace/{res[1]['collection']}/{res[1]['id']}/downloadLink"
+    )
 
 
 async def test_not_found(request_not_found):

@@ -96,29 +96,41 @@ def create_stac_item(
 
             asset["href"] = f"{asset_proxy_url}/{quote(asset_name)}"
             asset.pop("storage:refs", None)
-
             if origin:
                 asset["alternate"] = {"origin": origin}
 
+    is_product_online = (
+        properties.get("order:status", ONLINE_STATUS) == ONLINE_STATUS or provider in auto_order_whitelist
+    )
+
     # TODO: remove downloadLink asset after EODAG assets rework
-    has_parquet_asset = any(asset_name.endswith(".parquet") for asset_name in assets)
-    if (download_link := properties.get("eodag:download_link")) and not has_parquet_asset:
-        origin_href = download_link
-        proxied_href = f"{asset_proxy_url}/downloadLink" if asset_proxy_url else origin_href
-        mime_type = guess_file_type(origin_href) or "application/octet-stream"
+    if is_product_online and not any(asset_name.endswith(".parquet") for asset_name in assets):
+        # eodag:download_link may be missing for some providers (e.g. planetary_computer)
+        # but we still want to provide a download link for them when proxying is enabled.
+        origin_href = properties.get("eodag:download_link")
+        download_link = f"{asset_proxy_url}/downloadLink" if asset_proxy_url else origin_href
 
-        download_asset = {"title": "Download link", "href": proxied_href, "type": mime_type, "roles": ["data"]}
+        mime_type = "application/octet-stream"
+        if origin_href:
+            mime_type = guess_file_type(origin_href) or mime_type
 
-        if asset_proxy_url and keep_origin_url and not origin_href.startswith(origin_url_blacklist):
-            download_asset["alternate"] = {
+        if download_link:
+            assets["downloadLink"] = {
+                "title": "Full product download link",
+                "href": download_link,
+                "type": mime_type,
+                "roles": ["data"],
+            }
+
+        # origin_href (a.k.a. eodag:download_link) may be missing for some providers (e.g. planetary_computer)
+        if download_link and origin_href and keep_origin_url and not origin_href.startswith(origin_url_blacklist):
+            assets["downloadLink"]["alternate"] = {
                 "origin": {
                     "title": "Origin asset link",
                     "href": origin_href,
                     "type": mime_type,
                 },
             }
-
-        assets["downloadLink"] = download_asset
 
     # filter properties we do not want to expose
     feature["properties"] = {k: v for k, v in properties.items() if not k.startswith("eodag:")}
