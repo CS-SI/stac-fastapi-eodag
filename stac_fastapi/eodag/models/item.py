@@ -95,6 +95,7 @@ def create_stac_item(
             origin = deepcopy(asset) if should_keep_origin else None
 
             asset["href"] = f"{asset_proxy_url}/{quote(asset_name)}"
+            asset.pop("storage:refs", None)
 
             if origin:
                 asset["alternate"] = {"origin": origin}
