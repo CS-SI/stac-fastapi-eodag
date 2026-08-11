@@ -65,10 +65,6 @@ class BaseCollectionOrderClient:
     stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
     extensions: list[ApiExtension] = attr.ib(default=[])
 
-    def extension_is_enabled(self, extension: str) -> bool:
-        """Check if an api extension is enabled."""
-        return any(type(ext).__name__ == extension for ext in self.extensions)
-
     def order_collection(
         self,
         collection_id: str,
@@ -135,7 +131,7 @@ class BaseCollectionOrderClient:
             )
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
-        return create_stac_item(product, self.extension_is_enabled, request, extension_names)
+        return create_stac_item(product, request, extension_names)
 
 
 @attr.s

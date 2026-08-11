@@ -210,7 +210,7 @@ class EodagCoreClient(CustomCoreClient):
         extension_names = [type(ext).__name__ for ext in self.extensions]
 
         for product in search_result:
-            feature = create_stac_item(product, self.extension_is_enabled, request, extension_names, request_json)
+            feature = create_stac_item(product, request, extension_names, request_json)
             features.append(feature)
 
         feature_collection = ItemCollection(
