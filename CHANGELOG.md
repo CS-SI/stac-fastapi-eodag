@@ -2,6 +2,40 @@
 
 <!-- version list -->
 
+## v0.4.1 (2026-08-12)
+
+### Bug Fixes
+
+- Add `downloadLink` asset independetly of the presence of `eodag:download_link`
+  ([#121](https://github.com/CS-SI/stac-fastapi-eodag/pull/121),
+  [`ce2b975`](https://github.com/CS-SI/stac-fastapi-eodag/commit/ce2b975f596f95173f01383f99050dd64dfc427c))
+
+- Remove federation extension link as it is not valid
+  ([`1db1c5c`](https://github.com/CS-SI/stac-fastapi-eodag/commit/1db1c5cb44ff57de8237d6a5b9d4df3f40cb6a17))
+
+- Remove storage:refs from assets with data-download
+  ([`3bb1a57`](https://github.com/CS-SI/stac-fastapi-eodag/commit/3bb1a5722e3387bc20eeb8c3b562f5c471f8e52f))
+
+- **search**: Preserve search params in ids-based eodag requests
+  ([`bae69d4`](https://github.com/CS-SI/stac-fastapi-eodag/commit/bae69d4454b6dc998e3f0db6b4a59a0299e0e6a5))
+
+### Chores
+
+- Bump dependencies
+  ([`a6f7ac3`](https://github.com/CS-SI/stac-fastapi-eodag/commit/a6f7ac3dd02c8d20744246dbca003c032e93bfc9))
+
+- Bump stac-fastapi-eodag version in uv.lock
+  ([`a185802`](https://github.com/CS-SI/stac-fastapi-eodag/commit/a185802f79b5ddc90fdee0614fb50900b4f9b30d))
+
+- Update dependencies
+  ([`c7f05e1`](https://github.com/CS-SI/stac-fastapi-eodag/commit/c7f05e1ba00e6c0f0165dfd632203b765cbe3ad2))
+
+### Refactoring
+
+- Leverage eodag methods to create STAC item
+  ([`de3c683`](https://github.com/CS-SI/stac-fastapi-eodag/commit/de3c6835c1c9a10920345e28f5e849dc9834e3d6))
+
+
 ## v0.4.0 (2026-07-15)
 
 ### Bug Fixes
