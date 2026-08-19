@@ -176,6 +176,11 @@ class FiltersClient(AsyncBaseFiltersClient):
         This base implementation returns a blank queryable schema. This is not allowed
         under OGC CQL but it is allowed by the STAC API Filter Extension
         https://github.com/radiantearth/stac-api-spec/tree/master/fragments/filter#queryables
+
+        :param request: The incoming HTTP request.
+        :param collection_id: The ID of the collection to get queryables for.
+        :param kwargs: Additional keyword arguments.
+        :return: A dictionary of queryables.
         """
         eodag_params = await self._get_eodag_params(request, collection_id)
 
@@ -185,6 +190,26 @@ class FiltersClient(AsyncBaseFiltersClient):
         except UnsupportedCollection as err:
             raise NotFoundError(err) from err
 
+        self._normalize_datetime_queryables(eodag_queryables)
+        queryables = await self._build_queryables_schema(request, collection_id, eodag_queryables)
+        properties = queryables["properties"]
+        required = queryables.get("required", [])
+
+        ecmwf_fb = await self._has_ecmwf_search_plugin(request, eodag_params)
+        self._update_properties_from_stac_metadata(properties, required, ecmwf_fb)
+
+        # Only datetime is kept in queryables
+        properties.pop("end_datetime", None)
+        self._clean_properties(properties)
+        self._apply_common_queryables(properties)
+
+        return queryables
+
+    def _normalize_datetime_queryables(self, eodag_queryables: dict[str, Any]) -> None:
+        """Normalize start/end queryables to start_datetime/end_datetime.
+
+        :param eodag_queryables: The queryables dictionary from EODAG.
+        """
         if "start" in eodag_queryables:
             start_queryable = eodag_queryables.pop("start")
             eodag_queryables["start_datetime"] = start_queryable
@@ -192,6 +217,19 @@ class FiltersClient(AsyncBaseFiltersClient):
             end_queryable = eodag_queryables.pop("end")
             eodag_queryables["end_datetime"] = end_queryable
 
+    async def _build_queryables_schema(
+        self,
+        request: Request,
+        collection_id: Optional[str],
+        eodag_queryables: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build the queryables JSON schema.
+
+        :param request: The incoming HTTP request.
+        :param collection_id: The ID of the collection to build queryables for.
+        :param eodag_queryables: The queryables dictionary from EODAG.
+        :return: A dictionary representing the queryables JSON schema.
+        """
         base_url = get_base_url(request)
         stac_fastapi_title = get_settings().stac_fastapi_title
 
@@ -215,11 +253,43 @@ class FiltersClient(AsyncBaseFiltersClient):
                 ),
             ),
         )
-        queryables = queryables_model.model_json_schema()
-        properties = queryables["properties"]
-        required = queryables.get("required", [])
+        return queryables_model.model_json_schema()
+
+    async def _has_ecmwf_search_plugin(self, request: Request, eodag_params: dict[str, Any]) -> bool:
+        """Check if ECMWF search plugin is available.
+
+        :param request: The incoming HTTP request.
+        :param eodag_params: The EODAG parameters dictionary.
+        :return: True if the ECMWF search plugin is available, False otherwise.
+        """
+        if fb := eodag_params.get("provider"):
+            from eodag.plugins.search.build_search_result import ECMWFSearch
+
+            search_plugins = request.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
+            search_plugin = next(search_plugins)
+            return isinstance(search_plugin, ECMWFSearch)
+        return False
+
+    def _update_properties_from_stac_metadata(
+        self,
+        properties: dict[str, Any],
+        required: list[str],
+        ecmwf_fb: bool,
+    ) -> None:
+        """Update properties and required fields from STAC metadata model.
+
+        :param properties: The properties dictionary to update.
+        :param required: The list of required fields to update.
+        :param ecmwf_fb: A boolean indicating if the ECMWF search plugin is available.
+        """
+        from eodag.types.stac_extensions import EcmwfItemProperties
 
         for k, field in self.stac_metadata_model.model_fields.items():
+            # do not update fields which are part of EcmwfExtension if
+            # the federation backend has not the ECMWFSearch plugin
+            if not ecmwf_fb and k in EcmwfItemProperties.model_fields:
+                continue
+
             if isinstance(field.validation_alias, AliasChoices):
                 for choice in field.validation_alias.choices:
                     if choice in properties:
@@ -237,18 +307,23 @@ class FiltersClient(AsyncBaseFiltersClient):
                 required.remove(field.validation_alias)
                 required.append(field.serialization_alias or k)
 
-        # Only datetime is kept in queryables
-        properties.pop("end_datetime", None)
+    def _clean_properties(self, properties: dict[str, Any]) -> None:
+        """Remove None defaults from properties.
 
+        :param properties: The properties dictionary to clean.
+        """
         for _, value in properties.items():
             if "default" in value and value["default"] is None:
                 del value["default"]
 
+    def _apply_common_queryables(self, properties: dict[str, Any]) -> None:
+        """Apply common queryable properties overrides.
+
+        :param properties: The properties dictionary to update.
+        """
         for pk, pv in COMMON_QUERYABLES_PROPERTIES.items():
             if pk in properties:
                 properties[pk] = pv
-
-        return queryables
 
     async def _get_eodag_params(
         self,
