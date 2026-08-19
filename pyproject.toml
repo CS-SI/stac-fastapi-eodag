@@ -15,7 +15,7 @@ dependencies = [
     "orjson",
     "pydantic",
     "pydantic_core",
-    "cql2",
+    "cql2 >= 0.6.0",
     "pygeofilter",
     "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions",
