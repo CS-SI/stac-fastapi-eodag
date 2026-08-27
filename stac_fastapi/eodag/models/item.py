@@ -104,7 +104,11 @@ def create_stac_item(
     )
 
     # TODO: remove downloadLink asset after EODAG assets rework
-    if is_product_online and not any(asset_name.endswith(".parquet") for asset_name in assets) and not any("zarr" in key for key in product.assets):
+    if (
+        is_product_online
+        and not any(asset_name.endswith(".parquet") for asset_name in assets)
+        and not any("zarr" in key for key in product.assets)
+    ):
         # eodag:download_link may be missing for some providers (e.g. planetary_computer)
         # but we still want to provide a download link for them when proxying is enabled.
         origin_href = properties.get("eodag:download_link")
@@ -130,13 +134,6 @@ def create_stac_item(
                     "href": origin_href,
                     "type": mime_type,
                 },
-            }
-
-        if any("zarr" in key for key in product.assets) and asset_proxy_url:
-            assets["Zarr index"] = {
-                "title": "Zarr store index",
-                "href": asset_proxy_url + "/zarr/index",
-                "type": "application/json",
             }
 
     # filter properties we do not want to expose

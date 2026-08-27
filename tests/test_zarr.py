@@ -70,9 +70,8 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
     )
     response = create_stac_item(
         product,
-        lambda extension_name: extension_name == "DataDownload",
         request,
-        extension_names=[],
+        extension_names=["DataDownload"],
     )
 
     item = response
