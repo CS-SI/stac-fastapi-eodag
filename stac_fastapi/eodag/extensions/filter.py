@@ -23,6 +23,7 @@ from typing import Any, Literal, Optional, cast, get_args, get_origin
 
 import attr
 from eodag.types.stac_metadata import CommonStacMetadata
+from eodag.utils.exceptions import MisconfiguredError
 from fastapi import Request
 from pydantic import AliasChoices, AliasPath, BaseModel, ConfigDict, create_model
 from stac_fastapi.extensions.core.filter.client import AsyncBaseFiltersClient
@@ -184,6 +185,13 @@ class FiltersClient(AsyncBaseFiltersClient):
             eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params)
         except UnsupportedCollection as err:
             raise NotFoundError(err) from err
+        except (AttributeError, MisconfiguredError):
+            logger.warning(
+                "Could not load EODAG queryables for collection %s, falling back to common STAC queryables",
+                collection_id,
+                exc_info=True,
+            )
+            eodag_queryables = {}
 
         if "start" in eodag_queryables:
             start_queryable = eodag_queryables.pop("start")
@@ -280,11 +288,21 @@ class FiltersClient(AsyncBaseFiltersClient):
 
         # the parameters in eodag_params are all lists:
         # adapt them to use list or primitive type according to the collection queryables
+        if set(validated_params).issubset({"provider", "collection"}):
+            return validated_params
+
         eodag_params_pc = {k: validated_params[k] for k in ["provider", "collection"] if k in validated_params}
         try:
             eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params_pc)
         except UnsupportedCollection as err:
             raise NotFoundError(err) from err
+        except (AttributeError, MisconfiguredError):
+            logger.warning(
+                "Could not introspect EODAG queryables for collection %s, keeping raw query parameter values",
+                collection_id,
+                exc_info=True,
+            )
+            return validated_params
 
         for queryables_key, annotation in eodag_queryables.items():
             if queryables_key in ("provider", "collection"):
