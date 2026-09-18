@@ -93,20 +93,20 @@ async def test_collection_queryables_with_filters(mock_list_queryables, mock_lis
     # queryables with filter that does not have to be changed
     await app_client.request(
         method="GET",
-        url="/collections/ABC_DEF/queryables?emcwf:year=2000",
+        url="/collections/ABC_DEF/queryables?ecmwf:year=2000",
         follow_redirects=True,
     )
-    _assert_list_queryables_call(mock_list_queryables.call_args_list, {"collection": "ABC_DEF", "emcwf:year": ["2000"]})
+    _assert_list_queryables_call(mock_list_queryables.call_args_list, {"collection": "ABC_DEF", "ecmwf:year": ["2000"]})
     mock_list_queryables.reset_mock()
     # queryables with two values of the same filter param
     await app_client.request(
         method="GET",
-        url="/collections/ABC_DEF/queryables?emcwf:year=2000&emcwf:year=2001",
+        url="/collections/ABC_DEF/queryables?ecmwf:year=2000&ecmwf:year=2001",
         follow_redirects=True,
     )
     _assert_list_queryables_call(
         mock_list_queryables.call_args_list,
-        {"collection": "ABC_DEF", "emcwf:year": ["2000", "2001"]},
+        {"collection": "ABC_DEF", "ecmwf:year": ["2000", "2001"]},
     )
     mock_list_queryables.reset_mock()
     # queryables with filter that has to be changed to eodag param
@@ -256,6 +256,72 @@ async def test_collection_queryables_with_filters(mock_list_queryables, mock_lis
         mock_list_queryables.call_args_list,
         {"collection": "ABC_DEF", "dolorem": "val_1", "ips": "val_2", "bar": "val_3"},
     )
+
+
+async def test_collection_queryables_of_ecmwf_properties(mock_list_queryables, app_client):
+    """Response for queryables of ECMWF properties must be returned
+    according to the search plugin of the given federation backend"""
+    from eodag.plugins.search.build_search_result import ECMWFSearch
+    from eodag.types.stac_extensions import EcmwfItemProperties
+    from pydantic import AliasChoices
+
+    year_field_name = "year"
+    ecmwf_year_field_name = "ecmwf_year"
+    ecmwf_year_field_name_alias = "ecmwf:year"
+
+    model_field = app_client._transport.app.state.stac_metadata_model.model_fields[ecmwf_year_field_name]
+
+    # check that the field is an ECMWF property and has correct aliases
+    assert ecmwf_year_field_name in EcmwfItemProperties.model_fields
+    assert isinstance(model_field.validation_alias, AliasChoices)
+    assert model_field.validation_alias.choices == [ecmwf_year_field_name_alias, year_field_name]
+
+    eodag_response = {
+        year_field_name: Annotated[Literal[tuple(sorted(["2000", "2005"]))], Field(..., **{"title": "year"})]
+    }
+    mock_list_queryables.return_value = eodag_response
+
+    # with a federation backend having ECMWFSearch plugin
+    fb = "wekeo_ecmwf"
+    # check that the federation backend has the ECMWFSearch plugin
+    search_plugins = app_client._transport.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
+    wekeo_ecmwf_sp = next(search_plugins)
+    assert isinstance(wekeo_ecmwf_sp, ECMWFSearch)
+
+    response = await app_client.request(
+        method="GET",
+        url=f"/collections/ABC_DEF/queryables?federation:backends={fb}",
+        follow_redirects=True,
+    )
+    result = response.json()
+
+    # check that the ECMWF field is not returned with the one of the eodag response of list_queryables()
+    assert "properties" in result
+    assert len(result["properties"]) == 1
+    assert ecmwf_year_field_name_alias in result["properties"]
+    assert year_field_name not in result["properties"]
+    assert result["properties"][ecmwf_year_field_name_alias]["enum"] == ["2000", "2005"]
+
+    # with a federation backend not having ECMWFSearch plugin
+    fb = "cop_ghsl"
+    # check that the federation backend does not have the ECMWFSearch plugin
+    search_plugins = app_client._transport.app.state.dag._plugins_manager.get_search_plugins(provider=fb)
+    wekeo_ecmwf_sp = next(search_plugins)
+    assert not isinstance(wekeo_ecmwf_sp, ECMWFSearch)
+
+    response = await app_client.request(
+        method="GET",
+        url=f"/collections/ABC_DEF/queryables?federation:backends={fb}",
+        follow_redirects=True,
+    )
+    result = response.json()
+
+    # check that the ECMWF field is returned with the one of the eodag response of list_queryables()
+    assert "properties" in result
+    assert len(result["properties"]) == 1
+    assert ecmwf_year_field_name_alias not in result["properties"]
+    assert year_field_name in result["properties"]
+    assert result["properties"][year_field_name]["enum"] == ["2000", "2005"]
 
 
 async def test_default_in_collection_queryables(
