@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v0.5.0 (2026-09-23)
+
+### Bug Fixes
+
+- Align filter extension and requirements tests
+  ([`0bcba2a`](https://github.com/CS-SI/stac-fastapi-eodag/commit/0bcba2a467e76878420af86c181286960f6ce4ea))
+
+### Chores
+
+- Align dependency and filter extension config
+  ([`b45fa4f`](https://github.com/CS-SI/stac-fastapi-eodag/commit/b45fa4f26b5d46b5717172876c3580cb6aa4cb62))
+
+- Fix tests and lints
+  ([`ef61a1c`](https://github.com/CS-SI/stac-fastapi-eodag/commit/ef61a1ce182b28d3985fc7cfde67a7548d157417))
+
+### Features
+
+- Bump eodag to 4.7
+  ([`6eb737a`](https://github.com/CS-SI/stac-fastapi-eodag/commit/6eb737aae41a6192b14ef3e804bbc914da26cd1d))
+
+
 ## v0.4.1 (2026-08-12)
 
 ### Bug Fixes
