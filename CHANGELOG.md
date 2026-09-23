@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.6.0 (2026-09-23)
+
+### Features
+
+- Bump eodag to 4.9
+  ([`76f6f08`](https://github.com/CS-SI/stac-fastapi-eodag/commit/76f6f085aff6009d9dd86249f7d0b4bcc0d2d694))
+
+
 ## v0.5.0 (2026-09-23)
 
 ### Bug Fixes
