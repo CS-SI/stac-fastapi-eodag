@@ -2,6 +2,13 @@
 
 <!-- version list -->
 
+## v0.6.1 (2026-09-25)
+
+### Bug Fixes
+
+- Correct default image tag
+  ([`af1a3be`](https://github.com/CS-SI/stac-fastapi-eodag/commit/af1a3be43b58cc337e2507e06429f8ec0d7dd03b))
+
 ## v0.6.0 (2026-09-23)
 
 ### Features
