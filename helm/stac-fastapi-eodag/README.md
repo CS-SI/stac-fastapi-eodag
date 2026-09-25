@@ -98,7 +98,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | image.pullSecrets | list | `[]` | Specify docker-registry secret names as an array |
 | image.registry | string | `"ghcr.io"` | stac-fastapi-eodag image registry |
 | image.repository | string | `"cs-si/stac-fastapi-eodag"` | stac-fastapi-eodag image repository |
-| image.tag | string | `"v0.6.0-eodag-4.9.0"` | Overrides the stac-fastapi-eodag image tag whose default is the chart appVersion (immutable tags are recommended) |
+| image.tag | string | `"0.6.0-eodag-4.9.0"` | Overrides the stac-fastapi-eodag image tag whose default is the chart appVersion (immutable tags are recommended) |
 | ingress.annotations | object | `{}` | Annotations for the stac-fastapi-eodag ingress. To enable certificate autogeneration, place here your cert-manager annotations. |
 | ingress.apiVersion | string | `""` | Ingress API version for the stac-fastapi-eodag ingress |
 | ingress.enabled | bool | `false` | Enable the creation of an ingress for the stac-fastapi-eodag |
@@ -255,7 +255,7 @@ ingress:
 
 ### Immutable image tags
 
-Always pin the image to an immutable tag in production. The default tag follows the pattern `<app-version>-eodag-<eodag-version>` (e.g. `v0.3.0-eodag-4.0.0`). Avoid using `latest` or floating tags — they make rollbacks unreliable and deployments non-deterministic.
+Always pin the image to an immutable tag in production. The default tag follows the pattern `<app-version>-eodag-<eodag-version>` (e.g. `0.3.0-eodag-4.0.0`). Avoid using `latest` or floating tags — they make rollbacks unreliable and deployments non-deterministic.
 
 ### Horizontal Pod Autoscaling
 
