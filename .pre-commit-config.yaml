@@ -18,12 +18,13 @@ repos:
     -   id: debug-statements
     -   id: check-merge-conflict
 
-- repo: https://github.com/norwoodj/helm-docs
-  rev: v1.14.2
+- repo: local
   hooks:
     - id: helm-docs-container
-      args:
-        - --chart-search-root=helm
+      name: helm-docs-container
+      language: system
+      pass_filenames: false
+      entry: bash -c 'docker run --rm --volume "$PWD:/helm-docs" -u "$(id -u)" docker.io/jnorwood/helm-docs:latest --chart-search-root=helm'
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.

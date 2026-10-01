@@ -53,7 +53,7 @@ jobs:
           EODAG_VERSION=$(grep -A1 '^name = "eodag"$' uv.lock | grep version | sed 's/version = "\(.*\)"/\1/')
           sed -i "s/^appVersion:.*/appVersion: ${NEW_VERSION}/" helm/stac-fastapi-eodag/Chart.yaml
           sed -i "s/^version:.*/version: ${NEW_VERSION}/" helm/stac-fastapi-eodag/Chart.yaml
-          sed -i "s|tag: \"v[0-9][^\"]*\"|tag: \"v${NEW_VERSION}-eodag-${EODAG_VERSION}\"|" helm/stac-fastapi-eodag/values.yaml
+          sed -i "s|tag: \"[0-9][^\"]*\"|tag: \"${NEW_VERSION}-eodag-${EODAG_VERSION}\"|" helm/stac-fastapi-eodag/values.yaml
 
       - name: Commit and tag the release
         if: steps.psr.outputs.released == 'true'
