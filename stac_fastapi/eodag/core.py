@@ -113,6 +113,7 @@ class EodagCoreClient(CustomCoreClient):
         }
         extended_collection["summaries"] = {
             **(getattr(collection, "summaries", {}) or {}),
+            **(extended_collection.get("summaries", {})),
             **{k: v for k, v in summaries.items() if v},
         }
 
