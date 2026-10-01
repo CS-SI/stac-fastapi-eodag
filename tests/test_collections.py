@@ -41,6 +41,39 @@ async def test_collection(
         assert link["rel"] in ["self", "items", "http://www.opengis.net/def/rel/ogc/1.0/queryables"]
 
 
+async def test_collection_merges_external_stac_collection(app_client, mock_list_collections, app, mocker):
+    """A collection response should merge its external STAC collection metadata."""
+    collection = Collection(
+        id="S2_MSI_L1C",
+        title="EODAG title",
+        description="EODAG description",
+        keywords=["eodag-keyword"],
+        platform="Sentinel-2",
+    )
+    mock_list_collections.return_value = CollectionsList([collection])
+    mocker.patch.dict(
+        app.state.ext_stac_collections,
+        {
+            "S2_MSI_L1C": {
+                "title": "External title",
+                "description": "External description",
+                "keywords": ["external-keyword"],
+                "summaries": {"platform": ["Sentinel-2", "Sentinel-2B"]},
+            }
+        },
+    )
+
+    response = await app_client.get("/collections/S2_MSI_L1C")
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["title"] == "External title"
+    assert result["description"] == "External description"
+    assert result["keywords"] == ["eodag-keyword", "external-keyword"]
+    assert result["summaries"]["platform"] == ["Sentinel-2", "Sentinel-2B"]
+    assert result["summaries"]["federation:backends"]
+
+
 async def test_list_collections(app_client, mock_list_collections):
     """A simple request to list collections must succeed"""
     collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
