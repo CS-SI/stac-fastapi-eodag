@@ -47,7 +47,7 @@ from eodag.api.collection import Collection as EodagCollection
 from eodag.api.collection import CollectionsList
 from eodag.plugins.search.build_search_result import ECMWFSearch
 from eodag.types.stac_metadata import CommonStacMetadata
-from eodag.utils import deepcopy, get_geometry_from_various
+from eodag.utils import deepcopy, get_geometry_from_various, update_nested_dict
 from eodag.utils.exceptions import NoMatchingCollection as EodagNoMatchingCollection
 from stac_fastapi.eodag.client import CustomCoreClient
 from stac_fastapi.eodag.config import get_settings
@@ -94,49 +94,26 @@ class EodagCoreClient(CustomCoreClient):
         self, collection: EodagCollection, request: Request, collections_providers: dict[str, set]
     ) -> Collection:
         """Convert a EODAG produt type to a STAC collection."""
+        eodag_collection = deepcopy(collection.serialize())
         # extend collection with external stac collection if any
-        extended_collection = Collection(deepcopy(request.app.state.ext_stac_collections.get(collection.id, {})))
-        extended_collection["type"] = "Collection"
+        extended_collection = deepcopy(request.app.state.ext_stac_collections.get(collection.id, {}))
 
-        platform_value = [p for p in (collection.platform or "").split(",") if p]
-        constellation = [c for c in (collection.constellation or "").split(",") if c]
-        processing_level = [pl for pl in (collection.processing_level or "").split(",") if pl]
-        instruments = collection.instruments or []
+        # merge with EODAG collection
+        updated_collection = update_nested_dict(
+            old_dict=eodag_collection,
+            new_dict=extended_collection,
+            extend_list_values=True,
+            allow_extend_duplicates=False,
+        )
+        # disable extend_list_values for extent
+        updated_collection["extent"] = update_nested_dict(
+            old_dict=eodag_collection.get("extent", {}),
+            new_dict=extended_collection.get("extent", {}),
+        )
+
+        # update federation backends
         federation_backends = collections_providers.get(collection._id, set())
-
-        summaries: dict[str, Any] = {
-            "platform": platform_value,
-            "constellation": constellation,
-            "processing:level": processing_level,
-            "instruments": instruments,
-            "federation:backends": federation_backends,
-        }
-        extended_collection["summaries"] = {
-            **(getattr(collection, "summaries", {}) or {}),
-            **{k: v for k, v in summaries.items() if v},
-        }
-
-        extended_collection["extent"] = {
-            "spatial": extended_collection.get("extent", {}).get("spatial")
-            or collection.extent.spatial.to_dict()
-            or {"bbox": [[-180.0, -90.0, 180.0, 90.0]]},
-            "temporal": extended_collection.get("extent", {}).get("temporal")
-            or collection.extent.temporal.to_dict()
-            or {"interval": [[None, None]]},
-        }
-
-        for key in ["license", "description", "title"]:
-            if key not in extended_collection and (value := getattr(collection, key)):
-                extended_collection[key] = value
-
-        keywords = collection.keywords or []
-        keywords = keywords.split(",") if isinstance(keywords, str) else keywords
-        try:
-            extended_collection["keywords"] = list(set(keywords + extended_collection.get("keywords", [])))
-        except TypeError as e:
-            logger.warning("Could not merge keywords from external collection for %s: %s", collection.id, str(e))
-
-        extended_collection["id"] = collection.id
+        updated_collection["summaries"]["federation:backends"] = list(federation_backends)
 
         # keep only federation backends which allow order mechanism
         # to create "retrieve" collection links from them
@@ -153,18 +130,15 @@ class EodagCoreClient(CustomCoreClient):
         ):
             extension_names.remove("CollectionOrderExtension")
 
-        if collection.links:
-            extra_links = [link.model_dump() for link in collection.links.root]
-        else:
-            extra_links = []
-        extended_coll_links = extended_collection.get("links", [])
-        extended_collection["links"] = CollectionLinks(
-            collection_id=extended_collection["id"],
-            collection_title=extended_collection["title"],
+        # update links
+        extra_links = updated_collection.pop("links", [])
+        updated_collection["links"] = CollectionLinks(
+            collection_id=updated_collection["id"],
+            collection_title=updated_collection["title"],
             request=request,
-        ).get_links(extensions=extension_names, extra_links=extra_links + extended_coll_links)
+        ).get_links(extensions=extension_names, extra_links=extra_links)
 
-        return Collection(**extended_collection)
+        return Collection(**updated_collection)
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request)
