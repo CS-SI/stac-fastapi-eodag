@@ -335,3 +335,32 @@ async def test_collections_pagination_with_offset_and_limit(app_client, mock_lis
     assert {"root", "self", "next"} == {link["rel"] for link in links}
     next_link = list(filter(lambda link: link["rel"] == "next", links))[0]
     assert next_link["href"].endswith("?offset=1&limit=1")
+
+
+async def test_use_properties_from_external_collection(app_client, mock_list_collections, mocker, app):
+    """Test that properties from external collections are used when available"""
+    collection1 = Collection(id="S2_MSI_L1C", title="SENTINEL2 Level-1C")
+    mock_list_collections.return_value = CollectionsList([collection1])
+
+    mocker.patch.dict(
+        app.state.ext_stac_collections,
+        {
+            "S2_MSI_L1C": {
+                "extent": {
+                    "spatial": {"bbox": [[20, 20, 30, 30]]},
+                    "temporal": {"interval": [["2020-01-01T00:00:00Z", "2020-12-31T23:59:59Z"]]},
+                },
+                "summaries": {"platform": ["Sentinel-2"], "instruments": ["MSI"], "variable": ["a", "b"]},
+            },
+        },
+    )
+    r = await app_client.get("/collections")
+
+    assert r.status_code == 200
+    cols = r.json()["collections"]
+    assert ["S2_MSI_L1C"] == [col["id"] for col in cols]
+    assert [[20.0, 20.0, 30.0, 30.0]] == cols[0]["extent"]["spatial"]["bbox"]
+    assert [["2020-01-01T00:00:00Z", "2020-12-31T23:59:59Z"]] == cols[0]["extent"]["temporal"]["interval"]
+    assert ["Sentinel-2"] == cols[0]["summaries"]["platform"]
+    assert ["MSI"] == cols[0]["summaries"]["instruments"]
+    assert ["a", "b"] == cols[0]["summaries"]["variable"]
