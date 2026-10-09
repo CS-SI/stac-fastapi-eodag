@@ -662,6 +662,7 @@ class PostgreSQLDatabase(Database):
         self,
         name: str,
         collections: set[str] | None = None,
+        use_alias: bool = False,
     ) -> dict[str, Any]:
         """Get the federation backend config for a given provider and optional collection filter.
 
@@ -678,33 +679,62 @@ class PostgreSQLDatabase(Database):
         collections = collections or set()
 
         if collections:
-            cfb_filter_sql = "cfb.collection_id = ANY(%s)"
+            if use_alias:
+                cfb_filter_sql = "coll.id = ANY(%s)"
+            else:
+                cfb_filter_sql = "cfb.collection_id = ANY(%s)"
             cfb_params: tuple[Any, ...] = (list(collections),)
         else:
             cfb_filter_sql = "FALSE"
             cfb_params = ()
 
-        sql = f"""
-            SELECT
-                fb.plugins_config       AS provider_plugins_config,
-                fb.priority             AS provider_priority,
-                fb.metadata             AS provider_metadata,
-                fb.enabled              AS provider_enabled,
+        if use_alias:
+                # use id from collections table
+                sql = f"""
+                    SELECT
+                        fb.plugins_config AS "provider_plugins_config",
+                        fb.priority             AS provider_priority,
+                        fb.metadata     AS "provider_metadata",
+                        fb.enabled              AS provider_enabled,
 
-                c.collection_id         AS collection_id,
-                c.plugins_config        AS collection_plugins_config
-            FROM federation_backends fb
-            LEFT JOIN (
+                        c2.coll_id         AS collection_id,
+                        c.plugins_config  AS "collection_plugins_config"
+                    FROM federation_backends fb
+                    LEFT JOIN (
+                        SELECT
+                            cfb.collection_id,
+                            cfb.plugins_config
+                        FROM collections_federation_backends cfb
+                        WHERE cfb.federation_backend_name = %s
+                    ) AS c ON True
+                    LEFT JOIN (
+                        SELECT coll.id as coll_id, coll.internal_id as internal_id FROM collections coll
+                        WHERE {cfb_filter_sql}
+                    ) AS c2 ON c.collection_id = c2.internal_id
+                    WHERE fb.name = %s
+                """
+        else:
+            sql = f"""
                 SELECT
-                    cfb.collection_id,
-                    cfb.plugins_config
-                FROM collections_federation_backends cfb
-                WHERE cfb.federation_backend_name = %s
-                AND {cfb_filter_sql}
-            ) AS c
-            ON TRUE
-            WHERE fb.name = %s
-        """
+                    fb.plugins_config       AS provider_plugins_config,
+                    fb.priority             AS provider_priority,
+                    fb.metadata             AS provider_metadata,
+                    fb.enabled              AS provider_enabled,
+
+                    c.collection_id         AS collection_id,
+                    c.plugins_config        AS collection_plugins_config
+                FROM federation_backends fb
+                LEFT JOIN (
+                    SELECT
+                        cfb.collection_id,
+                        cfb.plugins_config
+                    FROM collections_federation_backends cfb
+                    WHERE cfb.federation_backend_name = %s
+                    AND {cfb_filter_sql}
+                ) AS c
+                ON TRUE
+                WHERE fb.name = %s
+            """
         params = (name, *cfb_params, name)
 
         rows = self._execute(sql, params).fetchall()
