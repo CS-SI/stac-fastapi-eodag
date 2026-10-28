@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v0.7.0 (2026-10-28)
+
+### Features
+
+- Bump EODAG to 4.10.1
+
+### Refactors
+
+- Use `EODAG Collection.serialize()` to create collections
+  ([`91f802a`](https://github.com/CS-SI/stac-fastapi-eodag/commit/91f802a812095acc8f48a9a6b6ecf772c96e409c))
+
 ## v0.6.1 (2026-09-25)
 
 ### Bug Fixes
