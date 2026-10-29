@@ -71,6 +71,9 @@ async def test_collection_queryables_with_filters(mock_list_queryables, mock_lis
         # first call with only provider and collection
         args, kwargs = call_args_list[0]
         assert params_first_call == kwargs
+        if params == params_first_call:
+            assert len(call_args_list) == 1
+            return
         # second call with all the parameters
         args, kwargs = call_args_list[1]
         assert params == kwargs

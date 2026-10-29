@@ -25,7 +25,7 @@ from eodag import SearchResult, config
 from eodag.api.product import EOProduct
 from eodag.api.product.metadata_mapping import OFFLINE_STATUS, STAGING_STATUS
 from eodag.api.provider import ProvidersDict
-from eodag.config import load_default_config
+from eodag.config import load_provider_configs
 from eodag.plugins.download.base import Download
 from eodag.plugins.manager import PluginManager
 from eodag.utils.exceptions import ValidationError
@@ -59,7 +59,7 @@ async def test_order_ok(request_valid, post_data):
     product.properties["order:status"] = OFFLINE_STATUS
 
     # add auth and download plugins to make the order works
-    plugins_manager = PluginManager(ProvidersDict.from_configs(load_default_config()))
+    plugins_manager = PluginManager(ProvidersDict.from_configs(load_provider_configs()))
     download_plugin = plugins_manager.get_download_plugin(product)
     auth_plugin = plugins_manager.get_auth_plugin(download_plugin, product)
     auth_plugin.config.credentials = {"apikey": "anicekey"}
@@ -151,7 +151,7 @@ async def test_order_with_poll_pending(request_valid, post_data):
     product.properties["order:status"] = OFFLINE_STATUS
 
     # add auth and download plugins to make the order works
-    plugins_manager = PluginManager(ProvidersDict.from_configs(load_default_config()))
+    plugins_manager = PluginManager(ProvidersDict.from_configs(load_provider_configs()))
     download_plugin = plugins_manager.get_download_plugin(product)
     auth_plugin = plugins_manager.get_auth_plugin(download_plugin, product)
     auth_plugin.config.credentials = {"apikey": "anicekey"}
@@ -378,7 +378,7 @@ async def test_order_validate(request_valid, settings_cache_clear, validate):
     product.properties["order:status"] = OFFLINE_STATUS
 
     # add auth and download plugins to make the order works
-    plugins_manager = PluginManager(ProvidersDict.from_configs(load_default_config()))
+    plugins_manager = PluginManager(ProvidersDict.from_configs(load_provider_configs()))
     download_plugin = plugins_manager.get_download_plugin(product)
     auth_plugin = plugins_manager.get_auth_plugin(download_plugin, product)
     auth_plugin.config.credentials = {"apikey": "anicekey"}

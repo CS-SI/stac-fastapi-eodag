@@ -22,12 +22,18 @@ import configparser
 import os
 import re
 import sys
+from pathlib import Path
 from typing import Any, Iterator
 
 from eodag.utils.exceptions import MisconfiguredError
 from importlib_metadata import distributions, packages_distributions, requires
 from packaging.requirements import Requirement
 from stdlib_list import stdlib_list
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    tomllib = None
 
 project_path = "./stac_fastapi"
 project_name = "stac_fastapi.eodag"
@@ -69,6 +75,19 @@ def get_project_imports(project_path: str) -> set[str]:
 
 def get_self_dependencies(extras=None):
     """Get the main dependencies (excluding optional dependencies and version constraints)."""
+    pyproject_path = Path("pyproject.toml")
+    if tomllib is not None and pyproject_path.exists():
+        with pyproject_path.open("rb") as pyproject_file:
+            pyproject_data = tomllib.load(pyproject_file)
+
+        project = pyproject_data.get("project", {})
+        raw_deps = list(project.get("dependencies", []))
+        optional_deps = project.get("optional-dependencies", {})
+        for extra in extras or []:
+            raw_deps.extend(optional_deps.get(extra, []))
+
+        return sorted({Requirement(dep).name for dep in raw_deps})
+
     for dist in distributions():
         # Ensures it's the local project
         if dist.locate_file("pyproject.toml").exists():
