@@ -130,14 +130,14 @@ async def test_zarr_file_display(
         item_id,
         "other.zarr",
         request,
-        "group/foo.txt",
+        "group/foo[1].txt",
     )
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
-    assert product.assets["group/foo.txt"]["href"] == "https://data/cop_dataspace/other.zarr/group/foo.txt"
+    assert product.assets["group/foo[1].txt"]["href"] == "https://data/cop_dataspace/other.zarr/group/foo[1].txt"
     mock_http_base_stream_download.assert_called_once_with(
-        product, asset="group/foo.txt", auth=None, timeout=-1, wait=-1
+        product, asset=r"group/foo\[1\]\.txt", auth=None, timeout=-1, wait=-1
     )
 
     with raises(NotFoundError):
@@ -147,5 +147,5 @@ async def test_zarr_file_display(
             item_id,
             "metadata.json",
             request,
-            "group/foo.txt",
+            "group/foo[1].txt",
         )

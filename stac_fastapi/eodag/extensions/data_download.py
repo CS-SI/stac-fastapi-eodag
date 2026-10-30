@@ -20,6 +20,7 @@
 import glob
 import logging
 import os
+import re
 from io import BufferedReader
 from shutil import make_archive, rmtree
 from typing import Annotated, Any, Iterator, Optional, Union, cast
@@ -236,7 +237,7 @@ class BaseDataDownloadClient:
             s = product.downloader.stream_download(
                 product,
                 auth=auth,
-                asset=new_asset_name,
+                asset=re.escape(new_asset_name),
                 wait=-1,
                 timeout=-1,
             )
