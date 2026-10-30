@@ -79,7 +79,7 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
 
     item = response
     assert "example.zarr" in item["assets"]
-    assert "download_link" not in item["assets"]
+    assert "downloadLink" not in item["assets"]
     assert (
         item["assets"]["example.zarr"]["href"]
         == f"http://testserver/data/cop_dataspace/{item['collection']}/{item['id']}/example.zarr"
