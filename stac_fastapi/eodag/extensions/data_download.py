@@ -20,9 +20,11 @@
 import glob
 import logging
 import os
+import re
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, Union, cast
+from typing import Annotated, Any, Iterator, Optional, Union, cast
+from urllib.parse import unquote
 
 import attr
 from eodag.api.core import EODataAccessGateway
@@ -30,7 +32,7 @@ from eodag.api.product._product import EOProduct
 from eodag.api.product.metadata_mapping import ONLINE_STATUS, STAGING_STATUS, get_metadata_path_value
 from eodag.utils.exceptions import EodagError
 from fastapi import APIRouter, FastAPI, Path, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from stac_fastapi.api.errors import NotFoundError
 from stac_fastapi.api.routes import create_async_endpoint
 from stac_fastapi.types.extension import ApiExtension
@@ -50,6 +52,68 @@ logger = logging.getLogger(__name__)
 
 class BaseDataDownloadClient:
     """Defines a pattern for implementing the data download extension."""
+
+    def _try_presign_asset(
+        self, product: EOProduct, asset_name: Optional[str], auth: Any
+    ) -> Optional[RedirectResponse]:
+        """Return a presigned URL redirect when available."""
+        if product.downloader_auth and asset_name and asset_name not in ["downloadLink", "zarr"]:
+            asset_values = product.assets[asset_name]
+            # return presigned url if available
+            try:
+                presigned_url = product.downloader_auth.presign_url(asset_values)
+                return RedirectResponse(presigned_url, status_code=302)
+            except NotImplementedError:
+                logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
+            except EodagError:
+                logger.info("Presigned url could not be fetched for %s", asset_name)
+        return None
+
+    def _prepare_zarr_file_asset(
+        self, product: EOProduct, asset_name: Optional[str], file_path: str, item_id: str
+    ) -> str:
+        """Add the requested file URL to the product assets."""
+        if not asset_name or not asset_name.endswith("zarr") or asset_name not in product.assets:
+            raise NotFoundError(f"{asset_name} is not a Zarr asset of item {item_id}")
+
+        new_asset_name = file_path.lstrip("/")
+        path_to_validate = new_asset_name
+        while True:
+            if any(part in ("", ".", "..") for part in path_to_validate.split("/")):
+                raise ValidationError("Invalid file path")
+            decoded_path = unquote(path_to_validate)
+            if decoded_path == path_to_validate:
+                break
+            path_to_validate = decoded_path
+
+        base_url = product.assets[asset_name]["href"]
+        target_url = f"{base_url.rstrip('/')}/{new_asset_name}"
+        product.assets.update({new_asset_name: {"href": target_url}})
+        return new_asset_name
+
+    def _get_zarr_file_response(
+        self,
+        product: EOProduct,
+        downloader: Any,
+        asset_name: Optional[str],
+        file_path: str,
+        item_id: str,
+        auth: Any,
+    ) -> Union[StreamingResponse, RedirectResponse]:
+        """Return a presigned or streamed response for a file in a Zarr asset."""
+        new_asset_name = self._prepare_zarr_file_asset(product, asset_name, file_path, item_id)
+        presigned_response = self._try_presign_asset(product, new_asset_name, auth)
+        if presigned_response:
+            return presigned_response
+
+        s = downloader.stream_download(
+            product,
+            auth=auth,
+            asset=re.escape(new_asset_name),
+            wait=-1,
+            timeout=-1,
+        )
+        return StreamingResponse(s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream"))
 
     def _file_to_stream(
         self,
@@ -94,6 +158,18 @@ class BaseDataDownloadClient:
             yield data
         yield data
 
+    def get_data_with_file(
+        self,
+        federation_backend: str,
+        collection_id: str,
+        item_id: str,
+        asset_name: Optional[str],
+        request: Request,
+        file_path: str,
+    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
+        """Download data with file path (wrapper for get_data)."""
+        return self.get_data(federation_backend, collection_id, item_id, asset_name, request, file_path)
+
     def get_data(
         self,
         federation_backend: str,
@@ -101,7 +177,8 @@ class BaseDataDownloadClient:
         item_id: str,
         asset_name: Optional[str],
         request: Request,
-    ) -> Union[StreamingResponse, RedirectResponse]:
+        file_path: Optional[str] = None,
+    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
         """Download an asset"""
 
         dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
@@ -126,7 +203,6 @@ class BaseDataDownloadClient:
         auto_order_whitelist = settings.auto_order_whitelist
         if federation_backend in auto_order_whitelist:
             logger.info(f"Provider {federation_backend} is whitelisted, ordering product before download")
-
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
             logger.debug(f"Polling product {product}")
             try:
@@ -141,7 +217,11 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+        try:
+            auth = product.downloader_auth.authenticate() if product.downloader_auth else None
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise NotAvailableError("Token not ready, authentication failed. Please try again later.") from e
 
         if product.downloader is None:
             logger.error("No downloader available for %s", product)
@@ -186,16 +266,19 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        if product.downloader_auth and asset_name and asset_name != "downloadLink":
-            asset_values = product.assets[asset_name]
-            # return presigned url if available
-            try:
-                presigned_url = product.downloader_auth.presign_url(asset_values)
-                return RedirectResponse(presigned_url, status_code=302)
-            except NotImplementedError:
-                logger.info("Presigned urls not supported for %s with auth %s", product.downloader, auth)
-            except EodagError:
-                logger.info("Presigned url could not be fetched for %s", asset_name)
+        if file_path:
+            return self._get_zarr_file_response(
+                product,
+                product.downloader,
+                asset_name,
+                file_path,
+                item_id,
+                auth,
+            )
+
+        presigned_response = self._try_presign_asset(product, asset_name, auth)
+        if presigned_response:
+            return presigned_response
 
         try:
             s = product.downloader.stream_download(
@@ -227,6 +310,17 @@ class DataDownloadUri(APIRequest):
 
 
 @attr.s
+class DataDownloadUriWithFile(APIRequest):
+    """Download data with file path."""
+
+    federation_backend: Annotated[str, Path(description="Federation backend name")] = attr.ib()
+    collection_id: Annotated[str, Path(description="Collection ID")] = attr.ib()
+    item_id: Annotated[str, Path(description="Item ID")] = attr.ib()
+    asset_name: Annotated[str, Path(description="Asset name")] = attr.ib()
+    file_path: Annotated[str, Path(description="File path within zarr store")] = attr.ib()
+
+
+@attr.s
 class DataDownload(ApiExtension):
     """Data-download Extension.
 
@@ -250,6 +344,7 @@ class DataDownload(ApiExtension):
         :returns: None
         """
         self.router.prefix = app.state.router_prefix
+        # Route for /data/{backend}/{collection}/{item}/{asset_name}
         self.router.add_api_route(
             name="Download data",
             path="/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}",
@@ -262,5 +357,20 @@ class DataDownload(ApiExtension):
                 }
             },
             endpoint=create_async_endpoint(self.client.get_data, DataDownloadUri),
+        )
+
+        # Route for /data/{backend}/{collection}/{item}/{asset_name}/{file_path}
+        self.router.add_api_route(
+            name="Download data with file path",
+            path="/data/{federation_backend}/{collection_id}/{item_id}/{asset_name}/{file_path:path}",
+            methods=["GET"],
+            responses={
+                200: {
+                    "content": {
+                        "application/octet-stream": {},
+                    },
+                }
+            },
+            endpoint=create_async_endpoint(self.client.get_data_with_file, DataDownloadUriWithFile),
         )
         app.include_router(self.router, tags=["Data download"])
