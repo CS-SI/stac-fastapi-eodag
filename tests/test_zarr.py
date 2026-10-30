@@ -125,6 +125,7 @@ async def test_zarr_file_display(
     )
     mock_http_base_stream_download.return_value.iter_content.return_value = iter([b"hello"])
 
+    # The requested store must be used when an item has multiple Zarr assets.
     response = client.get_data_with_file(
         "cop_dataspace",
         collection,
@@ -151,6 +152,7 @@ async def test_zarr_file_display(
             "group/foo[1].txt",
         )
 
+    # Traversal and empty path segments must be rejected before contacting storage.
     for file_path in ("../outside", "group/%2E%2E/outside", "group//outside"):
         with raises(ValidationError):
             client.get_data_with_file(
@@ -161,3 +163,21 @@ async def test_zarr_file_display(
                 request,
                 file_path,
             )
+
+    signed_url = "https://signed.example/group/foo.txt?token=abc"
+    product.downloader_auth = mock.Mock()
+    product.downloader_auth.presign_url.return_value = signed_url
+    # Supported presigning should redirect instead of proxying the file.
+    response = client.get_data_with_file(
+        "cop_dataspace",
+        collection,
+        item_id,
+        "other.zarr",
+        request,
+        "group/foo.txt",
+    )
+
+    assert response.status_code == 302
+    assert response.headers["location"] == signed_url
+    product.downloader_auth.presign_url.assert_called_once_with(product.assets["group/foo.txt"])
+    assert mock_http_base_stream_download.call_count == 1

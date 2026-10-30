@@ -91,6 +91,30 @@ class BaseDataDownloadClient:
         product.assets.update({new_asset_name: {"href": target_url}})
         return new_asset_name
 
+    def _get_zarr_file_response(
+        self,
+        product: EOProduct,
+        downloader: Any,
+        asset_name: Optional[str],
+        file_path: str,
+        item_id: str,
+        auth: Any,
+    ) -> Union[StreamingResponse, RedirectResponse]:
+        """Return a presigned or streamed response for a file in a Zarr asset."""
+        new_asset_name = self._prepare_zarr_file_asset(product, asset_name, file_path, item_id)
+        presigned_response = self._try_presign_asset(product, new_asset_name, auth)
+        if presigned_response:
+            return presigned_response
+
+        s = downloader.stream_download(
+            product,
+            auth=auth,
+            asset=re.escape(new_asset_name),
+            wait=-1,
+            timeout=-1,
+        )
+        return StreamingResponse(s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream"))
+
     def _file_to_stream(
         self,
         file_path: str,
@@ -243,16 +267,13 @@ class BaseDataDownloadClient:
                 raise NotFoundError(e) from e
 
         if file_path:
-            new_asset_name = self._prepare_zarr_file_asset(product, asset_name, file_path, item_id)
-            s = product.downloader.stream_download(
+            return self._get_zarr_file_response(
                 product,
-                auth=auth,
-                asset=re.escape(new_asset_name),
-                wait=-1,
-                timeout=-1,
-            )
-            return StreamingResponse(
-                s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream")
+                product.downloader,
+                asset_name,
+                file_path,
+                item_id,
+                auth,
             )
 
         presigned_response = self._try_presign_asset(product, asset_name, auth)
