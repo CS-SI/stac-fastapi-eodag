@@ -26,6 +26,7 @@ from eodag.plugins.download.http import HTTPDownload
 from pytest import raises
 from stac_fastapi.api.errors import NotFoundError
 
+from stac_fastapi.eodag.errors import ValidationError
 from stac_fastapi.eodag.extensions.data_download import BaseDataDownloadClient
 from stac_fastapi.eodag.models.item import create_stac_item
 
@@ -149,3 +150,14 @@ async def test_zarr_file_display(
             request,
             "group/foo[1].txt",
         )
+
+    for file_path in ("../outside", "group/%2E%2E/outside", "group//outside"):
+        with raises(ValidationError):
+            client.get_data_with_file(
+                "cop_dataspace",
+                collection,
+                item_id,
+                "other.zarr",
+                request,
+                file_path,
+            )

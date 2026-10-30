@@ -24,6 +24,7 @@ import re
 from io import BufferedReader
 from shutil import make_archive, rmtree
 from typing import Annotated, Any, Iterator, Optional, Union, cast
+from urllib.parse import unquote
 
 import attr
 from eodag.api.core import EODataAccessGateway
@@ -75,8 +76,17 @@ class BaseDataDownloadClient:
         if not asset_name or not asset_name.endswith("zarr") or asset_name not in product.assets:
             raise NotFoundError(f"{asset_name} is not a Zarr asset of item {item_id}")
 
-        base_url = product.assets[asset_name]["href"]
         new_asset_name = file_path.lstrip("/")
+        path_to_validate = new_asset_name
+        while True:
+            if any(part in ("", ".", "..") for part in path_to_validate.split("/")):
+                raise ValidationError("Invalid file path")
+            decoded_path = unquote(path_to_validate)
+            if decoded_path == path_to_validate:
+                break
+            path_to_validate = decoded_path
+
+        base_url = product.assets[asset_name]["href"]
         target_url = f"{base_url.rstrip('/')}/{new_asset_name}"
         product.assets.update({new_asset_name: {"href": target_url}})
         return new_asset_name
