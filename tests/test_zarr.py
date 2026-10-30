@@ -23,6 +23,8 @@ from eodag import SearchResult
 from eodag.api.product import EOProduct
 from eodag.config import PluginConfig
 from eodag.plugins.download.http import HTTPDownload
+from pytest import raises
+from stac_fastapi.api.errors import NotFoundError
 
 from stac_fastapi.eodag.extensions.data_download import BaseDataDownloadClient
 from stac_fastapi.eodag.models.item import create_stac_item
@@ -100,7 +102,12 @@ async def test_zarr_file_display(
         ),
         collection=collection,
     )
-    product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
+    product.assets.update(
+        {
+            "example.zarr": {"href": "https://data/cop_dataspace/example.zarr"},
+            "other.zarr": {"href": "https://data/cop_dataspace/other.zarr"},
+        }
+    )
     config = PluginConfig()
     config.priority = 0
     downloader = HTTPDownload("cop_dataspace", config)
@@ -121,13 +128,24 @@ async def test_zarr_file_display(
         "cop_dataspace",
         collection,
         item_id,
-        "example.zarr",
+        "other.zarr",
         request,
         "group/foo.txt",
     )
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
+    assert product.assets["group/foo.txt"]["href"] == "https://data/cop_dataspace/other.zarr/group/foo.txt"
     mock_http_base_stream_download.assert_called_once_with(
         product, asset="group/foo.txt", auth=None, timeout=-1, wait=-1
     )
+
+    with raises(NotFoundError):
+        client.get_data_with_file(
+            "cop_dataspace",
+            collection,
+            item_id,
+            "metadata.json",
+            request,
+            "group/foo.txt",
+        )

@@ -67,6 +67,19 @@ class BaseDataDownloadClient:
                 logger.info("Presigned url could not be fetched for %s", asset_name)
         return None
 
+    def _prepare_zarr_file_asset(
+        self, product: EOProduct, asset_name: Optional[str], file_path: str, item_id: str
+    ) -> str:
+        """Add the requested file URL to the product assets."""
+        if not asset_name or not asset_name.endswith("zarr") or asset_name not in product.assets:
+            raise NotFoundError(f"{asset_name} is not a Zarr asset of item {item_id}")
+
+        base_url = product.assets[asset_name]["href"]
+        new_asset_name = file_path.lstrip("/")
+        target_url = f"{base_url.rstrip('/')}/{new_asset_name}"
+        product.assets.update({new_asset_name: {"href": target_url}})
+        return new_asset_name
+
     def _file_to_stream(
         self,
         file_path: str,
@@ -218,16 +231,8 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        zarr_asset_name = next(
-            (name for name in product.assets if (name.endswith("zarr") and asset_name != "downloadLink")), None
-        )
-        if zarr_asset_name and file_path:
-            asset_values = product.assets[zarr_asset_name]
-            base_url = asset_values["href"]
-            new_asset_name = file_path.lstrip("/")
-            target_url = f"{base_url.rstrip('/')}/{new_asset_name}"
-
-            product.assets.update({new_asset_name: {"href": target_url}})
+        if file_path:
+            new_asset_name = self._prepare_zarr_file_asset(product, asset_name, file_path, item_id)
             s = product.downloader.stream_download(
                 product,
                 auth=auth,
