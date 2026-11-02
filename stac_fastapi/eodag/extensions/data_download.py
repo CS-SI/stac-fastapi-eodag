@@ -221,11 +221,7 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        try:
-            auth = product.downloader_auth.authenticate() if product.downloader_auth else None
-        except Exception as e:
-            logger.error(f"Authentication failed: {e}")
-            raise NotAvailableError("Token not ready, authentication failed. Please try again later.") from e
+        auth = product.downloader_auth.authenticate() if product.downloader_auth else None
 
         if product.downloader is None:
             logger.error("No downloader available for %s", product)
