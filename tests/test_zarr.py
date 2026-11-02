@@ -33,6 +33,7 @@ from stac_fastapi.eodag.models.item import create_stac_item
 
 def test_get_data_with_file_delegates_to_get_data(mock_base_data_download_get_data):
     """get_data_with_file must delegate to get_data with the provided file path."""
+    # Isolate the wrapper so only argument forwarding is exercised.
     client = BaseDataDownloadClient()
     request = mock.Mock()
     expected_response = object()
@@ -60,17 +61,21 @@ def test_get_data_with_file_delegates_to_get_data(mock_base_data_download_get_da
 
 def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_item_get_settings):
     """create_stac_item should include a Zarr asset when present."""
+    # Start with a lookalike asset to ensure it does not suppress downloadLink.
     search_result = mock_search_result
     product = search_result[0]
+    # A name containing "zarr" alone does not identify a Zarr store.
     product.assets.update({"zarr_metadata.json": {"href": "https://data/cop_dataspace/zarr_metadata.json"}})
     request = mock.Mock()
     request.app.state.dag.collections_config = {}
+    # Configure the proxy URL and ordering behavior used during item serialization.
     mock_item_get_settings.return_value = mock.Mock(
         download_base_url="http://testserver/",
         auto_order_whitelist=[],
         keep_origin_url=False,
         origin_url_blacklist=[],
     )
+    # Serialize with DataDownload enabled; the lookalike should keep the generic link.
     response = create_stac_item(
         product,
         request,
@@ -78,6 +83,17 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
     )
     assert "downloadLink" in response["assets"]
 
+    # Some providers use the bare key "zarr" for the store, so it must suppress the link.
+    product.assets.update({"zarr": {"href": "https://data/cop_dataspace/zarr"}})
+    response = create_stac_item(
+        product,
+        request,
+        extension_names=["DataDownload"],
+    )
+    assert "zarr" in response["assets"]
+    assert "downloadLink" not in response["assets"]
+
+    # A `.zarr` suffix should produce a proxied asset URL as well.
     product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
     response = create_stac_item(
         product,
@@ -85,6 +101,7 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
         extension_names=["DataDownload"],
     )
 
+    # The serialized asset should retain its store URL behind the DataDownload route.
     item = response
     assert "example.zarr" in item["assets"]
     assert "downloadLink" not in item["assets"]
@@ -102,6 +119,7 @@ async def test_zarr_file_display(
     collection = defaults.collection
     item_id = "dummy_id"
     client = BaseDataDownloadClient()
+    # Two stores make it possible to detect if the wrong one is selected.
     product = EOProduct(
         "cop_dataspace",
         dict(
@@ -122,11 +140,13 @@ async def test_zarr_file_display(
     downloader = HTTPDownload("cop_dataspace", config)
     product.register_downloader(downloader=downloader, authenticator=None)
 
+    # Stub catalog lookup and the provider response to keep this test provider-independent.
     dag = mock.Mock()
     dag.search.return_value = SearchResult([product])
     request = mock.Mock()
     request.app.state.dag = dag
     request.base_url._url = "http://testserver/"
+    # Return a small synthetic response instead of performing provider network I/O.
     mock_http_base_stream_download.return_value = mock.MagicMock(
         status_code=200,
         headers={"Content-Type": "text/plain"},
@@ -143,13 +163,17 @@ async def test_zarr_file_display(
         "group/foo[1].txt",
     )
 
+    # The file response should preserve the provider's content type.
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/plain")
+    # The synthesized file asset must point into the requested store.
     assert product.assets["group/foo[1].txt"]["href"] == "https://data/cop_dataspace/other.zarr/group/foo[1].txt"
+    # Regex metacharacters in a file path must be escaped for EODAG's asset selector.
     mock_http_base_stream_download.assert_called_once_with(
         product, asset=r"group/foo\[1\]\.txt", auth=None, timeout=-1, wait=-1
     )
 
+    # Existing non-Zarr assets are not valid store roots.
     with raises(NotFoundError):
         client.get_data_with_file(
             "cop_dataspace",
@@ -172,10 +196,11 @@ async def test_zarr_file_display(
                 file_path,
             )
 
+    # Configure auth to simulate a provider that can presign individual files.
     signed_url = "https://signed.example/group/foo.txt?token=abc"
     product.downloader_auth = mock.Mock()
     product.downloader_auth.presign_url.return_value = signed_url
-    # Supported presigning should redirect instead of proxying the file.
+    # The presigned case should redirect instead of proxying the file.
     response = client.get_data_with_file(
         "cop_dataspace",
         collection,
@@ -185,6 +210,7 @@ async def test_zarr_file_display(
         "group/foo.txt",
     )
 
+    # A presigned file URL should be returned directly without another proxy stream.
     assert response.status_code == 302
     assert response.headers["location"] == signed_url
     product.downloader_auth.presign_url.assert_called_once_with(product.assets["group/foo.txt"])

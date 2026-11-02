@@ -107,7 +107,7 @@ def create_stac_item(
     if (
         is_product_online
         and not any(asset_name.endswith(".parquet") for asset_name in assets)
-        and not any(asset_name.endswith(".zarr") for asset_name in assets)
+        and not any(asset_name == "zarr" or asset_name.endswith(".zarr") for asset_name in assets)
     ):
         # eodag:download_link may be missing for some providers (e.g. planetary_computer)
         # but we still want to provide a download link for them when proxying is enabled.
