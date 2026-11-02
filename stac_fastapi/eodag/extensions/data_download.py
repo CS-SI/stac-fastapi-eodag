@@ -106,13 +106,17 @@ class BaseDataDownloadClient:
         if presigned_response:
             return presigned_response
 
-        s = downloader.stream_download(
-            product,
-            auth=auth,
-            asset=re.escape(new_asset_name),
-            wait=-1,
-            timeout=-1,
-        )
+        try:
+            s = downloader.stream_download(
+                product,
+                auth=auth,
+                asset=re.escape(new_asset_name),
+                wait=-1,
+                timeout=-1,
+            )
+        except NotImplementedError as exc:
+            raise MisconfiguredError("Zarr file streaming is not supported by this provider") from exc
+
         return StreamingResponse(s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream"))
 
     def _file_to_stream(

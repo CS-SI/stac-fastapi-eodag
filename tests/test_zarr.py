@@ -26,7 +26,7 @@ from eodag.plugins.download.http import HTTPDownload
 from pytest import raises
 from stac_fastapi.api.errors import NotFoundError
 
-from stac_fastapi.eodag.errors import ValidationError
+from stac_fastapi.eodag.errors import EODAG_DEFAULT_STATUS_CODES, MisconfiguredError, ValidationError
 from stac_fastapi.eodag.extensions.data_download import BaseDataDownloadClient
 from stac_fastapi.eodag.models.item import create_stac_item
 
@@ -215,3 +215,17 @@ async def test_zarr_file_display(
     assert response.headers["location"] == signed_url
     product.downloader_auth.presign_url.assert_called_once_with(product.assets["group/foo.txt"])
     assert mock_http_base_stream_download.call_count == 1
+
+    # Without presigning or streaming support, the file request should fail explicitly.
+    product.downloader_auth = None
+    mock_http_base_stream_download.side_effect = NotImplementedError
+    with raises(MisconfiguredError) as error:
+        client.get_data_with_file(
+            "cop_dataspace",
+            collection,
+            item_id,
+            "other.zarr",
+            request,
+            "group/unsupported.txt",
+        )
+    assert EODAG_DEFAULT_STATUS_CODES[type(error.value)] == 500
