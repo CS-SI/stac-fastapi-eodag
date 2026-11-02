@@ -62,7 +62,7 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
     """create_stac_item should include a Zarr asset when present."""
     search_result = mock_search_result
     product = search_result[0]
-    product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
+    product.assets.update({"zarr_metadata.json": {"href": "https://data/cop_dataspace/zarr_metadata.json"}})
     request = mock.Mock()
     request.app.state.dag.collections_config = {}
     mock_item_get_settings.return_value = mock.Mock(
@@ -71,6 +71,14 @@ def test_items_response_includes_zarr_asset(defaults, mock_search_result, mock_i
         keep_origin_url=False,
         origin_url_blacklist=[],
     )
+    response = create_stac_item(
+        product,
+        request,
+        extension_names=["DataDownload"],
+    )
+    assert "downloadLink" in response["assets"]
+
+    product.assets.update({"example.zarr": {"href": "https://data/cop_dataspace/example.zarr"}})
     response = create_stac_item(
         product,
         request,
