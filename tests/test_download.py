@@ -25,6 +25,7 @@ from eodag.config import PluginConfig
 from eodag.plugins.authentication.aws_auth import AwsAuth
 from eodag.plugins.download.aws import AwsDownload
 from eodag.plugins.download.http import HTTPDownload
+from eodag.utils.exceptions import AuthenticationError
 
 from stac_fastapi.eodag.config import get_settings
 
@@ -55,6 +56,16 @@ async def test_download_item_from_collection_no_stream(
     mock_download.assert_called_once()
     # downloaded file should have been immediatly deleted from the server
     assert not os.path.exists(expected_file), f"File {expected_file} should have been deleted"
+
+
+async def test_download_authentication_error_returns_server_error(request_valid_raw, defaults, mock_base_authenticate):
+    """Authentication failures must not be reported as missing assets."""
+    mock_base_authenticate.side_effect = AuthenticationError("Authentication failed")
+
+    await request_valid_raw(
+        f"data/cop_dataspace/{defaults.collection}/foo/downloadLink",
+        expected_status_code=500,
+    )
 
 
 async def test_download_auto_order_whitelist(
