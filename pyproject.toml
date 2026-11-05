@@ -18,7 +18,7 @@ dependencies = [
     "pydantic_core",
     "pygeofilter",
     "stac-fastapi.api >= 4.0",
-    "stac-fastapi.extensions",
+    "stac-fastapi.extensions < 6.3.0",  # refactoring of extensions module in 6.3.0
     "stac-fastapi.types",
     "stac-pydantic >= 3.5.0",
     "brotli-asgi",
