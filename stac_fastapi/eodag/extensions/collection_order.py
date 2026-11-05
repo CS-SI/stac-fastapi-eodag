@@ -20,7 +20,6 @@
 import logging
 from typing import (
     Annotated,
-    Optional,
     cast,
 )
 
@@ -47,7 +46,7 @@ logger = logging.getLogger(__name__)
 class CollectionOrderBody(BaseModel):
     """Collection order request body."""
 
-    federation_backends: Optional[list[str]] = Field(
+    federation_backends: list[str] | None = Field(
         default=None,
         description=(
             "Federation backends filter. Default is None which means no filter is applied. Only one value is supported"
@@ -69,7 +68,7 @@ class BaseCollectionOrderClient:
         self,
         collection_id: str,
         request: Request,
-        request_body: Optional[CollectionOrderBody] = None,
+        request_body: CollectionOrderBody | None = None,
     ) -> Item:
         """Order a product with its collection id and a fake id"""
 
@@ -167,7 +166,7 @@ class CollectionOrderExtension(ApiExtension):
 
         async def _retrieve_endpoint(
             request: Request,
-            request_data: Optional[CollectionOrderBody] = None,
+            request_data: CollectionOrderBody | None = None,
             request_path: CollectionOrderUri = Depends(),  # noqa: B008
         ):
             """Retrieve endpoint."""

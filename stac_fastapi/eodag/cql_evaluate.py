@@ -20,16 +20,16 @@
 from __future__ import annotations
 
 from datetime import datetime as dt
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeAlias
 
 from pygeofilter import ast
 from pygeofilter.backends.evaluator import Evaluator, handle
 from pygeofilter.values import Geometry, Interval
 
 if TYPE_CHECKING:
-    from typing import Any, Optional, Union
+    from typing import Any
 
-    simpleNode = Union[ast.Attribute, str, int, complex, float, list[Any], tuple[Any, ...]]
+    SimpleNode: TypeAlias = ast.Attribute | str | int | complex | float | list[Any] | tuple[Any, ...]
 
 
 class EodagEvaluator(Evaluator):
@@ -38,7 +38,7 @@ class EodagEvaluator(Evaluator):
     """
 
     @handle(ast.Attribute, str, int, complex, float, list, tuple)
-    def attribute(self, node: simpleNode, *_) -> simpleNode:
+    def attribute(self, node: SimpleNode, *_) -> SimpleNode:
         """handle attribute and literal"""
         return node
 
@@ -65,7 +65,7 @@ class EodagEvaluator(Evaluator):
         ast.TimeOverlaps,
         ast.In,
     )
-    def predicate(self, node: ast.Predicate, lhs: Any, rhs: Any) -> Optional[dict[str, Any]]:
+    def predicate(self, node: ast.Predicate, lhs: Any, rhs: Any) -> dict[str, Any] | None:
         """
         Handle predicates.
 

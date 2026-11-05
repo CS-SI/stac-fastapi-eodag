@@ -17,7 +17,7 @@
 # limitations under the License.
 """stac item."""
 
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote, unquote_plus, urlparse
 
 import orjson
@@ -56,8 +56,8 @@ def _get_retrieve_body_for_order(order_link: str) -> dict[str, Any]:
 def create_stac_item(
     product: EOProduct,
     request: Request,
-    extension_names: Optional[list[str]],
-    request_json: Optional[Any] = None,
+    extension_names: list[str] | None,
+    request_json: Any | None = None,
 ) -> Item:
     """Create a STAC item from an EODAG product"""
     if product.collection is None:

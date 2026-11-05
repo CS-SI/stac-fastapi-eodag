@@ -19,14 +19,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from geojson_pydantic.geometries import Polygon
 from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
-
-if TYPE_CHECKING:
-    from typing import Optional
 
 
 class EodagSearch(BaseSearchPostRequest):
@@ -36,7 +31,7 @@ class EodagSearch(BaseSearchPostRequest):
     """
 
     @property
-    def start_date(self) -> Optional[str]:
+    def start_date(self) -> str | None:
         """Extract the start date from the datetime string."""
         if self.datetime and "/" in self.datetime:
             interval = str_to_interval(self.datetime)
@@ -46,7 +41,7 @@ class EodagSearch(BaseSearchPostRequest):
         return interval[0].isoformat() if interval[0] else None
 
     @property
-    def end_date(self) -> Optional[str]:
+    def end_date(self) -> str | None:
         """Extract the end date from the datetime string."""
         if self.datetime and "/" in self.datetime:
             interval = str_to_interval(self.datetime)
@@ -56,7 +51,7 @@ class EodagSearch(BaseSearchPostRequest):
         return interval[1].isoformat() if interval[1] else None
 
     @property
-    def spatial_filter(self) -> Optional[str]:
+    def spatial_filter(self) -> str | None:
         """Return the WKT of the spatial filter for the search request.
 
         Check for both because the ``bbox`` and ``intersects`` parameters are

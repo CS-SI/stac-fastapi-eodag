@@ -34,7 +34,7 @@ from eodag.utils.requests import fetch_json
 from stac_fastapi.eodag.config import get_settings
 
 if TYPE_CHECKING:
-    from typing import Any, Union
+    from typing import Any
 
     from fastapi import FastAPI
 
@@ -91,10 +91,10 @@ def init_dag(app: FastAPI) -> None:
             if not ext_col:
                 continue
 
-            platform: Union[str, list[str]] = ext_col.get("summaries", {}).get("platform")
-            constellation: Union[str, list[str]] = ext_col.get("summaries", {}).get("constellation")
-            instruments: Union[str, list[str]] = ext_col.get("summaries", {}).get("instruments")
-            processing_level: Union[str, list[str]] = ext_col.get("summaries", {}).get("processing:level")
+            platform: str | list[str] = ext_col.get("summaries", {}).get("platform")
+            constellation: str | list[str] = ext_col.get("summaries", {}).get("constellation")
+            instruments: str | list[str] = ext_col.get("summaries", {}).get("instruments")
+            processing_level: str | list[str] = ext_col.get("summaries", {}).get("processing:level")
             if isinstance(platform, list):
                 platform = ",".join(platform)
             if isinstance(constellation, list):

@@ -19,7 +19,7 @@
 
 import asyncio
 import logging
-from typing import Any, Literal, Optional, cast, get_args, get_origin
+from typing import Any, Literal, cast, get_args, get_origin
 
 import attr
 from eodag.types.stac_metadata import CommonStacMetadata
@@ -166,7 +166,7 @@ class FiltersClient(AsyncBaseFiltersClient):
     async def get_queryables(
         self,
         request: Request,
-        collection_id: Optional[str] = None,
+        collection_id: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Get the queryables available for the given collection_id.
@@ -261,7 +261,7 @@ class FiltersClient(AsyncBaseFiltersClient):
     async def _get_eodag_params(
         self,
         request: Request,
-        collection_id: Optional[str] = None,
+        collection_id: str | None = None,
     ) -> dict[str, Any]:
         """Return the EODAG parameters from the given HTTP Request.
 

@@ -70,14 +70,12 @@ from stac_fastapi.eodag.utils import (
 )
 
 if TYPE_CHECKING:
-    from typing import Optional, Union
-
     from fastapi import Request
     from pydantic import BaseModel
 
     from eodag.api.product._product import EOProduct
 
-    NumType = Union[float, int]
+    NumType = float | int
 
 
 logger = logging.getLogger(__name__)
@@ -210,12 +208,12 @@ class EodagCoreClient(CustomCoreClient):
     async def all_collections(
         self,
         request: Request,
-        bbox: Optional[list[NumType]] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = 10,
-        offset: Optional[int] = 0,
-        q: Optional[list[str]] = None,
-        query: Optional[str] = None,
+        bbox: list[NumType] | None = None,
+        datetime: str | None = None,
+        limit: int | None = 10,
+        offset: int | None = 0,
+        q: list[str] | None = None,
+        query: str | None = None,
     ) -> Collections:
         """
         Get all collections from EODAG.
@@ -232,9 +230,9 @@ class EodagCoreClient(CustomCoreClient):
         """
         base_url = get_base_url(request)
 
-        next_link: Optional[dict[str, Any]] = None
-        prev_link: Optional[dict[str, Any]] = None
-        first_link: Optional[dict[str, Any]] = None
+        next_link: dict[str, Any] | None = None
+        prev_link: dict[str, Any] | None = None
+        first_link: dict[str, Any] | None = None
 
         # get provider filter
         provider = None
@@ -369,15 +367,15 @@ class EodagCoreClient(CustomCoreClient):
         self,
         collection_id: str,
         request: Request,
-        bbox: Optional[list[NumType]] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = None,
+        bbox: list[NumType] | None = None,
+        datetime: str | None = None,
+        limit: int | None = None,
         # extensions
-        sortby: Optional[list[str]] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = "cql2-text",
-        token: Optional[str] = None,
-        query: Optional[str] = None,
+        sortby: list[str] | None = None,
+        filter_expr: str | None = None,
+        filter_lang: str | None = "cql2-text",
+        token: str | None = None,
+        query: str | None = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -436,18 +434,18 @@ class EodagCoreClient(CustomCoreClient):
     async def get_search(
         self,
         request: Request,
-        collections: Optional[list[str]] = None,
-        ids: Optional[list[str]] = None,
-        bbox: Optional[list[NumType]] = None,
-        intersects: Optional[str] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = None,
+        collections: list[str] | None = None,
+        ids: list[str] | None = None,
+        bbox: list[NumType] | None = None,
+        intersects: str | None = None,
+        datetime: str | None = None,
+        limit: int | None = None,
         # Extensions
-        query: Optional[str] = None,
-        sortby: Optional[list[str]] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = "cql2-text",
-        token: Optional[str] = None,
+        query: str | None = None,
+        sortby: list[str] | None = None,
+        filter_expr: str | None = None,
+        filter_lang: str | None = "cql2-text",
+        token: str | None = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -516,12 +514,12 @@ class EodagCoreClient(CustomCoreClient):
     def _clean_search_args(
         self,
         base_args: dict[str, Any],
-        intersects: Optional[str] = None,
-        datetime: Optional[str] = None,
-        sortby: Optional[list[str]] = None,
-        query: Optional[str] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = None,
+        intersects: str | None = None,
+        datetime: str | None = None,
+        sortby: list[str] | None = None,
+        query: str | None = None,
+        filter_expr: str | None = None,
+        filter_lang: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Clean up search arguments to match format expected by pgstac"""

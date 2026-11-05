@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Annotated, Union
+from typing import Annotated
 
 from pydantic import Field
 from pydantic.functional_validators import BeforeValidator
@@ -39,12 +39,12 @@ class Settings(ApiSettings):
         description=("Keep origin as alternate URL when data-download extension is enabled."),
     )
 
-    origin_url_blacklist: Annotated[Union[str, list[str]], BeforeValidator(str2liststr)] = Field(
+    origin_url_blacklist: Annotated[str | list[str], BeforeValidator(str2liststr)] = Field(
         default=[],
         description=("Hide from clients items assets' origin URLs starting with URLs from the list."),
     )
 
-    auto_order_whitelist: Annotated[Union[str, list[str]], BeforeValidator(str2liststr)] = Field(
+    auto_order_whitelist: Annotated[str | list[str], BeforeValidator(str2liststr)] = Field(
         default=[
             "wekeo_main",
         ],
