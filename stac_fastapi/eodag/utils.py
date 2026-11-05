@@ -116,10 +116,10 @@ def dt_range_to_eodag(
     else:
         start = end = dt_range
 
-    start = start.isoformat().replace("+00:00", "Z") if start else None
-    end = end.isoformat().replace("+00:00", "Z") if end else None
+    start_str = start.isoformat().replace("+00:00", "Z") if start else None
+    end_str = end.isoformat().replace("+00:00", "Z") if end else None
 
-    return start, end
+    return start_str, end_str
 
 
 def check_poly_is_point(poly: Polygon) -> Point | Polygon:

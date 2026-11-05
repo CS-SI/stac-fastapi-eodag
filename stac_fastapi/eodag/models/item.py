@@ -164,4 +164,15 @@ def create_stac_item(
         request=request,
     ).get_links(extensions=link_extensions, extra_links=feature.get("links"), request_json=request_json)
 
-    return feature
+    return Item(
+        type="Feature",
+        id=feature["id"],
+        collection=feature["collection"],
+        geometry=feature["geometry"],
+        bbox=feature["bbox"],
+        properties=feature["properties"],
+        assets=feature["assets"],
+        links=feature["links"],
+        stac_extensions=feature.get("stac_extensions", []),
+        stac_version=feature.get("stac_version", "1.1.0"),
+    )
