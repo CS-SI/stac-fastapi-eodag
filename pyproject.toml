@@ -20,7 +20,7 @@ dependencies = [
     "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions",
     "stac-fastapi.types",
-    "stac-pydantic==3.1.*",
+    "stac-pydantic >= 3.5.0",
     "brotli-asgi",
     "starlette",
     "typing_extensions",
