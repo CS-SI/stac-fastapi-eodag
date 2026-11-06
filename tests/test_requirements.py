@@ -22,13 +22,12 @@ import configparser
 import os
 import re
 import sys
+from importlib.metadata import distributions, packages_distributions, requires
 from pathlib import Path
 from typing import Any, Iterator
 
 from eodag.utils.exceptions import MisconfiguredError
-from importlib_metadata import distributions, packages_distributions, requires
 from packaging.requirements import Requirement
-from stdlib_list import stdlib_list
 
 try:
     import tomllib
@@ -86,7 +85,7 @@ def get_self_dependencies(extras=None):
         for extra in extras or []:
             raw_deps.extend(optional_deps.get(extra, []))
 
-        return sorted({Requirement(dep).name for dep in raw_deps})
+        return sorted({Requirement(dep).name.replace(".", "-") for dep in raw_deps})
 
     for dist in distributions():
         # Ensures it's the local project
@@ -136,12 +135,8 @@ def test_all_requirements():
     project_imports = get_project_imports(project_path)
     setup_requires = get_self_dependencies(["telemetry"])
     import_required_dict = packages_distributions()
-    try:
-        default_libs = stdlib_list()
-    except FileNotFoundError:
-        # python version might not be supported by `stdlib_list`
-        # Since python3.10, we can use `sys.stdlib_module_names` instead
-        default_libs = list(sys.stdlib_module_names)
+
+    default_libs = list(sys.stdlib_module_names)
 
     missing_imports = []
     for project_import in project_imports:
