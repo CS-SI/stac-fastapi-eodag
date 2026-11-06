@@ -190,8 +190,8 @@ api = StacApi(
     response_class=StarletteJSONResponse,
     search_get_request_model=search_get_model,
     search_post_request_model=search_post_model,
-    collections_get_request_model=collections_model,
-    items_get_request_model=item_collection_model,
+    collections_get_request_model=collections_model,  # type: ignore
+    items_get_request_model=item_collection_model,  # type: ignore
     middlewares=[
         Middleware(BrotliMiddleware),
         Middleware(

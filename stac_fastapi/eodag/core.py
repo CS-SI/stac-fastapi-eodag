@@ -70,14 +70,12 @@ from stac_fastapi.eodag.utils import (
 )
 
 if TYPE_CHECKING:
-    from typing import Optional, Union
-
     from fastapi import Request
     from pydantic import BaseModel
 
     from eodag.api.product._product import EOProduct
 
-    NumType = Union[float, int]
+    NumType = float | int
 
 
 logger = logging.getLogger(__name__)
@@ -87,7 +85,7 @@ logger = logging.getLogger(__name__)
 class EodagCoreClient(CustomCoreClient):
     """"""
 
-    post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)
+    post_request_model: type[BaseModel] = attr.ib(default=BaseSearchPostRequest)  # type: ignore
     stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
     def _get_collection(
@@ -138,7 +136,7 @@ class EodagCoreClient(CustomCoreClient):
             request=request,
         ).get_links(extensions=extension_names, extra_links=extra_links)
 
-        return Collection(**updated_collection)
+        return Collection(**updated_collection)  # type: ignore
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request)
@@ -187,35 +185,36 @@ class EodagCoreClient(CustomCoreClient):
             feature = create_stac_item(product, request, extension_names, request_json)
             features.append(feature)
 
+        # pagination
+        if "provider" not in request.state.eodag_args and len(search_result) > 0:
+            request.state.eodag_args["provider"] = search_result[-1].provider
+
         feature_collection = ItemCollection(
             type="FeatureCollection",
             features=features,
             numberMatched=search_result.number_matched,
             numberReturned=len(features),
+            links=PagingLinks(
+                request=request,
+                next=search_result.next_page_token,
+                federation_backend=request.state.eodag_args.get("provider"),
+            ).get_links(request_json=request_json, extensions=extension_names),
         )
         # Remove numberMatched if it is None
         if feature_collection.get("numberMatched") is None:
             feature_collection.pop("numberMatched")
 
-        # pagination
-        if "provider" not in request.state.eodag_args and len(search_result) > 0:
-            request.state.eodag_args["provider"] = search_result[-1].provider
-        feature_collection["links"] = PagingLinks(
-            request=request,
-            next=search_result.next_page_token,
-            federation_backend=request.state.eodag_args.get("provider"),
-        ).get_links(request_json=request_json, extensions=extension_names)
         return feature_collection
 
-    async def all_collections(
+    async def all_collections(  # type: ignore [override]
         self,
         request: Request,
-        bbox: Optional[list[NumType]] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = 10,
-        offset: Optional[int] = 0,
-        q: Optional[list[str]] = None,
-        query: Optional[str] = None,
+        bbox: list[NumType] | None = None,
+        datetime: str | None = None,
+        limit: int | None = 10,
+        offset: int | None = 0,
+        q: list[str] | None = None,
+        query: str | None = None,
     ) -> Collections:
         """
         Get all collections from EODAG.
@@ -232,9 +231,9 @@ class EodagCoreClient(CustomCoreClient):
         """
         base_url = get_base_url(request)
 
-        next_link: Optional[dict[str, Any]] = None
-        prev_link: Optional[dict[str, Any]] = None
-        first_link: Optional[dict[str, Any]] = None
+        next_link: dict[str, Any] | None = None
+        prev_link: dict[str, Any] | None = None
+        first_link: dict[str, Any] | None = None
 
         # get provider filter
         provider = None
@@ -337,7 +336,7 @@ class EodagCoreClient(CustomCoreClient):
             numberReturned=len(formatted_collections),
         )
 
-    async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
+    async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:  # type: ignore [override]
         """
         Get collection by id.
 
@@ -365,19 +364,19 @@ class EodagCoreClient(CustomCoreClient):
 
         return self._get_collection(collection, request, collection_providers)
 
-    async def item_collection(
+    async def item_collection(  # type: ignore [override]
         self,
         collection_id: str,
         request: Request,
-        bbox: Optional[list[NumType]] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = None,
+        bbox: list[NumType] | None = None,
+        datetime: str | None = None,
+        limit: int | None = None,
         # extensions
-        sortby: Optional[list[str]] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = "cql2-text",
-        token: Optional[str] = None,
-        query: Optional[str] = None,
+        sortby: list[str] | None = None,
+        filter_expr: str | None = None,
+        filter_lang: str | None = "cql2-text",
+        token: str | None = None,
+        query: str | None = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -408,7 +407,7 @@ class EodagCoreClient(CustomCoreClient):
         )
 
         search_request = self.post_request_model.model_validate(clean)
-        item_collection = await self._search_base(search_request, request)
+        item_collection = await self._search_base(search_request, request)  # type: ignore
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(
             collection_id=collection_id, collection_title=collection["title"], request=request
@@ -416,7 +415,7 @@ class EodagCoreClient(CustomCoreClient):
         item_collection["links"] = links
         return item_collection
 
-    async def post_search(
+    async def post_search(  # type: ignore [override]
         self, search_request: BaseSearchPostRequest, request: Request, **kwargs: Any
     ) -> ItemCollection:
         """
@@ -433,21 +432,21 @@ class EodagCoreClient(CustomCoreClient):
 
         return await self._search_base(search_request, request)
 
-    async def get_search(
+    async def get_search(  # type: ignore [override]
         self,
         request: Request,
-        collections: Optional[list[str]] = None,
-        ids: Optional[list[str]] = None,
-        bbox: Optional[list[NumType]] = None,
-        intersects: Optional[str] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = None,
+        collections: list[str] | None = None,
+        ids: list[str] | None = None,
+        bbox: list[NumType] | None = None,
+        intersects: str | None = None,
+        datetime: str | None = None,
+        limit: int | None = None,
         # Extensions
-        query: Optional[str] = None,
-        sortby: Optional[list[str]] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = "cql2-text",
-        token: Optional[str] = None,
+        query: str | None = None,
+        sortby: list[str] | None = None,
+        filter_expr: str | None = None,
+        filter_lang: str | None = "cql2-text",
+        token: str | None = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -492,9 +491,9 @@ class EodagCoreClient(CustomCoreClient):
         except ValidationError as err:
             raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
-        return await self._search_base(search_request, request)
+        return await self._search_base(search_request, request)  # type: ignore
 
-    async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:
+    async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:  # type: ignore [override]
         """
         Get item by ID.
 
@@ -507,7 +506,7 @@ class EodagCoreClient(CustomCoreClient):
         """
 
         search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
-        item_collection = await self._search_base(search_request, request)
+        item_collection = await self._search_base(search_request, request)  # type: ignore
         if not item_collection["features"]:
             raise NotFoundError(f"Item {item_id} in Collection {collection_id} does not exist.")
 
@@ -516,12 +515,12 @@ class EodagCoreClient(CustomCoreClient):
     def _clean_search_args(
         self,
         base_args: dict[str, Any],
-        intersects: Optional[str] = None,
-        datetime: Optional[str] = None,
-        sortby: Optional[list[str]] = None,
-        query: Optional[str] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = None,
+        intersects: str | None = None,
+        datetime: str | None = None,
+        sortby: list[str] | None = None,
+        query: str | None = None,
+        filter_expr: str | None = None,
+        filter_lang: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Clean up search arguments to match format expected by pgstac"""

@@ -19,14 +19,24 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime as dt
+from typing import TypeAlias
 
-from geojson_pydantic.geometries import Polygon
+from geojson_pydantic.geometries import (
+    GeometryCollection,
+    LineString,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Point,
+    Polygon,
+)
 from stac_fastapi.types.rfc3339 import str_to_interval
 from stac_fastapi.types.search import BaseSearchPostRequest
 
-if TYPE_CHECKING:
-    from typing import Optional
+Intersection: TypeAlias = (
+    Point | MultiPoint | LineString | MultiLineString | Polygon | MultiPolygon | GeometryCollection
+)
 
 
 class EodagSearch(BaseSearchPostRequest):
@@ -36,34 +46,40 @@ class EodagSearch(BaseSearchPostRequest):
     """
 
     @property
-    def start_date(self) -> Optional[str]:
+    def start_date(self) -> dt | None:
         """Extract the start date from the datetime string."""
-        if self.datetime and "/" in self.datetime:
+        if self.datetime:
             interval = str_to_interval(self.datetime)
         else:
-            return self.datetime
+            return None
 
-        return interval[0].isoformat() if interval[0] else None
+        if isinstance(interval, tuple):
+            return interval[0]
+        else:
+            return interval
 
     @property
-    def end_date(self) -> Optional[str]:
+    def end_date(self) -> dt | None:
         """Extract the end date from the datetime string."""
-        if self.datetime and "/" in self.datetime:
+        if self.datetime:
             interval = str_to_interval(self.datetime)
         else:
-            return self.datetime
+            return None
 
-        return interval[1].isoformat() if interval[1] else None
+        if isinstance(interval, tuple) and len(interval) >= 2:
+            return interval[1]
+        else:
+            return interval
 
     @property
-    def spatial_filter(self) -> Optional[str]:
+    def spatial_filter(self) -> Intersection | None:
         """Return the WKT of the spatial filter for the search request.
 
         Check for both because the ``bbox`` and ``intersects`` parameters are
         mutually exclusive.
         """
         if self.bbox:
-            return Polygon.from_bounds(*self.bbox).wkt
+            return Polygon.from_bounds(*self.bbox)
         if self.intersects:
-            return self.intersects.wkt
+            return self.intersects
         return None

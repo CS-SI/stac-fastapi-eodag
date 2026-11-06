@@ -20,7 +20,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Union
 
 from fastapi import FastAPI
 from opentelemetry import metrics, trace
@@ -45,7 +44,7 @@ def get_resource(app: FastAPI) -> Resource:
     return app.state.otel_resource
 
 
-def get_tracer_provider(resource: Resource) -> Union[TracerProvider, trace.TracerProvider]:
+def get_tracer_provider(resource: Resource) -> TracerProvider | trace.TracerProvider:
     """create opentelemetry tracer provider"""
     tracer_provider = trace.get_tracer_provider()
     if tracer_provider and not isinstance(tracer_provider, trace.ProxyTracerProvider):
@@ -59,7 +58,7 @@ def get_tracer_provider(resource: Resource) -> Union[TracerProvider, trace.Trace
     return tracer_provider
 
 
-def get_meter_provider(resource: Resource) -> Union[MeterProvider, metrics.MeterProvider]:
+def get_meter_provider(resource: Resource) -> MeterProvider | metrics.MeterProvider:
     """create opentelemetry meter provider"""
     meter_provider = metrics.get_meter_provider()
     if meter_provider and not isinstance(meter_provider, metrics._internal._ProxyMeterProvider):

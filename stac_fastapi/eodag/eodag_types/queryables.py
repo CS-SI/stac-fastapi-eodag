@@ -17,7 +17,7 @@
 # limitations under the License.
 """stac_fastapi.types.queryables module."""
 
-from typing import Any, Optional, Union
+from typing import Any
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -27,17 +27,17 @@ from stac_fastapi.types.rfc3339 import parse_single_date, str_to_interval
 class QueryablesGetParams(BaseModel):
     """Store GET Queryables query params"""
 
-    collection: Optional[str] = Field(default=None)
-    provider: Optional[str] = Field(default=None)
-    start_datetime: Union[list[str], str, None] = Field(default=None)
-    end_datetime: Union[list[str], str, None] = Field(default=None)
-    datetime: Union[list[str], str, None] = Field(default=None)
+    collection: str | None = Field(default=None)
+    provider: str | None = Field(default=None)
+    start_datetime: list[str] | str | None = Field(default=None)
+    end_datetime: list[str] | str | None = Field(default=None)
+    datetime: list[str] | str | None = Field(default=None)
 
     model_config = ConfigDict(extra="allow")
 
     @field_validator("start_datetime", "end_datetime")
     @classmethod
-    def validate_start_end_datetime(cls, values: Optional[list[str]]) -> Optional[str]:
+    def validate_start_end_datetime(cls, values: list[str] | None) -> str | None:
         """
         datetimes must be valid RFC3339 strings
         we assume that only one start_datetime/end_datetime filter is used
@@ -52,7 +52,7 @@ class QueryablesGetParams(BaseModel):
 
     @field_validator("datetime")
     @classmethod
-    def validate_datetime(cls, values: Optional[list[str]]) -> Optional[str]:
+    def validate_datetime(cls, values: list[str] | None) -> str | None:
         """
         datetimes must be either single datetime or range separated by "/",
         we assume that only one datetime filter is used
