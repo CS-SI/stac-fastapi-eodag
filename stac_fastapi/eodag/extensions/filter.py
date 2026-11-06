@@ -163,7 +163,7 @@ class FiltersClient(AsyncBaseFiltersClient):
 
     stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
-    async def get_queryables(
+    async def get_queryables(  # type: ignore[override]
         self,
         request: Request,
         collection_id: str | None = None,
