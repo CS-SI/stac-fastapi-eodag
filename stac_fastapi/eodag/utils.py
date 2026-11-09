@@ -25,6 +25,7 @@ from urllib.parse import unquote_plus
 
 import orjson
 from shapely.geometry import Point, Polygon
+from shapely.geometry.base import BaseGeometry
 
 if TYPE_CHECKING:
     from typing import Any
@@ -122,7 +123,7 @@ def dt_range_to_eodag(
     return start_str, end_str
 
 
-def check_poly_is_point(poly: Polygon) -> Point | Polygon:
+def check_poly_is_point(poly: BaseGeometry | None) -> Point | Polygon:
     """
     Check if the polygon is a Point and returns it if so.
 
@@ -130,6 +131,8 @@ def check_poly_is_point(poly: Polygon) -> Point | Polygon:
     :returns: Either a `Point` or the unchanged `poly`.
     """
 
+    if not isinstance(poly, Polygon):
+        raise ValueError("Input must be a Shapely Polygon")
     if poly.area == 0 and poly.bounds[0] == poly.bounds[2] and poly.bounds[1] == poly.bounds[3]:
         return Point(poly.exterior.coords[0])
     else:
