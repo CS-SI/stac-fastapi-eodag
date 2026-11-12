@@ -20,9 +20,11 @@
 import glob
 import logging
 import os
+import re
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Iterator, Optional, Union, cast
+from typing import Annotated, Any, Iterator, Optional, Union, cast
+from urllib.parse import unquote
 
 import attr
 from eodag.api.core import EODataAccessGateway
@@ -69,6 +71,54 @@ class BaseDataDownloadClient:
             except EodagError:
                 logger.info("Presigned url could not be fetched for %s", asset_name)
         return None
+
+    def _prepare_zarr_file_asset(self, product: EOProduct, asset_name: str | None, file_path: str, item_id: str) -> str:
+        """Add the requested file URL to the product assets."""
+        if not asset_name or not asset_name.endswith("zarr") or asset_name not in product.assets:
+            raise NotFoundError(f"{asset_name} is not a Zarr asset of item {item_id}")
+
+        new_asset_name = file_path.lstrip("/")
+        path_to_validate = new_asset_name
+        while True:
+            if any(part in ("", ".", "..") for part in path_to_validate.split("/")):
+                raise ValidationError("Invalid file path")
+            decoded_path = unquote(path_to_validate)
+            if decoded_path == path_to_validate:
+                break
+            path_to_validate = decoded_path
+
+        base_url = product.assets[asset_name]["href"]
+        target_url = f"{base_url.rstrip('/')}/{new_asset_name}"
+        product.assets.update({new_asset_name: {"href": target_url}})
+        return new_asset_name
+
+    def _get_zarr_file_response(
+        self,
+        product: EOProduct,
+        downloader: Any,
+        asset_name: str | None,
+        file_path: str,
+        item_id: str,
+        auth: Any,
+    ) -> StreamingResponse | RedirectResponse:
+        """Return a presigned or streamed response for a file in a Zarr asset."""
+        new_asset_name = self._prepare_zarr_file_asset(product, asset_name, file_path, item_id)
+        presigned_response = self._try_presign_asset(product, new_asset_name, auth)
+        if presigned_response:
+            return presigned_response
+
+        try:
+            s = downloader.stream_download(
+                product,
+                auth=auth,
+                asset=re.escape(new_asset_name),
+                wait=-1,
+                timeout=-1,
+            )
+        except NotImplementedError as exc:
+            raise MisconfiguredError("Zarr file streaming is not supported by this provider") from exc
+
+        return StreamingResponse(s.content, headers=s.headers, media_type=(s.media_type or "application/octet-stream"))
 
     def _file_to_stream(
         self,
@@ -221,23 +271,14 @@ class BaseDataDownloadClient:
                     raise NotFoundError(f"Item {item_id} does not exist. Please order it first") from e
                 raise NotFoundError(e) from e
 
-        zarr_asset_name = next(
-            (name for name in product.assets if (name.endswith("zarr") and asset_name != "downloadLink")), None
-        )
-        if zarr_asset_name:
-            asset_values = product.assets[zarr_asset_name]
-            base_url = asset_values["href"]
-            target_url = f"{base_url.rstrip('/')}/{file_path.lstrip('/')}"
-
-            r = product.request_asset(url=target_url)
-
-            return StreamingResponse(
-                r.iter_content(chunk_size=1024 * 1024),
-                status_code=r.status_code,
-                media_type=r.headers.get("Content-Type", "application/octet-stream"),
-                headers={
-                    k: v for k, v in r.headers.items() if k.lower() not in ["content-encoding", "transfer-encoding"]
-                },
+        if file_path:
+            return self._get_zarr_file_response(
+                product,
+                product.downloader,
+                asset_name,
+                file_path,
+                item_id,
+                auth,
             )
 
         presigned_response = self._try_presign_asset(product, asset_name, auth)
