@@ -17,7 +17,7 @@
 # limitations under the License.
 """properties for extensions."""
 
-from typing import Any, Optional
+from typing import Any
 
 import attr
 from pydantic import (
@@ -29,11 +29,11 @@ from pydantic import (
 class BaseStacExtension:
     """Abstract base class for defining STAC extensions."""
 
-    FIELDS: Optional[type[BaseModel]] = None
+    FIELDS: type[BaseModel] | None = None
 
     schema_href: str = attr.ib(default=None)
 
-    field_name_prefix: Optional[str] = attr.ib(default=None)
+    field_name_prefix: str | None = attr.ib(default=None)
 
     def __attrs_post_init__(self) -> None:
         """Add serialization validation_alias to extension properties

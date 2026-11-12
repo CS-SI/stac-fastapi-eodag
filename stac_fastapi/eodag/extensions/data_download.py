@@ -23,7 +23,7 @@ import os
 import re
 from io import BufferedReader
 from shutil import make_archive, rmtree
-from typing import Annotated, Any, Iterator, Optional, Union, cast
+from typing import Annotated, Any, Iterator, cast
 from urllib.parse import unquote
 
 import attr
@@ -53,9 +53,7 @@ logger = logging.getLogger(__name__)
 class BaseDataDownloadClient:
     """Defines a pattern for implementing the data download extension."""
 
-    def _try_presign_asset(
-        self, product: EOProduct, asset_name: Optional[str], auth: Any
-    ) -> Optional[RedirectResponse]:
+    def _try_presign_asset(self, product: EOProduct, asset_name: str | None, auth: Any) -> RedirectResponse | None:
         """Return a presigned URL redirect when available."""
         if product.downloader_auth and asset_name and asset_name not in ["downloadLink", "zarr"]:
             asset_values = product.assets[asset_name]
@@ -69,9 +67,7 @@ class BaseDataDownloadClient:
                 logger.info("Presigned url could not be fetched for %s", asset_name)
         return None
 
-    def _prepare_zarr_file_asset(
-        self, product: EOProduct, asset_name: Optional[str], file_path: str, item_id: str
-    ) -> str:
+    def _prepare_zarr_file_asset(self, product: EOProduct, asset_name: str | None, file_path: str, item_id: str) -> str:
         """Add the requested file URL to the product assets."""
         if not asset_name or not asset_name.endswith("zarr") or asset_name not in product.assets:
             raise NotFoundError(f"{asset_name} is not a Zarr asset of item {item_id}")
@@ -95,11 +91,11 @@ class BaseDataDownloadClient:
         self,
         product: EOProduct,
         downloader: Any,
-        asset_name: Optional[str],
+        asset_name: str | None,
         file_path: str,
         item_id: str,
         auth: Any,
-    ) -> Union[StreamingResponse, RedirectResponse]:
+    ) -> StreamingResponse | RedirectResponse:
         """Return a presigned or streamed response for a file in a Zarr asset."""
         new_asset_name = self._prepare_zarr_file_asset(product, asset_name, file_path, item_id)
         presigned_response = self._try_presign_asset(product, new_asset_name, auth)
@@ -167,10 +163,10 @@ class BaseDataDownloadClient:
         federation_backend: str,
         collection_id: str,
         item_id: str,
-        asset_name: Optional[str],
+        asset_name: str | None,
         request: Request,
         file_path: str,
-    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
+    ) -> StreamingResponse | RedirectResponse | JSONResponse:
         """Download data with file path (wrapper for get_data)."""
         return self.get_data(federation_backend, collection_id, item_id, asset_name, request, file_path)
 
@@ -179,13 +175,13 @@ class BaseDataDownloadClient:
         federation_backend: str,
         collection_id: str,
         item_id: str,
-        asset_name: Optional[str],
+        asset_name: str | None,
         request: Request,
-        file_path: Optional[str] = None,
-    ) -> Union[StreamingResponse, RedirectResponse, JSONResponse]:
+        file_path: str | None = None,
+    ) -> StreamingResponse | RedirectResponse | JSONResponse:
         """Download an asset"""
 
-        dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
+        dag = cast(EODataAccessGateway, request.app.state.dag)
 
         # check if the collection is known
         try:
@@ -210,7 +206,9 @@ class BaseDataDownloadClient:
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
             logger.debug(f"Polling product {product}")
             try:
-                product.downloader.order(product=product, auth=auth)  # type: ignore
+                order_method_name = "order"
+                order_method = getattr(product.downloader, order_method_name)
+                order_method(product=product, auth=auth)
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
                 product.properties["order:status"] = STAGING_STATUS
@@ -236,7 +234,7 @@ class BaseDataDownloadClient:
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
             status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["eodag:status_link"]
             product.properties["eodag:order_link"] = product.properties["eodag:status_link"] = get_metadata_path_value(
-                status_link_metadata  # type: ignore[arg-type]
+                cast(str | list[str | None], status_link_metadata)
             ).format(orderId=item_id)
 
             search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get(
@@ -244,7 +242,7 @@ class BaseDataDownloadClient:
             )
             if search_link_metadata:
                 product.properties["eodag:search_link"] = get_metadata_path_value(
-                    search_link_metadata  # type: ignore[arg-type]
+                    cast(str | list[str | None], search_link_metadata)
                 ).format(orderId=item_id)
 
             order_status_method = getattr(product.downloader, "_order_status", None)

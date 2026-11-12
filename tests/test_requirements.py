@@ -22,13 +22,13 @@ import configparser
 import os
 import re
 import sys
+from importlib.metadata import distributions, packages_distributions, requires
 from pathlib import Path
 from typing import Any, Iterator
 
 from eodag.utils.exceptions import MisconfiguredError
-from importlib_metadata import distributions, packages_distributions, requires
 from packaging.requirements import Requirement
-from stdlib_list import stdlib_list
+from packaging.utils import canonicalize_name
 
 try:
     import tomllib
@@ -37,6 +37,10 @@ except ModuleNotFoundError:
 
 project_path = "./stac_fastapi"
 project_name = "stac_fastapi.eodag"
+
+# Python 3.10 metadata cannot map stac_fastapi to stac_fastapi.api, stac_fastapi.extensions and stac_fastapi.types
+# because it has no top_level.txt.
+IMPORT_NAME_TO_DISTRIBUTIONS = {"stac_fastapi": ["stac-fastapi.api", "stac-fastapi.extensions", "stac-fastapi.types"]}
 
 
 def get_imports(filepath: str) -> Iterator[Any]:
@@ -86,7 +90,7 @@ def get_self_dependencies(extras=None):
         for extra in extras or []:
             raw_deps.extend(optional_deps.get(extra, []))
 
-        return sorted({Requirement(dep).name for dep in raw_deps})
+        return sorted({canonicalize_name(Requirement(dep).name) for dep in raw_deps})
 
     for dist in distributions():
         # Ensures it's the local project
@@ -107,7 +111,7 @@ def get_self_dependencies(extras=None):
                 dep = re.split(r"[<>=!~]", dep, maxsplit=1)[0].strip()
                 # Remove optional extras (e.g., "tqdm[notebook]" → "tqdm")
                 dep = dep.split("[")[0].strip()
-                clean_deps.add(dep)
+                clean_deps.add(canonicalize_name(dep))
 
             # Sorted for consistency
             return sorted(clean_deps)
@@ -125,7 +129,7 @@ def get_optional_dependencies(setup_cfg_path: str, extra: str) -> set[str]:
             for found_extra in re.findall(r"([\w-]+)[,\]]", req):
                 deps.update(get_optional_dependencies(setup_cfg_path, found_extra))
         elif req:
-            deps.add(Requirement(req).name)
+            deps.add(canonicalize_name(Requirement(req).name))
 
     return deps
 
@@ -136,16 +140,18 @@ def test_all_requirements():
     project_imports = get_project_imports(project_path)
     setup_requires = get_self_dependencies(["telemetry"])
     import_required_dict = packages_distributions()
-    try:
-        default_libs = stdlib_list()
-    except FileNotFoundError:
-        # python version might not be supported by `stdlib_list`
-        # Since python3.10, we can use `sys.stdlib_module_names` instead
-        default_libs = list(sys.stdlib_module_names)
+
+    default_libs = list(sys.stdlib_module_names)
 
     missing_imports = []
     for project_import in project_imports:
-        required = import_required_dict.get(project_import, [project_import])
+        required = {canonicalize_name(project_import)} | {
+            canonicalize_name(dist_name) for dist_name in import_required_dict.get(project_import, [project_import])
+        }
+        if distributions := IMPORT_NAME_TO_DISTRIBUTIONS.get(project_import):
+            for distribution in distributions:
+                required.add(canonicalize_name(distribution))
+
         if not set(required).intersection(setup_requires) and project_import not in default_libs:
             missing_imports.append(project_import)
 

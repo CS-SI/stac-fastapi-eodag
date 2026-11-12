@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from string import ascii_uppercase
 from tempfile import TemporaryDirectory
-from typing import Annotated, Any, Iterator, Optional, Union
+from typing import Annotated, Any, Iterator
 from urllib.parse import urljoin
 
 import pytest
@@ -608,11 +608,11 @@ def request_valid_raw(app_client, mock_search, mock_search_result):
 
     async def _request_valid_raw(
         url: str,
-        expected_search_kwargs: Union[list[dict[str, Any]], dict[str, Any], None] = None,
+        expected_search_kwargs: list[dict[str, Any]] | dict[str, Any] | None = None,
         method: str = "GET",
-        post_data: Optional[Any] = None,
-        search_call_count: Optional[int] = None,
-        search_result: Optional[SearchResult] = None,
+        post_data: Any | None = None,
+        search_call_count: int | None = None,
+        search_result: SearchResult | None = None,
         expected_status_code: int = 200,
         follow_redirects: bool = True,
     ):
@@ -713,12 +713,12 @@ def request_valid(request_valid_raw, assert_links_valid) -> Any:
 
     async def _request_valid(
         url: str,
-        expected_search_kwargs: Union[list[dict[str, Any]], dict[str, Any], None] = None,
+        expected_search_kwargs: list[dict[str, Any]] | dict[str, Any] | None = None,
         method: str = "GET",
-        post_data: Optional[Any] = None,
-        search_call_count: Optional[int] = None,
+        post_data: Any | None = None,
+        search_call_count: int | None = None,
         check_links: bool = True,
-        search_result: Optional[SearchResult] = None,
+        search_result: SearchResult | None = None,
     ):
         response = await request_valid_raw(
             url,
@@ -746,7 +746,7 @@ def request_not_valid(app_client):
     Fixture to test invalid requests and assert a 400 status code.
     """
 
-    async def _request_not_valid(url: str, method: str = "GET", post_data: Optional[Any] = None) -> None:
+    async def _request_not_valid(url: str, method: str = "GET", post_data: Any | None = None) -> None:
         response = await app_client.request(
             method,
             url,
@@ -769,7 +769,7 @@ def request_not_found(app_client):
     """
 
     async def _request_not_found(
-        url: str, method: str = "GET", post_data: Optional[Any] = None, error_message: Optional[str] = None
+        url: str, method: str = "GET", post_data: Any | None = None, error_message: str | None = None
     ) -> None:
         response = await app_client.request(
             method,
