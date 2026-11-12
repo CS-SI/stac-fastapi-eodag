@@ -19,7 +19,7 @@
 
 import asyncio
 import logging
-from typing import Any, Literal, Optional, cast, get_args, get_origin
+from typing import Any, Literal, cast, get_args, get_origin
 
 import attr
 from eodag.types.stac_metadata import CommonStacMetadata
@@ -31,7 +31,7 @@ from stac_fastapi.types.requests import get_base_url
 
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.eodag_types.queryables import QueryablesGetParams
-from stac_fastapi.eodag.errors import UnsupportedCollection
+from stac_fastapi.eodag.errors import MisconfiguredError, UnsupportedCollection
 
 COMMON_QUERYABLES_PROPERTIES = {
     "id": {
@@ -162,10 +162,31 @@ class FiltersClient(AsyncBaseFiltersClient):
 
     stac_metadata_model: type[BaseModel] = attr.ib(default=CommonStacMetadata)
 
+    async def _get_queryables_from_eodag(self, request: Request, collection_id: str | None = None) -> dict[str, Any]:
+        """Get the queryables from EODAG available for the given collection_id.
+
+        If collection_id is None, returns the intersection of all
+        queryables over all collections.
+        """
+        eodag_params = await self._get_eodag_params(request, collection_id)
+
+        # get queryables from eodag
+        try:
+            return await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params)
+        except UnsupportedCollection as err:
+            raise NotFoundError(err) from err
+
+        except (AttributeError, MisconfiguredError):
+            logger.warning(
+                "Could not load EODAG queryables for collection %s, falling back to common STAC queryables",
+                collection_id,
+                exc_info=True,
+            )
+            return {}
+
     async def get_queryables(
         self,
-        request: Request,
-        collection_id: Optional[str] = None,
+        collection_id: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Get the queryables available for the given collection_id.
@@ -173,17 +194,19 @@ class FiltersClient(AsyncBaseFiltersClient):
         If collection_id is None, returns the intersection of all
         queryables over all collections.
 
-        This base implementation returns a blank queryable schema. This is not allowed
-        under OGC CQL but it is allowed by the STAC API Filter Extension
-        https://github.com/radiantearth/stac-api-spec/tree/master/fragments/filter#queryables
-        """
-        eodag_params = await self._get_eodag_params(request, collection_id)
+        If EODAG provides no queryables, this implementation returns a schema with
+        no properties. The STAC Filter Extension permits this when
+        ``additionalProperties`` is true. OGC API Features Part 3's Queryables
+        conformance test, however, requires non-empty ``properties``. Collection-
+        specific schemas set ``additionalProperties`` to false.
 
-        # get queryables from eodag
-        try:
-            eodag_queryables = await asyncio.to_thread(request.app.state.dag.list_queryables, **eodag_params)
-        except UnsupportedCollection as err:
-            raise NotFoundError(err) from err
+        https://github.com/stac-api-extensions/filter#queryables
+        """
+        request = kwargs.get("request")
+        if not isinstance(request, Request):
+            raise TypeError("request must be a FastAPI Request")
+
+        eodag_queryables = await self._get_queryables_from_eodag(request, collection_id)
 
         if "start" in eodag_queryables:
             start_queryable = eodag_queryables.pop("start")
@@ -253,7 +276,7 @@ class FiltersClient(AsyncBaseFiltersClient):
     async def _get_eodag_params(
         self,
         request: Request,
-        collection_id: Optional[str] = None,
+        collection_id: str | None = None,
     ) -> dict[str, Any]:
         """Return the EODAG parameters from the given HTTP Request.
 

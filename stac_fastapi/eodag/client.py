@@ -19,18 +19,18 @@
 
 from urllib.parse import urljoin
 
-from stac_fastapi.types import stac
 from stac_fastapi.types.core import AsyncBaseCoreClient
 from stac_fastapi.types.requests import get_base_url
 
 from stac_fastapi.eodag.config import get_settings
+from stac_fastapi.eodag.eodag_types.landing_page import EodagLandingPage
 from stac_fastapi.eodag.models.stac_metadata import get_federation_backend_dict
 
 
 class CustomCoreClient(AsyncBaseCoreClient):
     """Override the base method to generate a STAC landing page (GET /)."""
 
-    async def landing_page(self, **kwargs) -> stac.LandingPage:
+    async def landing_page(self, **kwargs) -> EodagLandingPage:
         """Generate a STAC landing page (GET /)."""
         landing_page = await super().landing_page(**kwargs)
 
@@ -51,8 +51,10 @@ class CustomCoreClient(AsyncBaseCoreClient):
         # add federation backends infos
         federation_backends = request.app.state.dag.providers.names
         federation_dict = {fb: get_federation_backend_dict(request, fb) for fb in federation_backends}
-        landing_page["federation"] = federation_dict
+        eodag_landing_page = EodagLandingPage(**landing_page, federation=federation_dict)
 
-        landing_page["stac_extensions"].append(self.stac_metadata_model._conformance_classes["FederationExtension"])
+        eodag_landing_page["stac_extensions"].append(
+            self.stac_metadata_model._conformance_classes["FederationExtension"]
+        )
 
-        return landing_page
+        return eodag_landing_page

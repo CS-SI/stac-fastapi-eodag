@@ -34,7 +34,7 @@ from eodag.utils.requests import fetch_json
 from stac_fastapi.eodag.config import get_settings
 
 if TYPE_CHECKING:
-    from typing import Any, Optional
+    from typing import Any
 
     from fastapi import FastAPI
 
@@ -83,7 +83,7 @@ def get_providers_status(collections_list: CollectionsList) -> dict[str, dict[st
     # the key of providers_status is the provider ID
     providers_status: dict[str, dict[str, Any]] = {}
 
-    def _get_last_check(status_1: dict[str, Any], status_2: dict[str, Any], key: str) -> Optional[str]:
+    def _get_last_check(status_1: dict[str, Any], status_2: dict[str, Any], key: str) -> str | None:
         """Get the most recent check date between two status dictionaries
 
         The comparision handle possible `None` values in the dates.

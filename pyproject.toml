@@ -4,8 +4,9 @@ version = "0.2.0"
 description = "A stac-fastapi backend using EODAG"
 readme = "README.md"
 authors = [{ name = "CS GROUP - France (CSSI)", email = "eodag@csgroup.space" }]
-license = { file = "LICENSE" }
-requires-python = ">= 3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">= 3.10"
 dependencies = [
     "attr",
     "eodag[all-providers] @ git+https://github.com/CS-SI/eodag.git@deploy-inc6",
@@ -18,7 +19,7 @@ dependencies = [
     "cql2",
     "pygeofilter",
     "stac-fastapi.api >= 4.0",
-    "stac-fastapi.extensions",
+    "stac-fastapi.extensions < 6.3.0",  # refactoring of extensions module in 6.3.0
     "stac-fastapi.types",
     "stac-pydantic >= 3.5.0",
     "brotli-asgi",
@@ -48,7 +49,6 @@ telemetry = [
 dev = [
     "stac_fastapi.eodag[server,telemetry]",
     "httpx",
-    "importlib-metadata",
     "mypy",
     "pre-commit",
     "pytest",
@@ -58,7 +58,6 @@ dev = [
     "pytest-socket",
     "pytest-html",
     "responses",
-    "stdlib-list",
     "tox",
     "tox-uv",
     "types-shapely",
@@ -87,7 +86,7 @@ testpaths = ["tests"]
 filterwarnings = ["ignore:Unused async fixture loop scope:pytest.PytestWarning"]
 
 [tool.ruff]
-target-version = "py39" # minimum supported version
+target-version = "py310" # minimum supported version
 line-length = 120
 indent-width = 4
 

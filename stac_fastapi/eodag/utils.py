@@ -25,9 +25,10 @@ from urllib.parse import unquote_plus
 
 import orjson
 from shapely.geometry import Point, Polygon
+from shapely.geometry.base import BaseGeometry
 
 if TYPE_CHECKING:
-    from typing import Any, Optional, Union
+    from typing import Any
 
     from stac_fastapi.types.rfc3339 import DateTimeType
 
@@ -40,7 +41,7 @@ def is_dict_str_any(var: Any) -> bool:
     :returns: ``True`` if the variable is of type ``dict[str, Any]``, ``False`` otherwise.
     """
     if isinstance(var, dict):
-        return all(isinstance(k, str) for k in var.keys())  # type: ignore
+        return all(isinstance(k, str) for k in var.keys())
     return False
 
 
@@ -56,7 +57,7 @@ def str2liststr(raw: Any) -> list[str]:
     return raw
 
 
-def str2json(k: str, v: Optional[str] = None) -> Optional[dict[str, Any]]:
+def str2json(k: str, v: str | None = None) -> dict[str, Any] | None:
     """
     Decode a URL parameter and then parse it as JSON.
 
@@ -73,7 +74,7 @@ def str2json(k: str, v: Optional[str] = None) -> Optional[dict[str, Any]]:
         raise Exception(f"{k}: Incorrect JSON object") from e
 
 
-def format_datetime_range(dt_range: Union[DateTimeType, str]) -> str:
+def format_datetime_range(dt_range: DateTimeType | str) -> str:
     """
     Convert a datetime object or a tuple of datetime objects to a formatted string for datetime ranges.
 
@@ -102,8 +103,8 @@ def format_datetime_range(dt_range: Union[DateTimeType, str]) -> str:
 
 
 def dt_range_to_eodag(
-    dt_range: Optional[DateTimeType] = None,
-) -> tuple[Optional[str], Optional[str]]:
+    dt_range: DateTimeType | None = None,
+) -> tuple[str | None, str | None]:
     """
     Process a datetime input and return the start and end times in ISO 8601 format.
 
@@ -116,13 +117,13 @@ def dt_range_to_eodag(
     else:
         start = end = dt_range
 
-    start = start.isoformat().replace("+00:00", "Z") if start else None
-    end = end.isoformat().replace("+00:00", "Z") if end else None
+    start_str = start.isoformat().replace("+00:00", "Z") if start else None
+    end_str = end.isoformat().replace("+00:00", "Z") if end else None
 
-    return start, end
+    return start_str, end_str
 
 
-def check_poly_is_point(poly: Polygon) -> Union[Point, Polygon]:
+def check_poly_is_point(poly: BaseGeometry | None) -> Point | Polygon:
     """
     Check if the polygon is a Point and returns it if so.
 
@@ -130,7 +131,9 @@ def check_poly_is_point(poly: Polygon) -> Union[Point, Polygon]:
     :returns: Either a `Point` or the unchanged `poly`.
     """
 
-    if poly.area == 0 and poly.area == 0 and poly.bounds[0] == poly.bounds[2] and poly.bounds[1] == poly.bounds[3]:
+    if not isinstance(poly, Polygon):
+        raise ValueError("Input must be a Shapely Polygon")
+    if poly.area == 0 and poly.bounds[0] == poly.bounds[2] and poly.bounds[1] == poly.bounds[3]:
         return Point(poly.exterior.coords[0])
     else:
         return poly

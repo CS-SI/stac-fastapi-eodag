@@ -17,7 +17,7 @@
 # limitations under the License.
 """stac item."""
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, cast
 from urllib.parse import quote, unquote_plus, urlparse
 
 import orjson
@@ -59,8 +59,8 @@ def create_stac_item(
     product: EOProduct,
     extension_is_enabled: Callable[[str], bool],
     request: Request,
-    extension_names: Optional[list[str]],
-    request_json: Optional[Any] = None,
+    extension_names: list[str] | None,
+    request_json: Any | None = None,
 ) -> Item:
     """Create a STAC item from an EODAG product"""
     if product.collection is None:
@@ -183,4 +183,8 @@ def create_stac_item(
         request=request,
     ).get_links(extensions=extension_names, extra_links=extra_links, request_json=request_json)
 
-    return feature
+    feature["type"] = "Feature"
+    feature.setdefault("stac_extensions", [])
+    feature.setdefault("stac_version", "1.1.0")
+
+    return Item(**cast(Item, feature))

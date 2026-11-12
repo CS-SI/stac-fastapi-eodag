@@ -17,7 +17,7 @@
 # limitations under the License.
 """link helpers."""
 
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import ParseResult, parse_qs, quote, unquote, urlencode, urljoin, urlparse
 
 import attr
@@ -105,8 +105,8 @@ class BaseLinks:
     def get_links(
         self,
         extensions: list[str],
-        extra_links: Optional[list[dict[str, Any]]] = None,
-        request_json: Optional[dict[str, Any]] = None,
+        extra_links: list[dict[str, Any]] | None = None,
+        request_json: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         Generate all the links.
@@ -142,10 +142,10 @@ class BaseLinks:
 class PagingLinks(BaseLinks):
     """Create links for paging."""
 
-    next: Optional[str] = attr.ib(kw_only=True, default=None)
-    federation_backend: Optional[str] = attr.ib(kw_only=True, default=None)
+    next: str | None = attr.ib(kw_only=True, default=None)
+    federation_backend: str | None = attr.ib(kw_only=True, default=None)
 
-    def link_next(self) -> Optional[dict[str, Any]]:
+    def link_next(self) -> dict[str, Any] | None:
         """Create link for next page."""
         if self.next is None:
             return None
@@ -187,11 +187,11 @@ class PagingLinks(BaseLinks):
 class CollectionSearchPagingLinks(BaseLinks):
     """Create links for paging in collection search results."""
 
-    next: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
-    prev: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
-    first: Optional[dict[str, Any]] = attr.ib(kw_only=True, default=None)
+    next: dict[str, Any] | None = attr.ib(kw_only=True, default=None)
+    prev: dict[str, Any] | None = attr.ib(kw_only=True, default=None)
+    first: dict[str, Any] | None = attr.ib(kw_only=True, default=None)
 
-    def link_next(self) -> Optional[dict[str, Any]]:
+    def link_next(self) -> dict[str, Any] | None:
         """Create link for next page."""
         if self.next is not None:
             href = merge_params(self.url, self.next["body"])
@@ -209,7 +209,7 @@ class CollectionSearchPagingLinks(BaseLinks):
 
         return None
 
-    def link_prev(self) -> Optional[dict[str, Any]]:
+    def link_prev(self) -> dict[str, Any] | None:
         """Create link for previous page."""
         if self.prev is not None:
             href = merge_params(self.url, self.prev["body"])
@@ -227,7 +227,7 @@ class CollectionSearchPagingLinks(BaseLinks):
 
         return None
 
-    def link_first(self) -> Optional[dict[str, Any]]:
+    def link_first(self) -> dict[str, Any] | None:
         """Create link for first page."""
         if self.first is not None:
             u = urlparse(self.url)
@@ -328,7 +328,7 @@ class ItemLinks(CollectionLinksBase):
     """Create inferred links specific to items."""
 
     item_id: str = attr.ib()
-    retrieve_body: Optional[dict[str, Any]] = attr.ib()
+    retrieve_body: dict[str, Any] | None = attr.ib()
 
     def link_self(self) -> dict[str, str]:
         """Create the self link."""
@@ -343,7 +343,7 @@ class ItemLinks(CollectionLinksBase):
         """Create the `collection` link."""
         return self.collection_link()
 
-    def collection_order_extension_link_retrieve(self) -> Optional[dict[str, Any]]:
+    def collection_order_extension_link_retrieve(self) -> dict[str, Any] | None:
         """Create the `retrieve` link."""
         href = self.resolve(f"collections/{self.collection_id}/order")
         link = {

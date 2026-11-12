@@ -26,14 +26,14 @@ jobs:
         enable-cache: true
         cache-dependency-glob: ""
     - name: Run linters with tox
-      run: uvx --python 3.9 --with tox-uv tox -e linters
+      run: uvx --python 3.10 --with tox-uv tox -e linters
 
   tests:
     name: Test it!
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.9, "3.13"]
+        python-version: ["3.10", "3.14"]
         os: [ubuntu-latest, windows-latest]
     steps:
     - name: Checkout the repo

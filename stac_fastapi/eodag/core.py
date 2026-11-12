@@ -28,7 +28,7 @@ from urllib.parse import unquote_plus
 import attr
 import cql2
 import orjson
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from pydantic import ValidationError
 from pydantic_core import InitErrorDetails, PydanticCustomError
 from pygeofilter.parsers.cql2_json import parse as parse_json
@@ -64,17 +64,25 @@ from stac_fastapi.eodag.utils import (
 )
 
 if TYPE_CHECKING:
-    from typing import Union
-
     from fastapi import Request
+    from geojson_pydantic.geometries import Geometry
     from pydantic import BaseModel
+    from stac_pydantic.shared import BBox
 
     from eodag.api.product._product import EOProduct
 
-    NumType = Union[float, int]
+    NumType = float | int
 
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_request_from_kwargs(kwargs: dict[str, Any]) -> Request:
+    """Extract the request object from kwargs."""
+    request = kwargs.get("request")
+    if not isinstance(request, Request):
+        raise TypeError("request must be a FastAPI Request")
+    return request
 
 
 @attr.s
@@ -131,7 +139,7 @@ class EodagCoreClient(CustomCoreClient):
             coll_dict["summaries"] = {}
         coll_dict["summaries"]["federation:backends"] = coll_dict.pop("federation:backends")
         coll_dict["links"] = all_coll_links
-        return Collection(**coll_dict)
+        return cast(Collection, dict(coll_dict))
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request)
@@ -180,59 +188,44 @@ class EodagCoreClient(CustomCoreClient):
             feature = create_stac_item(product, self.extension_is_enabled, request, extension_names, request_json)
             features.append(feature)
 
+        # pagination
+        if "provider" not in request.state.eodag_args and len(search_result) > 0:
+            request.state.eodag_args["provider"] = search_result[-1].provider
+
         feature_collection = ItemCollection(
             type="FeatureCollection",
             features=features,
             numberMatched=search_result.number_matched,
             numberReturned=len(features),
+            links=PagingLinks(
+                request=request,
+                next=search_result.next_page_token,
+                federation_backend=request.state.eodag_args.get("provider"),
+            ).get_links(request_json=request_json, extensions=extension_names),
         )
 
-        # pagination
-        if "provider" not in request.state.eodag_args and len(search_result) > 0:
-            request.state.eodag_args["provider"] = search_result[-1].provider
-        feature_collection["links"] = PagingLinks(
-            request=request,
-            next=search_result.next_page_token,
-            federation_backend=request.state.eodag_args.get("provider"),
-        ).get_links(request_json=request_json, extensions=extension_names)
         return feature_collection
 
     async def all_collections(
         self,
-        request: Request,
-        bbox: Optional[list[NumType]] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = 10,
-        # Extensions
-        offset: Optional[int] = 0,
-        q: Optional[list[str]] = None,
-        sortby: Optional[list[str]] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = None,
         **kwargs: Any,
     ) -> Collections:
         """
         Get all collections from EODAG.
 
-        :param request: The request object.
-        :param bbox: Bounding box to filter the collections.
-        :param datetime: Date and time range to filter the collections.
-        :param limit: Maximum number of collections to return.
-        :param offset: Starting position from which to return collections.
-        :param q: Query string to filter the collections.
-        :param query: Query string to filter the search.
-        :param sortby: List of fields to sort the results by.
-        :param filter_expr: CQL filter to apply to the search.
-        :param filter_lang: Language of the filter.
+        :param kwargs: kwargs containing request, bbox, datetime, limit, offset, q, query.
         :returns: All collections.
         :raises HTTPException: If the unsupported bbox parameter is provided.
         """
+        request = _extract_request_from_kwargs(kwargs)
         base_url = get_base_url(request)
 
-        next_link: Optional[dict[str, Any]] = None
-        prev_link: Optional[dict[str, Any]] = None
-        first_link: Optional[dict[str, Any]] = None
+        next_link: dict[str, Any] | None = None
+        prev_link: dict[str, Any] | None = None
+        first_link: dict[str, Any] | None = None
 
+        filter_expr: str | None = kwargs.get("filter_expr")
+        filter_lang: str | None = kwargs.get("filter_lang")
         cql2_json = None
         if filter_expr:
             if filter_lang == "cql2-text":
@@ -245,6 +238,10 @@ class EodagCoreClient(CustomCoreClient):
         if not self.extension_is_enabled("OffsetPaginationExtension"):
             limit = None
 
+        sortby = kwargs.get("sortby")
+        bbox = kwargs.get("bbox")
+        datetime = kwargs.get("datetime")
+        q = kwargs.get("q")
         collections = cast(
             CollectionsList,
             await asyncio.to_thread(
@@ -270,8 +267,12 @@ class EodagCoreClient(CustomCoreClient):
         ]
 
         if self.extension_is_enabled("OffsetPaginationExtension"):
-            limit = limit if limit is not None else 10
-            offset = offset if offset is not None else 0
+            limit = kwargs.get("limit")
+            if not limit:
+                limit = 10
+            offset = kwargs.get("offset")
+            if not offset:
+                offset = 0
 
             collections = collections[offset : offset + limit]
             # info about number matched was lost during the slice, then restore it
@@ -304,18 +305,18 @@ class EodagCoreClient(CustomCoreClient):
             numberReturned=len(collections),
         )
 
-    async def get_collection(self, collection_id: str, request: Request, **kwargs: Any) -> Collection:
+    async def get_collection(self, collection_id: str, **kwargs: Any) -> Collection:
         """
         Get collection by id.
 
         Called with ``GET /collections/{collection_id}``.
 
         :param collection_id: ID of the collection.
-        :param request: The request object.
-        :param kwargs: Additional arguments.
+        :param kwargs: Additional arguments (including request).
         :returns: The collection.
         :raises NotFoundError: If the collection does not exist.
         """
+        request = _extract_request_from_kwargs(kwargs)
         collection = cast(
             Optional[EodagCollection], await asyncio.to_thread(request.app.state.dag.get_collection, id=collection_id)
         )
@@ -328,16 +329,11 @@ class EodagCoreClient(CustomCoreClient):
     async def item_collection(
         self,
         collection_id: str,
-        request: Request,
-        bbox: Optional[list[NumType]] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = None,
+        bbox: BBox | None = None,
+        datetime: str | None = None,
+        limit: int | None = None,
         # extensions
-        sortby: Optional[list[str]] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = "cql2-text",
-        token: Optional[str] = None,
-        query: Optional[str] = None,
+        token: str | None = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
@@ -346,29 +342,30 @@ class EodagCoreClient(CustomCoreClient):
         Called with ``GET /collections/{collection_id}/items``.
 
         :param collection_id: ID of the collection.
-        :param request: The request object.
         :param bbox: Bounding box to filter the items.
         :param datetime: Date and time range to filter the items.
         :param limit: Maximum number of items to return.
-        :param sortby: List of fields to sort the results by.
-        :param filter_expr: CQL filter to apply to the search.
-        :param filter_lang: Language of the filter (default is "cql2-text").
         :param token: Page token for pagination.
-        :param kwargs: Additional arguments.
+        :param kwargs: Additional arguments from extensions (e.g., sortby, filter_expr, filter_lang, query).
         :returns: An ItemCollection.
         :raises NotFoundError: If the collection does not exist.
         """
         # If collection does not exist, NotFoundError wil be raised
+        request = _extract_request_from_kwargs(kwargs)
         collection = await self.get_collection(collection_id, request=request)
 
         base_args = {"collections": [collection_id], "bbox": bbox, "datetime": datetime, "limit": limit, "token": token}
 
+        sortby: list[str] | None = kwargs.get("sortby")
+        filter_expr: str | None = kwargs.get("filter_expr")
+        filter_lang: str | None = kwargs.get("filter_lang")
+        query: str | None = kwargs.get("query")
         clean = self._clean_search_args(
             base_args, sortby=sortby, filter_expr=filter_expr, filter_lang=filter_lang, query=query
         )
 
-        search_request = self.post_request_model.model_validate(clean)
-        item_collection = cast(ItemCollection, await self._search_base(search_request, request))
+        search_request = cast(BaseSearchPostRequest, self.post_request_model.model_validate(clean))
+        item_collection = await self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         extra_links = item_collection.get("links", [])
         links = ItemCollectionLinks(
@@ -377,17 +374,15 @@ class EodagCoreClient(CustomCoreClient):
         item_collection["links"] = links
         return item_collection
 
-    async def post_search(
-        self, search_request: BaseSearchPostRequest, request: Request, **kwargs: Any
-    ) -> ItemCollection:
+    async def post_search(self, search_request: BaseSearchPostRequest, **kwargs: Any) -> ItemCollection:
         """
         Handle POST search requests.
 
         :param search_request: The search request parameters.
-        :param request: The HTTP request object.
-        :param kwargs: Additional keyword arguments.
+        :param kwargs: Additional keyword arguments (including request).
         :returns: Found items.
         """
+        request = _extract_request_from_kwargs(kwargs)
         search_post_model = create_post_request_model(self.extensions)
         request_json = await request.json()
         search_post_model.model_validate(request_json, extra="forbid")
@@ -396,40 +391,28 @@ class EodagCoreClient(CustomCoreClient):
 
     async def get_search(
         self,
-        request: Request,
-        collections: Optional[list[str]] = None,
-        ids: Optional[list[str]] = None,
-        bbox: Optional[list[NumType]] = None,
-        intersects: Optional[str] = None,
-        datetime: Optional[str] = None,
-        limit: Optional[int] = None,
-        # Extensions
-        query: Optional[str] = None,
-        sortby: Optional[list[str]] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = "cql2-text",
-        token: Optional[str] = None,
+        collections: list[str] | None = None,
+        ids: list[str] | None = None,
+        bbox: BBox | None = None,
+        intersects: Geometry | None = None,
+        datetime: str | None = None,
+        limit: int | None = None,
         **kwargs: Any,
     ) -> ItemCollection:
         """
         Handles the GET search request for STAC items.
 
-        :param request: The request object.
         :param collections: List of collection IDs to include in the search.
         :param ids: List of item IDs to include in the search.
         :param bbox: Bounding box to filter the search.
         :param intersects: GeoJSON geometry to filter the search.
         :param datetime: Date and time range to filter the search.
         :param limit: Maximum number of items to return.
-        :param query: Query string to filter the search.
-        :param sortby: List of fields to sort the results by.
-        :param filter_expr: CQL filter to apply to the search.
-        :param filter_lang: Language of the filter.
-        :param token: Page token for pagination.
-        :param kwargs: Additional arguments.
+        :param kwargs: Additional arguments from extensions.
         :returns: Found items.
         :raises HTTPException: If the provided parameters are invalid.
         """
+        token: str | None = kwargs.get("token")
         base_args = {
             "collections": collections,
             "ids": ids,
@@ -438,9 +421,12 @@ class EodagCoreClient(CustomCoreClient):
             "token": token,
         }
 
+        sortby: list[str] | None = kwargs.get("sortby")
+        query: str | None = kwargs.get("query")
+        filter_expr: str | None = kwargs.get("filter_expr")
+        filter_lang: str | None = kwargs.get("filter_lang")
         clean = self._clean_search_args(
             base_args,
-            intersects=intersects,
             datetime=datetime,
             sortby=sortby,
             query=query,
@@ -449,25 +435,30 @@ class EodagCoreClient(CustomCoreClient):
         )
 
         try:
-            search_request = self.post_request_model(**clean)
+            search_request = cast(BaseSearchPostRequest, self.post_request_model(**clean))
         except ValidationError as err:
             raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
+        request = _extract_request_from_kwargs(kwargs)
+
         return await self._search_base(search_request, request)
 
-    async def get_item(self, item_id: str, collection_id: str, request: Request, **kwargs: Any) -> Item:
+    async def get_item(self, item_id: str, collection_id: str, **kwargs: Any) -> Item:
         """
         Get item by ID.
 
         :param item_id: ID of the item.
         :param collection_id: ID of the collection.
-        :param request: The request object.
-        :param kwargs: Additional arguments.
+        :param kwargs: Additional arguments including request.
         :returns: The item.
         :raises NotFoundError: If the item does not exist.
         """
 
-        search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
+        request = _extract_request_from_kwargs(kwargs)
+        search_request = cast(
+            BaseSearchPostRequest,
+            self.post_request_model(ids=[item_id], collections=[collection_id], limit=1),
+        )
         item_collection = await self._search_base(search_request, request)
         if not item_collection["features"]:
             raise NotFoundError(f"Item {item_id} in Collection {collection_id} does not exist.")
@@ -477,12 +468,11 @@ class EodagCoreClient(CustomCoreClient):
     def _clean_search_args(
         self,
         base_args: dict[str, Any],
-        intersects: Optional[str] = None,
-        datetime: Optional[str] = None,
-        sortby: Optional[list[str]] = None,
-        query: Optional[str] = None,
-        filter_expr: Optional[str] = None,
-        filter_lang: Optional[str] = None,
+        datetime: str | None = None,
+        sortby: list[str] | None = None,
+        query: str | None = None,
+        filter_expr: str | None = None,
+        filter_lang: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Clean up search arguments to match format expected by pgstac"""
@@ -512,9 +502,6 @@ class EodagCoreClient(CustomCoreClient):
 
         if query:
             base_args["query"] = orjson.loads(unquote_plus(query))
-
-        if intersects:
-            base_args["intersects"] = orjson.loads(unquote_plus(intersects))
 
         if sortby:
             sort_param = []
@@ -602,7 +589,7 @@ def parse_query(query: dict[str, Any]) -> dict[str, Any]:
     def add_error(error_message: str, input: Any) -> None:
         errors.append(
             InitErrorDetails(
-                type=PydanticCustomError("invalid_query", error_message),  # type: ignore
+                type=PydanticCustomError("invalid_query", error_message),
                 loc=("query",),
                 input=input,
             )
@@ -615,7 +602,7 @@ def parse_query(query: dict[str, Any]) -> dict[str, Any]:
         prop = property_name.replace("properties.", "", 1)
 
         # Check if exactly one operator is specified per property
-        if not is_dict_str_any(conditions) or len(conditions) != 1:  # type: ignore
+        if not is_dict_str_any(conditions) or len(conditions) != 1:
             add_error(
                 "Exactly 1 operator must be specified per property",
                 query[property_name],
@@ -664,14 +651,15 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
     def add_error(error_message: str) -> None:
         errors.append(
             InitErrorDetails(
-                type=PydanticCustomError("value_error", error_message),  # type: ignore
+                type=PydanticCustomError("value_error", error_message),
                 loc=("filter",),
+                input=filter_,
             )
         )
 
     errors: list[InitErrorDetails] = []
     try:
-        parsing_result = EodagEvaluator().evaluate(parse_json(filter_))  # type: ignore
+        parsing_result = EodagEvaluator().evaluate(parse_json(filter_))
     except (ValueError, NotImplementedError) as e:
         add_error(str(e))
         raise ValidationError.from_exception_data(title="stac-fastapi-eodag", line_errors=errors) from e
