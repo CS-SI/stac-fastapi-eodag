@@ -41,7 +41,7 @@ def is_dict_str_any(var: Any) -> bool:
     :returns: ``True`` if the variable is of type ``dict[str, Any]``, ``False`` otherwise.
     """
     if isinstance(var, dict):
-        return all(isinstance(k, str) for k in var.keys())  # type: ignore
+        return all(isinstance(k, str) for k in var.keys())
     return False
 
 

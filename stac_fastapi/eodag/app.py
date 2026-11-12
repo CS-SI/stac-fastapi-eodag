@@ -20,10 +20,10 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import stac_fastapi.api.errors
-from brotli_asgi import BrotliMiddleware  # type: ignore[import-untyped]
+from brotli_asgi import BrotliMiddleware
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware import Middleware
@@ -46,6 +46,7 @@ from stac_fastapi.extensions.core.free_text import FreeTextConformanceClasses
 from stac_fastapi.extensions.core.pagination.token_pagination import TokenPaginationExtension
 from stac_fastapi.extensions.core.query import QueryConformanceClasses
 from stac_fastapi.extensions.core.sort import SortConformanceClasses
+from stac_fastapi.types.search import APIRequest
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse as StarletteJSONResponse
 
@@ -163,18 +164,24 @@ search_extensions = get_enabled_extensions(search_extensions_map)
 search_post_model = create_post_request_model(search_extensions)
 search_get_model = create_get_request_model(search_extensions)
 
-collections_model = create_request_model(
-    "CollectionsRequest",
-    base_model=EmptyRequest,
-    extensions=get_enabled_extensions(cs_extensions_map),
-    request_type="GET",
+collections_model = cast(
+    type[APIRequest],
+    create_request_model(
+        "CollectionsRequest",
+        base_model=EmptyRequest,
+        extensions=get_enabled_extensions(cs_extensions_map),
+        request_type="GET",
+    ),
 )
 
-item_collection_model = create_request_model(
-    "ItemsRequest",
-    base_model=ItemCollectionUri,
-    extensions=get_enabled_extensions(itm_col_extensions_map),
-    request_type="GET",
+item_collection_model = cast(
+    type[APIRequest],
+    create_request_model(
+        "ItemsRequest",
+        base_model=ItemCollectionUri,
+        extensions=get_enabled_extensions(itm_col_extensions_map),
+        request_type="GET",
+    ),
 )
 
 
@@ -190,8 +197,8 @@ api = StacApi(
     response_class=StarletteJSONResponse,
     search_get_request_model=search_get_model,
     search_post_request_model=search_post_model,
-    collections_get_request_model=collections_model,  # type: ignore
-    items_get_request_model=item_collection_model,  # type: ignore
+    collections_get_request_model=collections_model,
+    items_get_request_model=item_collection_model,
     middlewares=[
         Middleware(BrotliMiddleware),
         Middleware(

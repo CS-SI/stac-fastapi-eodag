@@ -194,9 +194,13 @@ class FiltersClient(AsyncBaseFiltersClient):
         If collection_id is None, returns the intersection of all
         queryables over all collections.
 
-        This base implementation returns a blank queryable schema. This is not allowed
-        under OGC CQL but it is allowed by the STAC API Filter Extension
-        https://github.com/radiantearth/stac-api-spec/tree/master/fragments/filter#queryables
+        If EODAG provides no queryables, this implementation returns a schema with
+        no properties. The STAC Filter Extension permits this when
+        ``additionalProperties`` is true. OGC API Features Part 3's Queryables
+        conformance test, however, requires non-empty ``properties``. Collection-
+        specific schemas set ``additionalProperties`` to false.
+
+        https://github.com/stac-api-extensions/filter#queryables
         """
         request = kwargs.get("request")
         if not isinstance(request, Request):

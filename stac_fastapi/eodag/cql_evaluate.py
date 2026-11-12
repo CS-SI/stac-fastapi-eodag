@@ -101,7 +101,7 @@ class EodagEvaluator(Evaluator):
     @handle(ast.In)
     def contains(self, node: ast.In, lhs: Any, *rhs: Any):
         """handle in keyword"""
-        if not isinstance(node.sub_nodes, list):  # type: ignore
+        if not isinstance(node.sub_nodes, list):
             raise ValueError(f'property "{lhs.name}" expects a value in list format with operator "in"')
         return {lhs.name: list(rhs)}
 

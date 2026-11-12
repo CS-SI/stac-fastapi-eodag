@@ -17,7 +17,7 @@
 # limitations under the License.
 """stac item."""
 
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote, unquote_plus, urlparse
 
 import orjson
@@ -164,15 +164,8 @@ def create_stac_item(
         request=request,
     ).get_links(extensions=link_extensions, extra_links=feature.get("links"), request_json=request_json)
 
-    return Item(
-        type="Feature",
-        id=feature["id"],
-        collection=feature["collection"],
-        geometry=feature["geometry"],
-        bbox=feature["bbox"],
-        properties=feature["properties"],
-        assets=feature["assets"],
-        links=feature["links"],
-        stac_extensions=feature.get("stac_extensions", []),
-        stac_version=feature.get("stac_version", "1.1.0"),
-    )
+    feature["type"] = "Feature"
+    feature.setdefault("stac_extensions", [])
+    feature.setdefault("stac_version", "1.1.0")
+
+    return Item(**cast(Item, feature))

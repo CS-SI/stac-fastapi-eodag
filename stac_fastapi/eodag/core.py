@@ -145,7 +145,7 @@ class EodagCoreClient(CustomCoreClient):
             request=request,
         ).get_links(extensions=extension_names, extra_links=extra_links)
 
-        return Collection(**updated_collection)  # type: ignore
+        return cast(Collection, dict(updated_collection))
 
     async def _search_base(self, search_request: BaseSearchPostRequest, request: Request) -> ItemCollection:
         eodag_args = prepare_search_base_args(search_request=search_request)
@@ -407,8 +407,8 @@ class EodagCoreClient(CustomCoreClient):
             base_args, sortby=sortby, filter_expr=filter_expr, filter_lang=filter_lang, query=query
         )
 
-        search_request = self.post_request_model.model_validate(clean)
-        item_collection = await self._search_base(search_request, request)  # type: ignore
+        search_request = cast(BaseSearchPostRequest, self.post_request_model.model_validate(clean))
+        item_collection = await self._search_base(search_request, request)
         extension_names = [type(ext).__name__ for ext in self.extensions]
         links = ItemCollectionLinks(
             collection_id=collection_id, collection_title=collection["title"], request=request
@@ -429,7 +429,7 @@ class EodagCoreClient(CustomCoreClient):
         request_json = await request.json()
         search_post_model.model_validate(request_json, extra="forbid")
 
-        return await self._search_base(search_request, request)  # type: ignore
+        return await self._search_base(search_request, request)
 
     async def get_search(
         self,
@@ -477,13 +477,13 @@ class EodagCoreClient(CustomCoreClient):
         )
 
         try:
-            search_request = self.post_request_model(**clean)
+            search_request = cast(BaseSearchPostRequest, self.post_request_model(**clean))
         except ValidationError as err:
             raise HTTPException(status_code=400, detail=f"Invalid parameters provided {err}") from err
 
         request = _extract_request_from_kwargs(kwargs)
 
-        return await self._search_base(search_request, request)  # type: ignore
+        return await self._search_base(search_request, request)
 
     async def get_item(self, item_id: str, collection_id: str, **kwargs: Any) -> Item:
         """
@@ -497,8 +497,11 @@ class EodagCoreClient(CustomCoreClient):
         """
 
         request = _extract_request_from_kwargs(kwargs)
-        search_request = self.post_request_model(ids=[item_id], collections=[collection_id], limit=1)
-        item_collection = await self._search_base(search_request, request)  # type: ignore
+        search_request = cast(
+            BaseSearchPostRequest,
+            self.post_request_model(ids=[item_id], collections=[collection_id], limit=1),
+        )
+        item_collection = await self._search_base(search_request, request)
         if not item_collection["features"]:
             raise NotFoundError(f"Item {item_id} in Collection {collection_id} does not exist.")
 
@@ -628,7 +631,7 @@ def parse_query(query: dict[str, Any]) -> dict[str, Any]:
     def add_error(error_message: str, input: Any) -> None:
         errors.append(
             InitErrorDetails(
-                type=PydanticCustomError("invalid_query", error_message),  # type: ignore
+                type=PydanticCustomError("invalid_query", error_message),
                 loc=("query",),
                 input=input,
             )
@@ -690,8 +693,9 @@ def parse_cql2(filter_: dict[str, Any]) -> dict[str, Any]:
     def add_error(error_message: str) -> None:
         errors.append(
             InitErrorDetails(
-                type=PydanticCustomError("value_error", error_message),  # type: ignore
+                type=PydanticCustomError("value_error", error_message),
                 loc=("filter",),
+                input=filter_,
             )
         )
 

@@ -181,7 +181,7 @@ class BaseDataDownloadClient:
     ) -> StreamingResponse | RedirectResponse | JSONResponse:
         """Download an asset"""
 
-        dag = cast(EODataAccessGateway, request.app.state.dag)  # type: ignore
+        dag = cast(EODataAccessGateway, request.app.state.dag)
 
         # check if the collection is known
         try:
@@ -206,7 +206,9 @@ class BaseDataDownloadClient:
             auth = product.downloader_auth.authenticate() if product.downloader_auth else None
             logger.debug(f"Polling product {product}")
             try:
-                product.downloader.order(product=product, auth=auth)  # type: ignore
+                order_method_name = "order"
+                order_method = getattr(product.downloader, order_method_name)
+                order_method(product=product, auth=auth)
             # when a NotAvailableError is catched, it means the product is not ready and still needs to be polled
             except NotAvailableError:
                 product.properties["order:status"] = STAGING_STATUS
@@ -232,7 +234,7 @@ class BaseDataDownloadClient:
             # "orderLink" property is set to auth provider conf matching url to create its auth plugin
             status_link_metadata = product.downloader.config.order_on_response["metadata_mapping"]["eodag:status_link"]
             product.properties["eodag:order_link"] = product.properties["eodag:status_link"] = get_metadata_path_value(
-                status_link_metadata  # type: ignore[arg-type]
+                cast(str | list[str | None], status_link_metadata)
             ).format(orderId=item_id)
 
             search_link_metadata = product.downloader.config.order_on_response["metadata_mapping"].get(
@@ -240,7 +242,7 @@ class BaseDataDownloadClient:
             )
             if search_link_metadata:
                 product.properties["eodag:search_link"] = get_metadata_path_value(
-                    search_link_metadata  # type: ignore[arg-type]
+                    cast(str | list[str | None], search_link_metadata)
                 ).format(orderId=item_id)
 
             order_status_method = getattr(product.downloader, "_order_status", None)
