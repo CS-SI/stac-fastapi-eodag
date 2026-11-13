@@ -141,7 +141,7 @@ class EodagCoreClient(CustomCoreClient):
         extra_links = updated_collection.pop("links", [])
         updated_collection["links"] = CollectionLinks(
             collection_id=updated_collection["id"],
-            collection_title=updated_collection["title"],
+            collection_title=updated_collection.get("title", updated_collection["id"]),
             request=request,
         ).get_links(extensions=extension_names, extra_links=extra_links)
 
