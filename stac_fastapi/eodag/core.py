@@ -235,6 +235,7 @@ class EodagCoreClient(CustomCoreClient):
             else:
                 raise HTTPException(status_code=400, detail=f"Unsupported filter_lang {filter_lang}")
 
+        limit = kwargs.get("limit")
         if not self.extension_is_enabled("OffsetPaginationExtension"):
             limit = None
 
@@ -242,6 +243,7 @@ class EodagCoreClient(CustomCoreClient):
         bbox = kwargs.get("bbox")
         datetime = kwargs.get("datetime")
         q = kwargs.get("q")
+
         collections = cast(
             CollectionsList,
             await asyncio.to_thread(
