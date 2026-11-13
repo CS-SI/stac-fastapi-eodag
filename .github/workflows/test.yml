@@ -24,14 +24,14 @@ jobs:
         enable-cache: true
         cache-dependency-glob: ""
     - name: Run linters with tox
-      run: uvx --python 3.10 --with tox-uv tox -e linters
+      run: uvx --python 3.11 --with tox-uv tox -e linters
 
   tests:
     name: Test it!
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.11", "3.14"]
         os: [ubuntu-latest, windows-latest]
     steps:
     - name: Checkout the repo
@@ -148,7 +148,7 @@ jobs:
         args: >
           -Dsonar.projectKey=cs-si_stac-fastapi-eodag
           -Dsonar.organization=cs-si
-          -Dsonar.python.version=3.10
+          -Dsonar.python.version=3.11
           -Dsonar.python.coverage.reportPaths=test-reports/coverage.xml
           -Dsonar.sources=stac_fastapi/
           -Dsonar.tests=tests/
