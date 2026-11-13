@@ -11,20 +11,20 @@ dependencies = [
     "attr",
     "eodag[all-providers]",
     "fastapi",
-    "geojson",
+    "geojson >= 2.5.0",
     "geojson-pydantic",
-    "orjson",
-    "pydantic",
-    "pydantic_core",
+    "orjson >= 3.11.5",
+    "pydantic >= 2.13.0",
+    "pydantic_core >= 2.46.0",
     "pygeofilter",
     "stac-fastapi.api >= 4.0",
     "stac-fastapi.extensions < 6.3.0",  # refactoring of extensions module in 6.3.0
     "stac-fastapi.types",
     "stac-pydantic >= 3.5.0",
-    "brotli-asgi",
+    "brotli-asgi >= 1.7.0",
     "starlette",
-    "typing_extensions",
-    "shapely",
+    "typing_extensions >= 4.8.0",
+    "shapely >= 2.0.6",
 ]
 
 [project.urls]
