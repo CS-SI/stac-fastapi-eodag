@@ -22,6 +22,7 @@ import configparser
 import os
 import re
 import sys
+import tomllib
 from importlib.metadata import distributions, packages_distributions, requires
 from pathlib import Path
 from typing import Any, Iterator
@@ -30,16 +31,10 @@ from eodag.utils.exceptions import MisconfiguredError
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    tomllib = None
-
 project_path = "./stac_fastapi"
 project_name = "stac_fastapi.eodag"
 
-# Python 3.10 metadata cannot map stac_fastapi to stac_fastapi.api, stac_fastapi.extensions and stac_fastapi.types
-# because it has no top_level.txt.
+# Explicitly map the STAC namespace package to its distributions when top_level.txt metadata is absent.
 IMPORT_NAME_TO_DISTRIBUTIONS = {"stac_fastapi": ["stac-fastapi.api", "stac-fastapi.extensions", "stac-fastapi.types"]}
 
 
@@ -80,7 +75,7 @@ def get_project_imports(project_path: str) -> set[str]:
 def get_self_dependencies(extras=None):
     """Get the main dependencies (excluding optional dependencies and version constraints)."""
     pyproject_path = Path("pyproject.toml")
-    if tomllib is not None and pyproject_path.exists():
+    if pyproject_path.exists():
         with pyproject_path.open("rb") as pyproject_file:
             pyproject_data = tomllib.load(pyproject_file)
 
