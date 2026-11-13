@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -47,7 +47,6 @@ from stac_fastapi.eodag.logs import request_id_context
 if TYPE_CHECKING:
     from fastapi import FastAPI, Request
     from pydantic import BaseModel
-    from typing_extensions import NotRequired
 
 
 EODAG_DEFAULT_STATUS_CODES: dict[type, int] = {
