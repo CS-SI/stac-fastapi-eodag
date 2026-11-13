@@ -3249,7 +3249,7 @@ wheels = [
 [[package]]
 name = "stac-fastapi-eodag"
 version = "0.7.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "attr" },
     { name = "brotli-asgi" },
