@@ -2981,7 +2981,7 @@ telemetry = [
 requires-dist = [
     { name = "attr" },
     { name = "brotli-asgi" },
-    { name = "eodag", extras = ["all-providers"] },
+    { name = "eodag", extras = ["all-providers"], specifier = ">=4.4.0" },
     { name = "fastapi" },
     { name = "geojson" },
     { name = "geojson-pydantic" },
