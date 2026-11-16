@@ -143,8 +143,7 @@ for e in extensions:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """API init and tear-down"""
-    # Register SIGINT/SIGTERM handlers so in-flight download streams are
-    # interrupted on graceful shutdown. Must run on the main thread.
+    # Register after the server's handlers so EODAG can preserve graceful shutdown.
     StreamResponseContent.install_signal_handlers()
 
     init_dag(app)

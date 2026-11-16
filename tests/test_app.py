@@ -81,6 +81,34 @@ async def test_lifespan_installs_stream_signal_handlers(mocker):
     mock_install.assert_called_once_with()
 
 
+async def test_lifespan_preserves_server_signal_handlers(mocker):
+    """EODAG must interrupt streams and preserve shutdown on each startup."""
+    import signal
+
+    from eodag.utils import StreamResponseContent
+    from fastapi import FastAPI
+
+    from stac_fastapi.eodag.app import lifespan
+
+    mocker.patch("stac_fastapi.eodag.app.init_dag")
+    original_handlers = {sig: signal.getsignal(sig) for sig in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        for _startup in range(2):
+            server_handlers = {sig: mocker.Mock() for sig in original_handlers}
+            for sig, handler in server_handlers.items():
+                signal.signal(sig, handler)
+
+            async with lifespan(FastAPI()):
+                for sig, server_handler in server_handlers.items():
+                    stream = StreamResponseContent(b"abc")
+                    signal.getsignal(sig)(sig, None)
+                    assert stream.interrupted
+                    server_handler.assert_called_once_with(sig, None)
+    finally:
+        for sig, handler in original_handlers.items():
+            signal.signal(sig, handler)
+
+
 async def test_conformance(request_valid):
     """Request to /conformance should return a valid response"""
     await request_valid("conformance", check_links=False)
