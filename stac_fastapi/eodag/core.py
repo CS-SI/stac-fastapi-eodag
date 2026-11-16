@@ -457,9 +457,15 @@ class EodagCoreClient(CustomCoreClient):
         """
 
         request = _extract_request_from_kwargs(kwargs)
+        base_args = {"collections": [collection_id], "ids": [item_id], "limit": 1}
+        filter_expr: str | None = kwargs.get("filter_expr")
+        filter_lang: str | None = kwargs.get("filter_lang")
+        query: str | None = kwargs.get("query")
+
+        clean = self._clean_search_args(base_args, filter_expr=filter_expr, filter_lang=filter_lang, query=query)
         search_request = cast(
             BaseSearchPostRequest,
-            self.post_request_model(ids=[item_id], collections=[collection_id], limit=1),
+            self.post_request_model(**clean),
         )
         item_collection = await self._search_base(search_request, request)
         if not item_collection["features"]:

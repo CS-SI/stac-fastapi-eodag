@@ -32,6 +32,7 @@ from stac_fastapi.api.app import StacApi
 from stac_fastapi.api.models import (
     EmptyRequest,
     ItemCollectionUri,
+    ItemUri,
     create_get_request_model,
     create_post_request_model,
     create_request_model,
@@ -101,7 +102,15 @@ itm_col_extensions_map = {
     "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
 }
 
+
 collection_search_extension = CollectionSearchExtension.from_extensions(cs_extensions_map.values())
+
+# get_item extensions
+itm_get_extensions_map = {
+    "query": QueryExtension(conformance_classes=[QueryConformanceClasses.COLLECTIONS]),
+    "filter": FilterExtension(client=FiltersClient(stac_metadata_model=stac_metadata_model)),
+}
+
 
 all_extensions = {
     **search_extensions_map,
@@ -191,6 +200,17 @@ item_collection_model = cast(
 )
 
 
+item_get_model = cast(
+    type[APIRequest],
+    create_request_model(
+        "ItemRequest",
+        base_model=ItemUri,
+        extensions=get_enabled_extensions(itm_get_extensions_map),
+        request_type="GET",
+    ),
+)
+
+
 client = EodagCoreClient(post_request_model=search_post_model, stac_metadata_model=stac_metadata_model)
 
 stac_fastapi.api.errors.exception_handler_factory = exception_handler_factory
@@ -205,6 +225,7 @@ api = StacApi(
     search_post_request_model=search_post_model,
     collections_get_request_model=collection_search_extension.GET,
     items_get_request_model=item_collection_model,
+    item_get_request_model=item_get_model,
     middlewares=[
         Middleware(BrotliMiddleware),
         Middleware(

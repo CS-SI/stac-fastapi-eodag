@@ -442,6 +442,22 @@ async def test_search_item_id_from_collection(request_valid, defaults):
     )
 
 
+async def test_search_item_id_from_collection_filter_ext(request_valid, defaults):
+    """Search by id through eodag server /collection endpoint should return a valid response"""
+    await request_valid(
+        f"collections/{defaults.collection}/items/foo?filter=federation:backends='abc'",
+        expected_search_kwargs={"id": "foo", "collection": defaults.collection, "validate": True, "provider": "abc"},
+    )
+
+
+async def test_search_item_id_from_collection_query_ext(request_valid, defaults):
+    """Search by id through eodag server /collection endpoint should return a valid response"""
+    await request_valid(
+        f"collections/{defaults.collection}/items/foo?query=%7B%22federation%3Abackends%22%3A%20%7B%22eq%22%3A%20%22xyz%22%7D%7D",
+        expected_search_kwargs={"id": "foo", "collection": defaults.collection, "validate": True, "provider": "xyz"},
+    )
+
+
 async def test_cloud_cover_post_search(request_valid, defaults):
     """POST search with cloudCover filtering through eodag server should return a valid response"""
     await request_valid(
