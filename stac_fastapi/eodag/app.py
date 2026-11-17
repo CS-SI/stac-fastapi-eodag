@@ -52,6 +52,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse as StarletteJSONResponse
 
 from eodag.types.stac_metadata import create_stac_metadata_model
+from eodag.utils import StreamResponseContent
 from stac_fastapi.eodag.config import get_settings
 from stac_fastapi.eodag.core import EodagCoreClient
 from stac_fastapi.eodag.dag import init_dag
@@ -142,6 +143,9 @@ for e in extensions:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """API init and tear-down"""
+    # Register after the server's handlers so EODAG can preserve graceful shutdown.
+    StreamResponseContent.install_signal_handlers()
+
     init_dag(app)
     if os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", ""):
         from stac_fastapi.eodag.telemetry import instrument_eodag
