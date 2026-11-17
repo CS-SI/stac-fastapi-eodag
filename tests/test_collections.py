@@ -37,7 +37,7 @@ async def test_collection(
     assert all(isinstance(v, list) for v in result["summaries"].values())
     assert len(result["summaries"]["federation:backends"]) > 0
     for link in result["links"]:
-        assert link["rel"] in ["self", "items", "http://www.opengis.net/def/rel/ogc/1.0/queryables"]
+        assert link["rel"] in ["self", "items", "license", "http://www.opengis.net/def/rel/ogc/1.0/queryables"]
 
 
 async def test_list_collections(app_client, mock_list_collections):

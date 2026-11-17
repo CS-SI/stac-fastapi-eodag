@@ -686,6 +686,7 @@ def assert_links_valid(app_client, request_valid_raw, request_not_valid):
             "retrieve",
             "data",
             "collection",
+            "license",
             "http://www.opengis.net/def/rel/ogc/1.0/queryables",
         ]
         required_links_rel = ["self"]
@@ -693,11 +694,14 @@ def assert_links_valid(app_client, request_valid_raw, request_not_valid):
         for link in links:
             # known relations
             assert link["rel"] in known_rel
-            # must start with app base-url
-            assert link["href"].startswith(str(app_client.base_url))
             # must have a title
             assert "title" in link
 
+            if link["rel"] == "license":
+                continue
+
+            # app links must start with app base-url
+            assert link["href"].startswith(str(app_client.base_url))
             if link["rel"] != "search" and not link["href"].endswith("/search"):
                 # GET must be valid
                 await request_valid_raw(link["href"])
