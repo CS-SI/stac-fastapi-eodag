@@ -331,13 +331,33 @@ class ItemLinks(CollectionLinksBase):
     retrieve_body: dict[str, Any] | None = attr.ib()
 
     def link_self(self) -> dict[str, str]:
-        """Create the self link."""
+        """Create the self link.
+
+        A search filtered by ``federation:backends`` must keep that filter on
+        the item, or the next GET uses the preferred provider instead.
+        """
+        href = self.resolve(f"collections/{self.collection_id}/items/{self.item_id}")
+        backend = self._requested_federation_backend()
+        if backend:
+            query_json = orjson.dumps({"federation:backends": {"eq": backend}}).decode()
+            href = merge_params(href, {"query": [quote(query_json)]})
         return {
             "rel": Relations.self.value,
             "type": MimeTypes.geojson.value,
-            "href": self.resolve(f"collections/{self.collection_id}/items/{self.item_id}"),
+            "href": href,
             "title": "Original item link",
         }
+
+    def _requested_federation_backend(self) -> str | None:
+        """Return the provider the caller asked for, if any."""
+        state = getattr(self.request, "state", None)
+        eodag_args = getattr(state, "eodag_args", None)
+        if not isinstance(eodag_args, dict):
+            return None
+        backend = eodag_args.get("provider")
+        if isinstance(backend, str) and backend:
+            return backend
+        return None
 
     def link_collection(self) -> dict[str, str]:
         """Create the `collection` link."""
