@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stac_fastapi.eodag"
-version = "0.7.0"
+version = "0.8.0"
 description = "A stac-fastapi backend using EODAG"
 readme = "README.md"
 authors = [{ name = "CS GROUP - France (CSSI)", email = "eodag@csgroup.space" }]

@@ -2,6 +2,57 @@
 
 <!-- version list -->
 
+## v0.8.0 (2026-11-25)
+
+### Features
+
+- Add filter and query extension support to `get_item`
+  ([#152](https://github.com/CS-SI/stac-fastapi-eodag/pull/152),
+  [`4f1d009`](https://github.com/CS-SI/stac-fastapi-eodag/commit/4f1d00934fac5f7162b90f567e40196bf93bc107))
+- Add Zarr store support
+  ([`10314c9`](https://github.com/CS-SI/stac-fastapi-eodag/commit/10314c9b6bd41d9950bff8fd06f86f99c7bc68b4))
+
+### Bug Fixes
+
+- Avoid errors for collections without a title
+  ([#141](https://github.com/CS-SI/stac-fastapi-eodag/pull/141),
+  [`7bcf7e9`](https://github.com/CS-SI/stac-fastapi-eodag/commit/7bcf7e9c6ca5f906790d87b0cd307c7ea7ffd760))
+- Install stream signal handlers
+  ([#117](https://github.com/CS-SI/stac-fastapi-eodag/pull/117),
+  [`1b155cc`](https://github.com/CS-SI/stac-fastapi-eodag/commit/1b155ccefc2f90b2433ba07f6cacab0d027d6a40))
+
+### Build System
+
+- Remove support for Python 3.9 and 3.10
+  ([#140](https://github.com/CS-SI/stac-fastapi-eodag/pull/140),
+  [`6ab40c6`](https://github.com/CS-SI/stac-fastapi-eodag/commit/6ab40c6162f1ae815c5509b9cd901b4b45b48bc9),
+  [#151](https://github.com/CS-SI/stac-fastapi-eodag/pull/151),
+  [`4ecf498`](https://github.com/CS-SI/stac-fastapi-eodag/commit/4ecf498e6f2c503b9d581e935fb9e99cf7f5c7f6))
+- Enable editable installs with `uv sync`
+  ([#150](https://github.com/CS-SI/stac-fastapi-eodag/pull/150),
+  [`b8e3c76`](https://github.com/CS-SI/stac-fastapi-eodag/commit/b8e3c762492e574822a8d156e1acb8113ad28375))
+
+### Chores
+
+- Update dependencies and CI checks
+  ([#136](https://github.com/CS-SI/stac-fastapi-eodag/pull/136),
+  [`3fdd7e8`](https://github.com/CS-SI/stac-fastapi-eodag/commit/3fdd7e8cceff5048a16d51259a87bcc1dc3500a0),
+  [#143](https://github.com/CS-SI/stac-fastapi-eodag/pull/143),
+  [`be61dec`](https://github.com/CS-SI/stac-fastapi-eodag/commit/be61dec0a5ab66066610f88f1693ecb43f3c7929),
+  [#144](https://github.com/CS-SI/stac-fastapi-eodag/pull/144),
+  [`0a2ac2e`](https://github.com/CS-SI/stac-fastapi-eodag/commit/0a2ac2e6d75d18a9b451a42d55c87f78ef3ca6e4),
+  [#146](https://github.com/CS-SI/stac-fastapi-eodag/pull/146),
+  [`a5ff11a`](https://github.com/CS-SI/stac-fastapi-eodag/commit/a5ff11aa46a617651a85803cf8ef0c246d8f654d),
+  [#147](https://github.com/CS-SI/stac-fastapi-eodag/pull/147),
+  [`ff9c142`](https://github.com/CS-SI/stac-fastapi-eodag/commit/ff9c1425ba635dd9151afea8de2394cc733f666f),
+  [#148](https://github.com/CS-SI/stac-fastapi-eodag/pull/148),
+  [`eba39cf`](https://github.com/CS-SI/stac-fastapi-eodag/commit/eba39cf25b04a692e7fd42a58f20bfe6d109a59e),
+  [#149](https://github.com/CS-SI/stac-fastapi-eodag/pull/149),
+  [`1509696`](https://github.com/CS-SI/stac-fastapi-eodag/commit/1509696b2c1254711b06113dfceca519b40b04bc))
+- Skip permission-dependent checks for fork and Dependabot pull requests
+  ([#145](https://github.com/CS-SI/stac-fastapi-eodag/pull/145),
+  [`7aad5a6`](https://github.com/CS-SI/stac-fastapi-eodag/commit/7aad5a6a6c3cfa0815eb5a5d76b9ce1ad5aa8dd3))
+
 ## v0.7.0 (2026-10-28)
 
 ### Features
