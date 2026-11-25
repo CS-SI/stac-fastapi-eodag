@@ -912,6 +912,43 @@ async def test_pagination_with_token(request_valid, defaults, method):
         assert next_link["body"]["limit"] == 10
 
 
+@pytest.mark.parametrize("method", ["GET", "POST"], ids=["get_item_self", "post_item_self"])
+async def test_item_self_link_keeps_federation_filter(request_valid, defaults, method):
+    """A federation:backends filter must stay on each item self link."""
+    backend = "cop_dataspace"
+    if method == "GET":
+        encoded_query = "%7B%22federation%3Abackends%22%3A%7B%22eq%22%3A%22cop_dataspace%22%7D%7D"
+        url = f"search?collections={defaults.collection}&query={encoded_query}"
+        post_data = None
+    else:
+        url = "search"
+        post_data = {
+            "collections": [defaults.collection],
+            "query": {"federation:backends": {"eq": backend}},
+        }
+
+    response = await request_valid(
+        url,
+        method=method,
+        post_data=post_data,
+        check_links=False,
+        expected_search_kwargs={
+            "collection": defaults.collection,
+            "limit": DEFAULT_LIMIT,
+            "provider": backend,
+            "raise_errors": False,
+            "count": False,
+            "validate": True,
+        },
+    )
+
+    self_links = [link for link in response["features"][0]["links"] if link["rel"] == "self"]
+    assert len(self_links) == 1
+    href = unquote(self_links[0]["href"])
+    assert "federation:backends" in href
+    assert backend in href
+
+
 @pytest.mark.parametrize("method", ["GET", "POST"], ids=["get_with_federation", "post_with_federation"])
 async def test_pagination_with_federation_backend(request_valid, defaults, method):
     """Test pagination with federation backend."""
